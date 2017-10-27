@@ -5,15 +5,15 @@ use ieee.std_logic_1164.all;
 entity TestPattern is	
 	port (
 		-- external oscillator
-		CLK50 : in std_logic;
+		CLKREF : in std_logic;
 				
 		-- digital YPbPr output
 		Y: out std_logic_vector(5 downto 0);
 		Pb: out std_logic_vector(4 downto 0);
 		Pr: out std_logic_vector(4 downto 0);
 		
-		-- timing test output
-		Frametoggle: out std_logic
+		-- additional IO for the test pattern
+		TST_Frametoggle: out std_logic
 	);	
 end entity;
 
@@ -34,7 +34,7 @@ architecture immediate of TestPattern is
 
 begin		
 	-- internally create a high frequency to derive everything else from
-	highfrequency: PLL port map ( CLK50, CLK224 );
+	highfrequency: PLL port map ( CLKREF, CLK224 );
 
 	-- generate a 8Mhz pixel clock from 224Mhz (divide by 28)
 	process (CLK224) 
@@ -120,14 +120,14 @@ begin
 	
 	variable cx: integer range 0 to w-1 := 0;
 	variable cy: integer range 0 to h-1 := 0;
-	variable framecounter : integer range 0 to 15 := 0;
+	variable framecounter : integer range 0 to 255 := 0;
 	
 	variable out_ypbpr: integer range 0 to 65535 := 0;
 	
 	variable micros: integer range 0 to 63;	
 	variable px: integer range 0 to 511;
 	variable py: integer range 0 to 511;
-	variable vis: std_logic_vector(3 downto 0);
+	variable vis: std_logic_vector(7 downto 0);
 	variable tmp_ypbpr: std_logic_vector(15 downto 0);
 	begin
 		if rising_edge(CLK8) then
@@ -158,7 +158,7 @@ begin
 			if cx>=hstart and cx<hstart+320 and cy>=vstart and cy<vstart+vheight then
 				px := cx-hstart;
 				py := cy-vstart;
-				vis := std_logic_vector(to_unsigned(framecounter,4));
+				vis := std_logic_vector(to_unsigned(framecounter,8));
 				
 				out_ypbpr := ataripalette(4);
 				if px=0 or py=0 or px=319 or py=vheight-1 or (px>315 and py mod 4=0) then
@@ -170,7 +170,7 @@ begin
 						out_ypbpr := (32 + (px-16)/8)*1024 + 16*32 + 16;
 						
 					elsif ((py>=10 and py<40) or (py>=vheight-40 and py<vheight-10)) and px>=290 and px<310 then
-						if vis(3)='0' then
+						if vis(5)='0' then
 							out_ypbpr:=ataripalette(0); 
 						else        
 							out_ypbpr:=ataripalette(15); 
@@ -187,12 +187,12 @@ begin
 --						else        
 --							out_ypbpr:=ataripalette(15); 
 --						end if;						
---					elsif py>110 and py<140 and px>=290 and px<310 then
---						if vis(0)='0' then
---							out_ypbpr:=ataripalette(0); 
---						else        
---							out_ypbpr:=ataripalette(15); 
---						end if;						
+					elsif py>110 and py<140 and px>=290 and px<310 then
+						if vis(0)='0' then
+							out_ypbpr:=ataripalette(0); 
+						else        
+							out_ypbpr:=ataripalette(15); 
+						end if;						
 					end if;
 				
 				end if;
@@ -216,8 +216,8 @@ begin
 		Y  <= tmp_ypbpr(15 downto 10);
 		PB <= tmp_ypbpr(9 downto 5);
 		PR <= tmp_ypbpr(4 downto 0);
-		vis := std_logic_vector(to_unsigned(framecounter,4));
-		Frametoggle <= vis(3);
+		vis := std_logic_vector(to_unsigned(framecounter,8));
+		TST_Frametoggle <= vis(5);
 	end process;
 
 

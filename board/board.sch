@@ -1517,7 +1517,7 @@ Wire Wire Line
 Wire Wire Line
 	1200 10350 1200 10500
 Wire Wire Line
-	1200 10450 3700 10450
+	850  10450 3700 10450
 Connection ~ 1200 10450
 Wire Wire Line
 	1200 9750 1200 9850
@@ -1667,7 +1667,7 @@ Connection ~ 1800 10450
 Wire Wire Line
 	2300 10450 2300 10550
 Wire Wire Line
-	1200 9800 1850 9800
+	850  9800 1850 9800
 Wire Wire Line
 	3100 9800 2750 9800
 Connection ~ 2750 9800
@@ -2064,4 +2064,19 @@ Connection ~ 6100 850
 Connection ~ 6100 1150
 Wire Wire Line
 	5950 2100 5950 1950
+$Comp
+L CONN_02X01 POWER2
+U 1 1 59F34BAD
+P 850 10100
+F 0 "POWER2" H 850 10200 50  0000 C CNN
+F 1 "CONN_02X01" H 850 10000 50  0000 C CNN
+F 2 "Pin_Headers:Pin_Header_Straight_1x02_Pitch2.54mm" H 850 8900 50  0001 C CNN
+F 3 "" H 850 8900 50  0000 C CNN
+	1    850  10100
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	850  9800 850  9850
+Wire Wire Line
+	850  10450 850  10350
 $EndSCHEMATC
