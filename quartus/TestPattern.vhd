@@ -13,7 +13,7 @@ entity TestPattern is
 		Pr: out std_logic_vector(4 downto 0);
 		
 		-- additional IO for the test pattern
-		TST_Frametoggle: out std_logic
+		TSTOUT: out std_logic
 	);	
 end entity;
 
@@ -217,7 +217,7 @@ begin
 		PB <= tmp_ypbpr(9 downto 5);
 		PR <= tmp_ypbpr(4 downto 0);
 		vis := std_logic_vector(to_unsigned(framecounter,8));
-		TST_Frametoggle <= vis(5);
+		TSTOUT <= vis(5);
 	end process;
 
 
