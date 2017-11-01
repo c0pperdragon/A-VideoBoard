@@ -1,0 +1,53 @@
+Structure of a 288p video signal
+--------------------------------
+
+The A-Video board is designed to generate a YPbPr signal that consists of three separate channels:
+The Y signal carries the luminance information together with frame and line sync.
+The Pb and Pr signals carry additional colour information (the blue differential and red differential).
+Each of the three channels is controled by a simple 5-bit DAC (5 bit plus sync in case of the Y signal) 
+made from resistors and that feed into a video amplifier to drive the outgoing line.
+
+The voltage range of the signals is 0 to 700mV for the Pb and Pr channel and 0,300-1000mV for the Y channel
+(everything is DC coupled).
+By using a different firmware in the FPGA it would also be possible to generate a RGsB signal since this uses
+the same voltage ranges.
+
+After experiments and measurements on my LCD TV I found it best to use the following signal structure for a 
+50Hz progressive signal (every frame has identical syncs):
+
+Vertical:
+    8   lines  frame start syncs 
+    17  lines  black
+    288 lines  video content (270 visible on my TV)
+    312 Total
+    
+Horizontal lines 0,1,2,6,7 (short syncs):
+    2.5  microseconds sync
+    29.5 microseconds black
+    2.5  microseconds sync
+    29.5 microseconds black
+    64   Total
+Horizontal lines 3,4 (field syncs):
+    27.5  microseconds field sync pulse
+    4.5   microseconds black
+    27.5  microseconds field sync pulse
+    4.5   microseconds black
+    64    Total
+Horizontal line 5 (one field sync, one short sync):    
+    27.5  microseconds field sync pulse
+    4.5   microseconds black
+    2.5   microseconds sync
+    29.5  microseconds black
+Horizontal (lines 8 - 311):
+    4.5  microseconds sync
+    6.0  microseconds black (front porch)
+    52   microseconds active video (with center at 36.5ms)
+    1.5  microseconds black (back porch)
+    64   Total
+
+
+To get square pixels on my test TV (set to 4:3), the pixel clock needs to be 7.31 Mhz.
+As a comparision the following devices use these slightly different timings:
+ZX Spectrum: 7 MHz 
+Atari 800 (PAL): 7.08 MHz
+Commodore 64 (PAL): 7.88 Mhz

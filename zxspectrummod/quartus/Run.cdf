@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(10M08SCE144) Path("C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/quartus/output_files/") File("ConvertZXSpectrum.sof") MfrSpec(OpMask(1));
+		Device PartName(10M08SCE144) Path("C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/zxspectrummod/quartus/output_files/") File("zxspectrum.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 

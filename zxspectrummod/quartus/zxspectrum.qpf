@@ -19,13 +19,13 @@
 #
 # Quartus Prime
 # Version 16.0.0 Build 211 04/27/2016 SJ Lite Edition
-# Date created = 14:44:52  November 01, 2017
+# Date created = 13:22:20  October 07, 2017
 #
 # -------------------------------------------------------------------------- #
 
 QUARTUS_VERSION = "16.0"
-DATE = "14:44:52  November 01, 2017"
+DATE = "13:22:20  October 07, 2017"
 
 # Revisions
 
-PROJECT_REVISION = "avideoboard"
+PROJECT_REVISION = "zxspectrum"

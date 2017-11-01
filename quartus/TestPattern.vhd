@@ -20,7 +20,7 @@ end entity;
 
 architecture immediate of TestPattern is
 	
-   component PLL is
+   component PLL7_31 is
 	PORT
 	(
 		inclk0		: IN STD_LOGIC  := '0';
@@ -28,61 +28,17 @@ architecture immediate of TestPattern is
 	);
 	end component;
 
-	signal CLK224 : std_logic;
-	signal CLK8 : std_logic;
+	signal CLKPIXEL : std_logic;
 	
 
 begin		
-	-- internally create a high frequency to derive everything else from
-	highfrequency: PLL port map ( CLKREF, CLK224 );
+	-- create actual clock frequency 
+	clkpll: PLL7_31 port map ( CLKREF, CLKPIXEL );
 
-	-- generate a 8Mhz pixel clock from 224Mhz (divide by 28)
-	process (CLK224) 
-	variable cnt: integer range 0 to 13 := 0;
-	variable out_clk : std_logic := '0';
-	begin
-		if rising_edge(CLK224) then
-			if cnt<13 then
-				cnt := cnt+1;
-			else
-				cnt := 0;
-				out_clk := not out_clk;
-			end if;
-		end if;	
-		CLK8 <= out_clk;
-	end process;
 	
---
---	-- generate the calibration signal
---	process (CLK8) 
---	variable cnt: integer range 0 to 31 := 0;
---	variable sync: std_logic := '0';
---	variable lum: integer range 0 to 15 := 0;
---	begin
---		if rising_edge(CLK8) then
---			if cnt<31 then 
---				cnt := cnt+1;
---			else
---				cnt := 0;
---			end if;
---			lum := 0;
---			sync := '1';
---			if cnt<=15 then
---				lum := cnt;
---			end if;
---			if (cnt>=20 and cnt<25) or (cnt=26 or cnt=28) then
---				sync := '0';
---			end if;
---		end if;
---		
---		CSYNC <= sync;
---		Y  <= std_logic_vector(to_unsigned(lum,4));
-----		Pb <= "0000";
-----		Pr <= "0000";	
---	end process;
 
 	-- generate a test image
-	process (CLK8) 
+	process (CLKPIXEL) 
 	
   	type T_ataripalette is array (0 to 255) of integer range 0 to 65535;
    constant ataripalette : T_ataripalette := (
@@ -106,17 +62,17 @@ begin
 	constant sync : integer := 0 + 16*32 + 16;
 	
 -- PAL: 	
---	constant w: integer := 512;  -- (64 microseconds -> 15.625kHz)
---	constant h: integer := 312;  -- (19968 microseconds -> about 50Hz)	
---	variable vheight: integer := 288;
---	variable vstart:  integer := 25;
---	variable hstart: integer := 132;	
+	constant w: integer := 468;  -- (about 64 microseconds -> 15.625kHz)
+	constant h: integer := 312;  -- (19968 microseconds -> about 50Hz)	
+	constant vheight: integer := 288;
+	constant vstart:  integer := 24;
+	constant hstart: integer := 107;	
 -- NTSC:
-	constant w: integer := 509;  -- (63.625 microseconds -> 15.717kHz)
-	constant h: integer := 262;  -- (16669.75 microseconds -> about 60Hz)
-	variable vheight: integer := 240;
-	variable vstart:  integer := 21;
-	variable hstart: integer := 124;
+--	constant w: integer := 509;  -- (63.625 microseconds -> 15.717kHz)
+--	constant h: integer := 262;  -- (16669.75 microseconds -> about 60Hz)
+--	constant vheight: integer := 240;
+--	constant vstart:  integer := 21;
+--	constant hstart: integer := 124;
 	
 	variable cx: integer range 0 to w-1 := 0;
 	variable cy: integer range 0 to h-1 := 0;
@@ -124,32 +80,27 @@ begin
 	
 	variable out_ypbpr: integer range 0 to 65535 := 0;
 	
-	variable micros: integer range 0 to 63;	
 	variable px: integer range 0 to 511;
 	variable py: integer range 0 to 511;
 	variable vis: std_logic_vector(7 downto 0);
 	variable tmp_ypbpr: std_logic_vector(15 downto 0);
 	begin
-		if rising_edge(CLK8) then
+		if rising_edge(CLKPIXEL) then
 		
 			-- idle black
 			out_ypbpr := ataripalette(0);
 
 			-- compute sync pulses
-			micros := cx/8;
-			if cy<3 and (micros<2 or (micros>=32 and micros<34)) then             -- short syncs
+			if (cy<3 or cy=6 or cy=7) and (cx<18 or (cx>=w/2 and cx<w/2+18)) then     -- short syncs
 				out_ypbpr := sync;
 			end if;
-			if (cy=3 or cy=4) and (micros<30 or (micros>=32 and micros<62)) then  -- long syncs
+			if (cy=3 or cy=4) and (cx<201 or (cx>=w/2 and cx<w/2+201)) then           -- field syncs
 				out_ypbpr := sync;
 			end if;
-			if cy=5 and (micros<30 or (micros>=32 and micros<34)) then            -- one long, one short sync
+			if cy=5 and (cx<201 or (cx>=w/2 and cx<w/2+18)) then                      -- one field sync, one short sync
 				out_ypbpr := sync;
 			end if;
-			if (cy=6 or cy=7) and (micros<2 or (micros>=32 and micros<34)) then   -- short syncs
-				out_ypbpr := sync;
-			end if;
-			if (cy>=8) and (micros<4) then                                        -- normal syncs
+			if (cy>=8) and (cx<32) then                                               -- normal line syncs
 				out_ypbpr := sync;
 			end if;
 			
