@@ -4,7 +4,7 @@ use ieee.std_logic_1164.all;
 
 entity ULA2YPbPr is	
 	port (
-		-- external oscillator
+--		-- external oscillator
 		CLKREF : in std_logic;
 				
 		-- digital YPbPr output
@@ -12,11 +12,15 @@ entity ULA2YPbPr is
 		Pb: out std_logic_vector(4 downto 0);
 		Pr: out std_logic_vector(4 downto 0);
 		
+		-- debuggin output
+		INFRAME : out std_logic;
+		OUTFRAME : out std_logic;
+
 		-- sniffing ULA pins
 		D : in std_logic_vector(7 downto 0);
 		CAS : in std_logic;
 		IOREQ : in std_logic;
-		WR : in std_logic
+		WR : in std_logic		
 	);	
 end entity;
 
@@ -30,6 +34,15 @@ architecture immediate of ULA2YPbPr is
 		c0		: OUT STD_LOGIC 
 	);
 	end component;
+	component PLL112_224 IS
+	port
+	(
+		inclk0		: IN STD_LOGIC  := '0';
+		c0		: OUT STD_LOGIC ;
+		c1		: OUT STD_LOGIC 
+	);
+	end component;
+	
 	
 	component ZXVideoRAM is
 	PORT
@@ -44,18 +57,24 @@ architecture immediate of ULA2YPbPr is
 	end component;
 	
 
+	signal CLK224 : std_logic;
 	signal CLK112 : std_logic;
+	signal CLK7 : std_logic;
+	
+	signal slow7mhz : std_logic;
+	signal fast7mhz : std_logic;
 	
 	signal ram_data      : STD_LOGIC_VECTOR (15 DOWNTO 0);
 	signal ram_rdaddress : STD_LOGIC_VECTOR (12 DOWNTO 0);
 	signal ram_wraddress : STD_LOGIC_VECTOR (12 DOWNTO 0);
 	signal ram_wren		: STD_LOGIC;
 	signal ram_q		   : STD_LOGIC_VECTOR (15 DOWNTO 0);
-		
+				
 	signal BORDER : std_logic_vector(2 downto 0);
+	signal inframetrigger : std_logic;
 	
 begin		
-	highfrequency: PLL112 port map ( CLKREF, CLK112 );
+	highfrequency: PLL112_224 port map ( CLKREF, CLK112, CLK224 );
 	videoram: ZXVideoRAM port map (CLK112, ram_data, ram_rdaddress, ram_wraddress, ram_wren, ram_q);
 
 	
@@ -77,6 +96,8 @@ begin
 	variable firstbyte : std_logic_vector(7 downto 0) := "00000000";
 	variable secondbyte : std_logic_vector(7 downto 0) := "00000000";	
 	
+	-- signals to sync the output image generator
+	variable out_inframe : std_logic := '0';
 	
 	begin
 		if rising_edge(CLK112) then	
@@ -125,6 +146,14 @@ begin
 					else
 						secondbyte := D;
 						wren := '1';
+						
+						-- signal to output signal generator that the frame end is detected
+						if writecursor=0 then
+							out_inframe := '1';
+						elsif writecursor=32*156 then
+							out_inframe := '0';
+						end if;
+
 					end if;
 				end if;
 			
@@ -140,11 +169,13 @@ begin
 			
 		end if;
 		
-		
+		-- write to internal video ram
 		ram_data <= secondbyte & firstbyte;
 		ram_wraddress <= std_logic_vector(to_unsigned(writecursor,13));		
 		ram_wren <= wren;
 		
+		INFRAME <= out_inframe;
+		inframetrigger <= out_inframe;
 	end process;
 	
 	
@@ -185,8 +216,53 @@ begin
 	end process;
 	
 	
+	-- generate 7MHz output clock with the possibility to fine-tune the speed 
+	process (CLK224) 
+	variable cnt: integer range 0 to 32 := 0;
+	variable tmp_cnt: std_logic_vector(5 downto 0);
+	begin
+		if rising_edge(CLK224) then
+			if (cnt=30 and slow7mhz='1') or (cnt=31 and fast7mhz='0') or (cnt=32) then
+				cnt := 0;
+			else
+				cnt := cnt+1;
+			end if;
+		end if;	
+		tmp_cnt := std_logic_vector(to_unsigned(cnt,6));
+		CLK7 <= tmp_cnt(4);
+	end process;
+	
+	-- tune the 7mhz clock to match the incomming frame rate
+	process (CLK7,inframetrigger)
+	variable out_slow7mhz: std_logic := '0';
+	variable out_fast7mhz: std_logic := '0';
+	variable cnt : integer range 0 to 4095;
+	variable framecnt : integer range 0 to 511;
+	begin 
+		if rising_edge(CLK7) then
+			out_slow7mhz := '0';
+			out_fast7mhz := '0';
+			if framecnt>=256 then
+				if cnt mod 256 = 255 then
+					out_fast7mhz := '1';
+				end if;
+			else
+				if cnt mod 512 = 511 then
+					out_fast7mhz := '1';
+				end if;
+			end if;
+			cnt := cnt+1;				
+		end if;
+		if rising_edge(inframetrigger) then
+			framecnt := framecnt+1;
+		end if;
+		slow7mhz <= out_slow7mhz;
+		fast7mhz <= out_fast7mhz;
+	end process;
+		
+	
 	------- generate the YPbPr signal from the video ram image
-	process (CLK112)
+	process (CLK7)
 
 	constant sync:   integer := 0 + 16*32 + 16;
   	type T_zxpalette is array (0 to 15) of integer range 0 to 65535;
@@ -196,16 +272,15 @@ begin
 		16#8210#, 16#9792#, 16#b17e#, 16#b31e#, 16#d124#, 16#e284#, 16#e8b4#, 16#fe10#    -- bright
    );	
 	
-	constant w: integer := 448;  -- (64.00 microseconds -> 15.625kHz)
-	constant h: integer := 312;  -- (19968 microseconds -> 50.0801Hz)
+	constant w: integer := 448;    -- (64.00 microseconds -> 15.625kHz)
+	constant h: integer := 312;    -- (19968 microseconds -> 50.0801Hz)
 	constant vheight: integer := 192;
 	constant vstart:  integer := 74;
 	constant hstart: integer := 124;
 	constant borderthickness: integer := 32;
 	
-	variable subpixel: integer range 0 to 15 := 0;
-	variable cx: integer range 0 to w-1 := 0;
-	variable cy: integer range 0 to h-1 := 0;	
+	variable cx: integer range 0 to 511 := 0;
+	variable cy: integer range 0 to 511 := 0;	
 	variable frame: integer range 0 to 31 := 0;
 	variable px: integer range 0 to 7;
 	variable foreground: integer range 0 to 7;
@@ -214,11 +289,12 @@ begin
 	variable out_rdaddress : integer range 0 to 8191;
 	variable out_ypbpr: integer range 0 to 65535 := 0;	
 	
+	variable out_outframe: std_logic := '0';
+	
 	variable tmp_col:std_logic_vector(15 downto 0);
 	
 	begin
-		if rising_edge(CLK112) then
-		
+		if rising_edge(CLK7) then
 			-- idle black
 			out_ypbpr := zxpalette(0);
 
@@ -264,28 +340,31 @@ begin
 			
 			-- determine from where to read next video data word
 			out_rdaddress := cy-vstart;
-			out_rdaddress := out_rdaddress*32 + (cx+8-hstart) / 8 - 1;	
-			if (cx+8-hstart) mod 8=7 and subpixel>=13 then
-				out_rdaddress := out_rdaddress+1;
-			end if;
+			out_rdaddress := out_rdaddress*32 + (cx-hstart) / 8;
+--			if (cx+8-hstart) mod 8=7 and subx>=13 then
+--				out_rdaddress := out_rdaddress+1;
+--			end if;
 			
-			-- progress horizontal and vertical counters
-			if subpixel<15 then
-				subpixel := subpixel+1;
+			
+			if cy>=vstart and cy<vstart+h/2 then 
+				out_outframe := '1';
 			else
-				subpixel := 0;
-				if cx<w-1 then
-					cx:=cx+1;
+				out_outframe := '0';
+			end if;
+
+			-- progress horizontal and vertical counters		
+			if cx<w-1 then
+				cx := cx+1;
+			else
+				cx:=0;
+				if cy<h-1 then 
+					cy:=cy+1;
 				else
-					cx:=0;
-					if cy<h-1 then
-						cy:=cy+1;
-					else
-						cy:=0;
-						frame := frame+1;
-					end if;
+					cy := 0;
+					frame := frame+1;
 				end if;
 			end if;
+						
 		end if;
 		
 		-- send output signal to lines
@@ -293,6 +372,7 @@ begin
 		Y  <= tmp_col(15 downto 10);
 		Pb <= tmp_col(9 downto 5);
 		Pr <= tmp_col(4 downto 0);
+		OUTFRAME <= out_outframe;
 		
 		-- fetch data for next pixel
 		ram_rdaddress <= std_logic_vector(to_unsigned(out_rdaddress, 13));			

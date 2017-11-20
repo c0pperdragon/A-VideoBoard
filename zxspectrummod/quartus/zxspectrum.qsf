@@ -56,7 +56,6 @@ set_global_assignment -name FLOW_ENABLE_POWER_ANALYZER ON
 set_global_assignment -name POWER_DEFAULT_INPUT_IO_TOGGLE_RATE "12.5 %"
 set_location_assignment PIN_88 -to CLKREF
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLKREF
-set_location_assignment PIN_24 -to TSTOUT
 set_location_assignment PIN_26 -to Y[5]
 set_location_assignment PIN_25 -to Y[4]
 set_location_assignment PIN_22 -to Y[3]
@@ -85,7 +84,6 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pr[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pr[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pr[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pr
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TSTOUT
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[5]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[4]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[3]
@@ -122,4 +120,9 @@ set_global_assignment -name SDC_FILE zxspectrum.sdc
 set_global_assignment -name VHDL_FILE ULA2YPbPr.vhd
 set_global_assignment -name VHDL_FILE PLL112.vhd
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to IOREQ
+set_location_assignment PIN_24 -to INFRAME
+set_location_assignment PIN_21 -to OUTFRAME
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to INFRAME
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OUTFRAME
+set_global_assignment -name QIP_FILE PLL112_224.qip
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
