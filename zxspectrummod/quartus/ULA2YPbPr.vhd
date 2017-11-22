@@ -171,7 +171,7 @@ begin
 		
 		-- write to internal video ram
 		ram_data <= secondbyte & firstbyte;
-		ram_wraddress <= std_logic_vector(to_unsigned(writecursor,13));		
+		ram_wraddress <= std_logic_vector(to_unsigned(writecursor mod 32,13));		
 		ram_wren <= wren;
 		
 		INFRAME <= out_inframe;
@@ -233,29 +233,47 @@ begin
 	end process;
 	
 	-- tune the 7mhz clock to match the incomming frame rate
-	process (CLK7,inframetrigger)
+	process (CLK7)
+	constant halfframe : integer := 448*312/2;
+	
 	variable out_slow7mhz: std_logic := '0';
 	variable out_fast7mhz: std_logic := '0';
-	variable cnt : integer range 0 to 4095;
-	variable framecnt : integer range 0 to 511;
+	
+	variable f1: std_logic := '0';
+	variable f2: std_logic := '0';
+	
+	variable frametime : integer range -1000000 to 1000000 := 0;
+	variable speedup :   integer range -1000000 to 1000000 := 0;
+	variable accu :      integer range -1000000 to 1000000 := 0;
 	begin 
 		if rising_edge(CLK7) then
+			-- speed up or slow down the incomming clock
 			out_slow7mhz := '0';
 			out_fast7mhz := '0';
-			if framecnt>=256 then
-				if cnt mod 256 = 255 then
-					out_fast7mhz := '1';
+			accu := accu + speedup;
+			if accu >= halfframe then
+				accu := accu - halfframe;
+				out_fast7mhz := '1';
+			elsif accu <= -halfframe then
+				accu := accu + halfframe;
+				out_slow7mhz := '1';
+			end if;
+			-- compute the speedup value according to currently being behind / ahead
+			if f1 /= f2 then					
+				frametime := frametime + 1 - halfframe;
+				if frametime<-1000 or frametime>1000 then
+					frametime := 0;
+					speedup := 0;
+				else
+					speedup := frametime * 32;
 				end if;
 			else
-				if cnt mod 512 = 511 then
-					out_fast7mhz := '1';
-				end if;
+				frametime := frametime+1;				
 			end if;
-			cnt := cnt+1;				
+			f2 := f1;
+			f1 := inframetrigger;
 		end if;
-		if rising_edge(inframetrigger) then
-			framecnt := framecnt+1;
-		end if;
+		
 		slow7mhz <= out_slow7mhz;
 		fast7mhz <= out_fast7mhz;
 	end process;
@@ -271,6 +289,9 @@ begin
 		16#8210#, 16#8ed1#, 16#99bb#, 16#a6da#, 16#b547#, 16#ca83#, 16#d494#, 16#ce10#,   -- dim
 		16#8210#, 16#9792#, 16#b17e#, 16#b31e#, 16#d124#, 16#e284#, 16#e8b4#, 16#fe10#    -- bright
    );	
+	
+	variable f1: std_logic := '0';
+	variable f2: std_logic := '0';
 	
 	constant w: integer := 448;    -- (64.00 microseconds -> 15.625kHz)
 	constant h: integer := 312;    -- (19968 microseconds -> 50.0801Hz)
@@ -340,7 +361,7 @@ begin
 			
 			-- determine from where to read next video data word
 			out_rdaddress := cy-vstart;
-			out_rdaddress := out_rdaddress*32 + (cx-hstart) / 8;
+			out_rdaddress := out_rdaddress*32 + (cx+1-hstart) / 8;
 --			if (cx+8-hstart) mod 8=7 and subx>=13 then
 --				out_rdaddress := out_rdaddress+1;
 --			end if;
@@ -352,19 +373,27 @@ begin
 				out_outframe := '0';
 			end if;
 
-			-- progress horizontal and vertical counters		
-			if cx<w-1 then
-				cx := cx+1;
+					
+			-- detect edge input screen start and force output in sync
+			if f1='1' and f2='0' and (cy/=vstart or cx<hstart-110 or cx>hstart-10) then
+				cy := vstart;
+				cx := hstart - 50;
 			else
-				cx:=0;
-				if cy<h-1 then 
-					cy:=cy+1;
+				-- progress horizontal and vertical counters
+				if cx<w-1 then
+					cx := cx+1;
 				else
-					cy := 0;
-					frame := frame+1;
-				end if;
+					cx:=0;
+					if cy<h-1 then 
+						cy:=cy+1;
+					else
+						cy := 0;
+						frame := frame+1;
+					end if;
+				end if;			
 			end if;
-						
+			f2 := f1;
+			f1 := inframetrigger;	
 		end if;
 		
 		-- send output signal to lines
@@ -375,7 +404,7 @@ begin
 		OUTFRAME <= out_outframe;
 		
 		-- fetch data for next pixel
-		ram_rdaddress <= std_logic_vector(to_unsigned(out_rdaddress, 13));			
+		ram_rdaddress <= std_logic_vector(to_unsigned(out_rdaddress mod 32, 13));			
 			
 	end process;
 	
