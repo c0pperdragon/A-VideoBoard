@@ -38,7 +38,7 @@
 
 
 set_global_assignment -name FAMILY "MAX 10"
-set_global_assignment -name DEVICE 10M08SCE144C8G
+set_global_assignment -name DEVICE 10M02SCE144C8G
 set_global_assignment -name TOP_LEVEL_ENTITY ULA2YPbPr
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.0.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "14:50:44  NOVEMBER 01, 2017"
@@ -54,24 +54,7 @@ set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name FLOW_ENABLE_POWER_ANALYZER ON
 set_global_assignment -name POWER_DEFAULT_INPUT_IO_TOGGLE_RATE "12.5 %"
-set_location_assignment PIN_88 -to CLKREF
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLKREF
-set_location_assignment PIN_26 -to Y[5]
-set_location_assignment PIN_25 -to Y[4]
-set_location_assignment PIN_22 -to Y[3]
-set_location_assignment PIN_17 -to Y[2]
-set_location_assignment PIN_13 -to Y[1]
-set_location_assignment PIN_11 -to Y[0]
-set_location_assignment PIN_8 -to Pb[4]
-set_location_assignment PIN_6 -to Pb[3]
-set_location_assignment PIN_140 -to Pb[2]
-set_location_assignment PIN_132 -to Pb[1]
-set_location_assignment PIN_130 -to Pb[0]
-set_location_assignment PIN_124 -to Pr[4]
-set_location_assignment PIN_120 -to Pr[3]
-set_location_assignment PIN_118 -to Pr[2]
-set_location_assignment PIN_113 -to Pr[1]
-set_location_assignment PIN_111 -to Pr[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[4]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[3]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[2]
@@ -91,17 +74,6 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y
-set_location_assignment PIN_110 -to D[0]
-set_location_assignment PIN_112 -to CAS
-set_location_assignment PIN_114 -to IOREQ
-set_location_assignment PIN_119 -to WR
-set_location_assignment PIN_127 -to D[2]
-set_location_assignment PIN_131 -to D[3]
-set_location_assignment PIN_135 -to D[7]
-set_location_assignment PIN_141 -to D[6]
-set_location_assignment PIN_7 -to D[5]
-set_location_assignment PIN_10 -to D[4]
-set_location_assignment PIN_12 -to D[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CAS
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to D[7]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to D[6]
@@ -120,8 +92,6 @@ set_global_assignment -name SDC_FILE zxspectrum.sdc
 set_global_assignment -name VHDL_FILE ULA2YPbPr.vhd
 set_global_assignment -name VHDL_FILE PLL112.vhd
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to IOREQ
-set_location_assignment PIN_24 -to INFRAME
-set_location_assignment PIN_21 -to OUTFRAME
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to INFRAME
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OUTFRAME
 set_global_assignment -name QIP_FILE PLL112_224.qip

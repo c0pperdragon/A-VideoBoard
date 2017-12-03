@@ -1,0 +1,25 @@
+Pin assignments for the A-Video Board (Rev.1)
+
+10-pin GPIO-header
+Connector pin            MAX 10 pin       
+7.14 REF Clock             89   
+
+
+In-board wiring of the MAX 10 to the DAC
+                         MAX 10 pin
+PB(4)                    39
+PB(3)                    40
+PB(2)                    41
+PB(1)                    42
+PB(0)                    44  126
+Y(5)                     46    
+Y(4)                     47
+Y(3)                     48
+Y(2)                     61
+Y(1)                     62
+Y(0)                     63
+PR(4)                    65
+PR(3)                    67
+PR(2)                    68
+PR(1)                    69
+PR(0)                    70
