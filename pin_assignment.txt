@@ -1,25 +1,60 @@
-Pin assignments for the A-Video Board (Rev.1)
+Pin assignments for the A-Video Board (Rev.2)
 
-10-pin GPIO-header
+25Mhz Reference clock:   MAX 10 pin 25
+
+20-pin GPIO-header GPIO1
 Connector pin            MAX 10 pin       
-7.14 REF Clock             89   
+GPIO1 1                  74
+GPIO1 2                  75
+GPIO1 3                  76
+GPIO1 4                  77
+GPIO1 5                  78
+GPIO1 6                  79
+GPIO1 7                  80
+GPIO1 8                  81
+GPIO1 9                  87
+GPIO1 10                 88
+GPIO1 11                 91
+GPIO1 12                 92
+GPIO1 13                 97
+GPIO1 14                 98
+GPIO1 15                 99
+GPIO1 16                100
+GPIO1 17                101
+GPIO1 18                103
+GPIO1 19                105
+GPIO1 20                106
+
+10-pin GPIO-header GPIO2
+Connector pin            MAX 10 pin       
+GPIO2 1                  3.3V
+GPIO2 2                  GND
+GPIO2 3                  41
+GPIO2 4                  40
+GPIO2 5                  39
+GPIO2 6                  33
+GPIO2 7                  32
+GPIO2 8                  31
+GPIO2 9                  28
+GPIO2 10                 27
 
 
 In-board wiring of the MAX 10 to the DAC
                          MAX 10 pin
-PB(4)                    39
-PB(3)                    40
-PB(2)                    41
-PB(1)                    42
-PB(0)                    44  126
-Y(5)                     46    
+Y(5) = SYNC              46
 Y(4)                     47
 Y(3)                     48
-Y(2)                     61
-Y(1)                     62
-Y(0)                     63
-PR(4)                    65
-PR(3)                    67
-PR(2)                    68
+Y(2)                     49
+Y(1)                     50
+Y(0)                     51
+PB(4)                    52
+PB(3)                    53
+PB(2)                    59
+PB(1)                    60
+PB(0)                    61
+PR(4)                    63
+PR(3)                    65
+PR(2)                    67
 PR(1)                    69
 PR(0)                    70
+

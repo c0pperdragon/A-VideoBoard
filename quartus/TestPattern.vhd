@@ -10,10 +10,8 @@ entity TestPattern is
 		-- digital YPbPr output
 		Y: out std_logic_vector(5 downto 0);
 		Pb: out std_logic_vector(4 downto 0);
-		Pr: out std_logic_vector(4 downto 0);
-		
-		-- additional IO for the test pattern
-		TSTOUT: out std_logic
+		Pr: out std_logic_vector(4 downto 0)
+
 	);	
 end entity;
 
@@ -35,11 +33,6 @@ begin
 	-- create actual clock frequency 
 	clkpll: PLL7_31 port map ( CLKREF, CLKPIXEL );
 	
-	
-	process (CLKREF)
-	begin
-		TSTOUT <= CLKPIXEL;
-	end process;
 
 	-- generate a test image
 	process (CLKPIXEL) 
@@ -171,8 +164,7 @@ begin
 		Y  <= tmp_ypbpr(15 downto 10);
 		PB <= tmp_ypbpr(9 downto 5);
 		PR <= tmp_ypbpr(4 downto 0);
---		vis := std_logic_vector(to_unsigned(framecounter,8));
---		TSTOUT <= vis(5);
+
 	end process;
 
 
