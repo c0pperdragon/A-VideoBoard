@@ -11,10 +11,6 @@ entity ULA2YPbPr is
 		Y: out std_logic_vector(5 downto 0);
 		Pb: out std_logic_vector(4 downto 0);
 		Pr: out std_logic_vector(4 downto 0);
-		
-		-- debuggin output
-		INFRAME : out std_logic;
-		OUTFRAME : out std_logic;
 
 		-- sniffing ULA pins
 		D : in std_logic_vector(7 downto 0);
@@ -156,7 +152,7 @@ begin
 
 					end if;
 				end if;
-			
+			 
 				if timesincefallingedge<255 then
 					timesincefallingedge := timesincefallingedge+1;
 				end if;
@@ -173,8 +169,7 @@ begin
 		ram_data <= secondbyte & firstbyte;
 		ram_wraddress <= std_logic_vector(to_unsigned(writecursor mod 32,13));		
 		ram_wren <= wren;
-		
-		INFRAME <= out_inframe;
+
 		inframetrigger <= out_inframe;
 	end process;
 	
@@ -186,7 +181,7 @@ begin
 	variable timedown: integer range 0 to 255 := 0;
 	variable isiowrite : boolean;
 	
-	variable out_border: std_logic_vector(2 downto 0) := "001";
+	variable out_border: std_logic_vector(2 downto 0) := "111";
 	begin
 		if rising_edge(CLK112) then
 		
@@ -286,8 +281,8 @@ begin
   	type T_zxpalette is array (0 to 15) of integer range 0 to 65535;
    constant zxpalette : T_zxpalette := (
 	   -- black  -- blue   -- red    -- purple -- green  -cyan     -- yellow -- white
-		16#8210#, 16#8ed1#, 16#99bb#, 16#a6da#, 16#b547#, 16#ca83#, 16#d494#, 16#ce10#,   -- dim
-		16#8210#, 16#9792#, 16#b17e#, 16#b31e#, 16#d124#, 16#e284#, 16#e8b4#, 16#fe10#    -- bright
+		16#8210#,16#8b4e#,16#99ba#,16#a2d8#,16#ad48#,16#b666#,16#c0d2#,16#ce10#,   -- dim
+		16#8210#,16#93ed#,16#a57f#,16#b77d#,16#c8a3#,16#daa0#,16#ec13#,16#fe10#    -- bright
    );	
 	
 	variable f1: std_logic := '0';
@@ -401,7 +396,6 @@ begin
 		Y  <= tmp_col(15 downto 10);
 		Pb <= tmp_col(9 downto 5);
 		Pr <= tmp_col(4 downto 0);
-		OUTFRAME <= out_outframe;
 		
 		-- fetch data for next pixel
 		ram_rdaddress <= std_logic_vector(to_unsigned(out_rdaddress mod 32, 13));			
