@@ -35,8 +35,8 @@ GPIO2 5                  39
 GPIO2 6                  33
 GPIO2 7                  32
 GPIO2 8                  31
-GPIO2 9                  28
-GPIO2 10                 27
+GPIO2 9                  28 (can drive PLL)
+GPIO2 10                 27 (can drive PLL)
 
 
 In-board wiring of the MAX 10 to the DAC

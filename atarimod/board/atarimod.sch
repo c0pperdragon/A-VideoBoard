@@ -45,7 +45,7 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 Text GLabel 7800 3400 0    51   Input ~ 0
-PHI2
+CLK
 Text GLabel 8800 3200 2    51   Input ~ 0
 RW
 Text GLabel 8800 3300 2    51   Input ~ 0
@@ -264,7 +264,7 @@ RW
 Text GLabel 6250 3900 2    51   Input ~ 0
 CS
 Text GLabel 6200 4600 2    51   Input ~ 0
-PHI2
+CLK
 Text GLabel 6200 4800 2    51   Input ~ 0
 HALT
 $Comp
@@ -459,7 +459,6 @@ F 3 "" H 3550 3350 50  0000 C CNN
 	1    0    0    -1  
 $EndComp
 NoConn ~ 3200 3250
-NoConn ~ 3200 3150
 NoConn ~ 3200 2950
 Wire Wire Line
 	2150 6500 2250 6500
@@ -702,8 +701,6 @@ Wire Wire Line
 Wire Wire Line
 	4100 4400 5100 4400
 Wire Wire Line
-	3200 3050 4250 3050
-Wire Wire Line
 	4250 4450 6100 4450
 Wire Wire Line
 	6100 4450 6100 4500
@@ -720,7 +717,7 @@ Wire Wire Line
 Wire Wire Line
 	4200 3450 4200 4650
 Wire Wire Line
-	4250 3050 4250 4450
+	4250 3150 4250 4450
 Wire Wire Line
 	3200 2650 4400 2650
 Wire Wire Line
@@ -841,4 +838,7 @@ Wire Wire Line
 	8700 2600 8800 2600
 Wire Wire Line
 	8700 2500 8800 2500
+Wire Wire Line
+	3200 3150 4250 3150
+NoConn ~ 3200 3050
 $EndSCHEMATC

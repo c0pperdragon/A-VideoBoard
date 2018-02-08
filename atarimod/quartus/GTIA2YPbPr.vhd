@@ -14,7 +14,7 @@ entity GTIA2YPbPr is
 		Pr: out std_logic_vector(4 downto 0);
 
 		-- Connections to the real GTIAs pins 
-		PHI2        : in std_logic;
+		CLK         : in std_logic;
 		A           : in std_logic_vector(4 downto 0);
 		D           : in std_logic_vector(7 downto 0);
 		AN          : in std_logic_vector(2 downto 0);
@@ -27,7 +27,7 @@ end entity;
 
 architecture immediate of GTIA2YPbPr is
 begin
-	process (PHI2) 
+	process (CLK) 
 
   	type T_ataripalette is array (0 to 255) of integer range 0 to 65535;
    constant ataripalette : T_ataripalette := (
@@ -135,7 +135,7 @@ begin
 
 	begin
 		--------------------- logic for antic input -------------------
-		if falling_edge(PHI2) then
+		if falling_edge(CLK) then
 			out_overridelum := "00";
 
 			-- default color lines to show no color at all (only black)
@@ -370,32 +370,31 @@ begin
 				out_overridelum := "00";
 			end if ;
 			
-			-- generate sync --
+			-- generate csync for PAL 288p signal --
 			out_csync := '0';
-			if (vcounter<3 or vcounter=6 or vcounter=7) and (hcounter<9 or (hcounter>=114 and hcounter<114+9)) then     -- short syncs
+			if (vcounter<3 or vcounter=6 or vcounter=7) and (hcounter<8 or (hcounter>=114 and hcounter<114+8)) then  -- short syncs
 				out_csync := '1';
 			end if;
-			if (vcounter=3 or vcounter=4) and (hcounter<105 or (hcounter>=114 and hcounter<114+105)) then           -- field syncs
+			if (vcounter=3 or vcounter=4) and (hcounter<106 or (hcounter>=114 and hcounter<114+106)) then           -- field syncs
 				out_csync := '1';
 			end if;
-			if vcounter=5 and (hcounter<105 or (hcounter>=114 and hcounter<114+9)) then                      -- one field sync, one short sync
+			if vcounter=5 and (hcounter<106 or (hcounter>=114 and hcounter<114+8)) then                             -- one field sync, one short sync
 				out_csync := '1';
 			end if;
-			if (vcounter>=8) and (hcounter<18) then                                               -- normal line syncs
+			if (vcounter>=8) and (hcounter<16) then                                                                 -- normal line syncs
 				out_csync := '1';
 			end if;
 			
-
 			----- count horizontal and vertical pixels (vsync according to command)
-			if command="001" then 
-				hcounter := 1;
-				vcounter := 0;
-			else 
+			if command="001" and vcounter>128 then 
+				hcounter := 2;               -- because of this tweak, there will be 2 pixels in the 312th row 
+				vcounter := 0;               -- (but because the lines start with sync all the same, it makes no difference)
+ 			else 
 				if hcounter<227 then
 					hcounter := hcounter+1;
 				else 
 					hcounter := 0;
-					if vcounter<511 then 
+					if vcounter< 511 then 
 						vcounter := vcounter+1;
 					end if;
 				end if;			
@@ -408,7 +407,7 @@ begin
 		
 		
 		--------------------- logic for the cpu/data bus -------------------			
-		if rising_edge(PHI2) then
+		if rising_edge(CLK) then
 			----- let CPU write to the registers (at second clock where rw is asserted) --
 			if (CS='0') and (RW='0') and (prevrw='0') then
 				case A is
@@ -490,9 +489,9 @@ begin
 		-------------------- asynchronous logic ---------------------
 		-- select color value for proper half of the clock
 		tmp_color := out_color;
-		if PHI2='0' and out_overridelum(1)='1' then
+		if CLK='0' and out_overridelum(1)='1' then
 			tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-		elsif PHI2='1' and out_overridelum(0)='1' then
+		elsif CLK='1' and out_overridelum(0)='1' then
 			tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
 		end if;		
 		tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 16));	
