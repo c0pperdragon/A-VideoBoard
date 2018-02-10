@@ -8,11 +8,11 @@ use ieee.std_logic_1164.all;
 
 entity GTIA2YPbPr is	
 	port (
-		-- digital YPbPr output
-		Y: out std_logic_vector(5 downto 0);
-		Pb: out std_logic_vector(4 downto 0);
-		Pr: out std_logic_vector(4 downto 0);
-
+		-- digital YPbPr output for two pixels at once
+		CSYNC:  out std_logic;                      -- sync signal
+		YPbPr0: out std_logic_vector(14 downto 0);	-- color for first half of the clock
+		YPbPr1: out std_logic_vector(14 downto 0); -- color for second half of the clock
+		
 		-- Connections to the real GTIAs pins 
 		CLK         : in std_logic;
 		A           : in std_logic_vector(4 downto 0);
@@ -29,26 +29,25 @@ architecture immediate of GTIA2YPbPr is
 begin
 	process (CLK) 
 
-  	type T_ataripalette is array (0 to 255) of integer range 0 to 65535;
+  	type T_ataripalette is array (0 to 255) of integer range 0 to 32767;
    constant ataripalette : T_ataripalette := (
-        16#8210#,16#8a10#,16#9210#,16#9a10#,16#a210#,16#aa10#,16#b210#,16#ba10#,16#c610#,16#ce10#,16#d610#,16#de10#,16#e610#,16#ee10#,16#f610#,16#fe10#,
-        16#8dd2#,16#95b3#,16#9994#,16#9d95#,16#a575#,16#a956#,16#ad37#,16#b538#,16#b919#,16#c0fa#,16#c4da#,16#ccf9#,16#d138#,16#d957#,16#e175#,16#e594#,
-        16#89f3#,16#8df4#,16#8dd6#,16#91d7#,16#95b8#,16#99ba#,16#99bb#,16#9d9c#,16#a19d#,16#a57f#,16#a57f#,16#b17e#,16#bd9c#,16#c5ba#,16#d1b8#,16#d9d6#,
-        16#8a13#,16#8e14#,16#9235#,16#9637#,16#9a38#,16#9a39#,16#9e3a#,16#a23b#,16#a63c#,16#aa3e#,16#ae5f#,16#b63d#,16#c23b#,16#ca3a#,16#d238#,16#de36#,
-        16#8a53#,16#8e54#,16#9275#,16#9696#,16#9a97#,16#9eb8#,16#a2d9#,16#a6da#,16#aafc#,16#af1d#,16#b31e#,16#befc#,16#c6da#,16#ceb9#,16#d697#,16#e275#,
-        16#8a52#,16#8e72#,16#9293#,16#92b4#,16#96d4#,16#9af5#,16#9f16#,16#a337#,16#a357#,16#a778#,16#ab99#,16#b778#,16#bf37#,16#cb16#,16#d2d4#,16#deb3#,
-        16#8670#,16#8a91#,16#8ab1#,16#8ed1#,16#8f11#,16#9331#,16#9351#,16#9771#,16#9792#,16#9bb2#,16#9bd2#,16#a7b2#,16#b371#,16#bf31#,16#cb11#,16#d6d1#,
-        16#866f#,16#8a8f#,16#8aae#,16#8ece#,16#8eee#,16#932d#,16#934d#,16#976c#,16#978c#,16#9bac#,16#9bcb#,16#a7ac#,16#b36c#,16#bf2d#,16#caee#,16#d6ce#,
-        16#8e4e#,16#926d#,16#968c#,16#9a8b#,16#9eab#,16#a2ca#,16#aae9#,16#aee8#,16#b307#,16#b726#,16#bb46#,16#c327#,16#cae8#,16#d2c9#,16#daab#,16#e28c#,
-        16#922d#,16#9a2c#,16#a24a#,16#aa49#,16#ae68#,16#b666#,16#be65#,16#c284#,16#ca83#,16#d2a1#,16#daa0#,16#dea2#,16#e284#,16#e666#,16#ea68#,16#ee4a#,
-        16#920d#,16#9a0c#,16#9deb#,16#a5e9#,16#ade8#,16#b1e7#,16#b9e6#,16#bde5#,16#c5e4#,16#cde2#,16#d1c1#,16#d5e3#,16#dde5#,16#e1e6#,16#e5e8#,16#edea#,
-        16#91cd#,16#95cc#,16#9dab#,16#a18a#,16#a989#,16#ad68#,16#b547#,16#b946#,16#c124#,16#c503#,16#cd02#,16#d124#,16#d946#,16#dd67#,16#e589#,16#e9ab#,
-        16#91ce#,16#99ae#,16#a18d#,16#a56c#,16#ad4c#,16#b52b#,16#b90a#,16#c0e9#,16#c8c9#,16#cca8#,16#d487#,16#d8a8#,16#dce9#,16#e50a#,16#e94c#,16#ed6d#,
-        16#95b0#,16#9d8f#,16#a56f#,16#ad4f#,16#b50f#,16#bcef#,16#c4cf#,16#ccaf#,16#d48e#,16#dc6e#,16#e44e#,16#e86e#,16#e8af#,16#ecef#,16#f10f#,16#f54f#,
-        16#95b1#,16#9d91#,16#a572#,16#ad52#,16#b532#,16#bcf3#,16#c4d3#,16#ccb4#,16#d494#,16#dc74#,16#e455#,16#e474#,16#e8b4#,16#ecf3#,16#f132#,16#f152#,
-        16#8dd2#,16#95b3#,16#9994#,16#9d95#,16#a575#,16#a956#,16#ad37#,16#b538#,16#b919#,16#c0fa#,16#c4da#,16#ccf9#,16#d138#,16#d957#,16#e175#,16#e594#	
-	 );	
-	constant sync : integer := 0 + 16*32 + 16;
+		  16#0210#,16#0a10#,16#1210#,16#1a10#,16#2210#,16#2a10#,16#3210#,16#3a10#,16#4210#,16#4a10#,16#4e10#,16#5a10#,16#5e10#,16#5e10#,16#6610#,16#6e10#,
+        16#09f3#,16#11d4#,16#15b4#,16#1d94#,16#2574#,16#2d54#,16#3134#,16#3915#,16#40f5#,16#44d5#,16#4cd5#,16#58d5#,16#5cd5#,16#5cd5#,16#64d4#,16#68d4#,
+        16#09f4#,16#0dd5#,16#15b5#,16#1995#,16#2175#,16#2956#,16#3136#,16#3936#,16#4136#,16#4936#,16#4d56#,16#5936#,16#5d36#,16#5d55#,16#6555#,16#6954#,
+        16#09f4#,16#0df5#,16#11f5#,16#19f5#,16#21f5#,16#29f5#,16#31f5#,16#39f5#,16#41f5#,16#49f5#,16#4df5#,16#55f5#,16#5df5#,16#5df5#,16#65f4#,16#69f4#,
+        16#0a72#,16#0e73#,16#1294#,16#1a94#,16#2294#,16#2a94#,16#3294#,16#3a94#,16#4294#,16#4a94#,16#4e94#,16#5a94#,16#5e94#,16#5e94#,16#6674#,16#6e73#,
+        16#0af0#,16#0f11#,16#1312#,16#1b12#,16#2312#,16#2b12#,16#3312#,16#3b12#,16#4312#,16#4b12#,16#4ef2#,16#56d2#,16#5ab2#,16#5ab2#,16#6292#,16#6a72#,
+        16#0b4e#,16#0f6e#,16#136f#,16#1b8f#,16#238f#,16#2b8f#,16#336f#,16#374f#,16#3f2f#,16#4710#,16#4ef0#,16#52d0#,16#56d0#,16#5ab0#,16#6290#,16#6a70#,
+        16#0b6e#,16#0f8e#,16#138d#,16#1b8d#,16#238c#,16#2b8d#,16#336d#,16#374d#,16#3f2d#,16#470d#,16#4aed#,16#52ce#,16#56ce#,16#5aae#,16#5e8e#,16#666e#,
+        16#0b2f#,16#134d#,16#174c#,16#1b4c#,16#234b#,16#2b6b#,16#336b#,16#3b4b#,16#3f2b#,16#470b#,16#4eec#,16#52cc#,16#5aac#,16#5aac#,16#628c#,16#6a6c#,
+        16#0aae#,16#0ecd#,16#16cc#,16#1acb#,16#22ea#,16#2aea#,16#32ea#,16#3aea#,16#42ea#,16#4aea#,16#4eea#,16#56ca#,16#5aab#,16#5e8b#,16#628b#,16#6a6b#,
+        16#0a0e#,16#120d#,16#162c#,16#1a2b#,16#222b#,16#2a2b#,16#322b#,16#3a2b#,16#422b#,16#462b#,16#4e2b#,16#562b#,16#5e2b#,16#5e2b#,16#662b#,16#6e2b#,
+        16#09ee#,16#0dce#,16#15ad#,16#19ac#,16#218c#,16#258c#,16#318c#,16#358c#,16#3d8c#,16#458c#,16#4d8c#,16#558c#,16#5d8c#,16#5d8c#,16#658c#,16#6d8c#,
+        16#09ee#,16#0dce#,16#15ae#,16#1d8e#,16#256e#,16#294e#,16#312e#,16#390e#,16#3d0e#,16#450e#,16#4d0e#,16#550e#,16#5d0e#,16#5d0e#,16#650e#,16#6cee#,
+        16#09ef#,16#11d0#,16#15b0#,16#1d90#,16#2570#,16#2d50#,16#3130#,16#3911#,16#40f1#,16#48d1#,16#4cb1#,16#54b1#,16#5c91#,16#5c91#,16#6491#,16#6c91#,
+        16#09f2#,16#11d2#,16#19b2#,16#1d92#,16#2572#,16#2d53#,16#3533#,16#3913#,16#40f3#,16#48d3#,16#4cb3#,16#5493#,16#5c93#,16#5c93#,16#6493#,16#6c93#,
+        16#09f3#,16#11d3#,16#19b3#,16#2194#,16#2574#,16#2d54#,16#3534#,16#3d14#,16#40f5#,16#48d5#,16#50d5#,16#58d5#,16#5cd5#,16#60d5#,16#64d4#,16#6cd3#
+    );	
 	
 	-- visible screen area
 	constant topedge    : integer := 42;
@@ -97,14 +96,6 @@ begin
 	variable prevrw: std_logic := '0';
 	variable prevhalt : std_logic := '0';
 	
-	variable tmp_colorlines : std_logic_vector(8 downto 0);
-	variable tmp_colorlines_res : std_logic_vector(8 downto 0);
-	variable tmp_bgcolor : std_logic_vector(7 downto 0);
-	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
-	variable tmp_color : std_logic_vector(7 downto 0);
-	variable tmp_odd : boolean;
-	variable tmp_ypbpr : std_logic_vector(15 downto 0);
-
 	-- variables for player and missile display
 	variable ticker_p0 : integer range 0 to 15 := 15;
 	variable ticker_p1 : integer range 0 to 15 := 15;
@@ -115,10 +106,25 @@ begin
 	variable ticker_m2 : integer range 0 to 3 := 3;
 	variable ticker_m3 : integer range 0 to 3 := 3;
 	
-	-- used for async operation in both halves of the clock --
+	-- temporary variables
+	variable tmp_colorlines : std_logic_vector(8 downto 0);
+	variable tmp_colorlines_res : std_logic_vector(8 downto 0);
+	variable tmp_bgcolor : std_logic_vector(7 downto 0);
+	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
+	variable tmp_color : std_logic_vector(7 downto 0);
+	variable tmp2_color : std_logic_vector(7 downto 0);
+	variable tmp_overridelum : std_logic_vector(1 downto 0) := "00";
+	variable tmp_odd : boolean;
+	variable tmp_ypbpr : std_logic_vector(15 downto 0);
+	variable tmp_x : integer range 0 to 255;
+	variable tmp_y : integer range 0 to 511;
+	
+	
+	-- registered output 
 	variable out_csync : std_logic  := '0';
-	variable out_color : std_logic_vector(7 downto 0) := "00000000";
-	variable out_overridelum : std_logic_vector(1 downto 0) := "00";
+	variable out_ypbpr0 : std_logic_vector(14 downto 0)  := "000000000000000";
+	variable out_ypbpr1 : std_logic_vector(14 downto 0)  := "000000000000000";
+	
 	
 		-- test, if it is now necessary to increment player/missile pixel counter
 		function needpixelstep (hpos:std_logic_vector(7 downto 0); size: std_logic_vector(1 downto 0)) return boolean is
@@ -136,9 +142,8 @@ begin
 	begin
 		--------------------- logic for antic input -------------------
 		if falling_edge(CLK) then
-			out_overridelum := "00";
-
 			-- default color lines to show no color at all (only black)
+			tmp_overridelum := "00";
 			tmp_colorlines := "000000000";
 			tmp_bgcolor := COLBK & "0";
 			if PRIOR(7 downto 6)="11" then  -- single lum/16 hues mode makes background darkest
@@ -161,7 +166,7 @@ begin
 						tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
 					else
 						tmp_colorlines(6) := '1';
-						out_overridelum := command(1 downto 0);
+						tmp_overridelum := command(1 downto 0);
 					end if;
 				when "01"  =>   -- single hue, 16 luminances, imposed on background
 					tmp_colorlines(8) := '1';
@@ -354,34 +359,55 @@ begin
 			
 			-- simulate the 'wired or' that mixes together all bits of 
 			-- all selected color lines
-			out_color := "00000000";
+			tmp_color := "00000000";
 			-- constrain color generation to screen boundaries
 			if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
-				if tmp_colorlines_res(0)='1' then	out_color := out_color or (COLPM0 & "0"); end if;
-				if tmp_colorlines_res(1)='1' then	out_color := out_color or (COLPM1 & "0"); end if;
-				if tmp_colorlines_res(2)='1' then	out_color := out_color or (COLPM2 & "0"); end if;
-				if tmp_colorlines_res(3)='1' then	out_color := out_color or (COLPM3 & "0"); end if;
-				if tmp_colorlines_res(4)='1' then	out_color := out_color or (COLPF0 & "0"); end if;
-				if tmp_colorlines_res(5)='1' then	out_color := out_color or (COLPF1 & "0"); end if;
-				if tmp_colorlines_res(6)='1' then	out_color := out_color or (COLPF2 & "0"); end if;
-				if tmp_colorlines_res(7)='1' then	out_color := out_color or (COLPF3 & "0"); end if;
-				if tmp_colorlines_res(8)='1' then	out_color := out_color or tmp_bgcolor;    end if;
+				if tmp_colorlines_res(0)='1' then	tmp_color := tmp_color or (COLPM0 & "0"); end if;
+				if tmp_colorlines_res(1)='1' then	tmp_color := tmp_color or (COLPM1 & "0"); end if;
+				if tmp_colorlines_res(2)='1' then	tmp_color := tmp_color or (COLPM2 & "0"); end if;
+				if tmp_colorlines_res(3)='1' then   tmp_color := tmp_color or (COLPM3 & "0"); end if;
+				if tmp_colorlines_res(4)='1' then	tmp_color := tmp_color or (COLPF0 & "0"); end if;
+				if tmp_colorlines_res(5)='1' then	tmp_color := tmp_color or (COLPF1 & "0"); end if;
+				if tmp_colorlines_res(6)='1' then	tmp_color := tmp_color or (COLPF2 & "0"); end if;
+				if tmp_colorlines_res(7)='1' then	tmp_color := tmp_color or (COLPF3 & "0"); end if;
+				if tmp_colorlines_res(8)='1' then	tmp_color := tmp_color or tmp_bgcolor;    end if;
 			else
-				out_overridelum := "00";
+				tmp_overridelum := "00";
 			end if ;
 			
-			-- generate csync for PAL 288p signal --
-			out_csync := '0';
-			if (vcounter<3 or vcounter=6 or vcounter=7) and (hcounter<8 or (hcounter>=114 and hcounter<114+8)) then  -- short syncs
-				out_csync := '1';
+			-- select output color value for both halves of the clock
+			tmp2_color := tmp_color;
+			if tmp_overridelum(0)='1' then
+				tmp2_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
 			end if;
-			if (vcounter=3 or vcounter=4) and (hcounter<106 or (hcounter>=114 and hcounter<114+106)) then           -- field syncs
-				out_csync := '1';
+			out_ypbpr0 := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp2_color))), 15));
+			tmp2_color := tmp_color;
+			if tmp_overridelum(1)='1' then
+				tmp2_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
 			end if;
-			if vcounter=5 and (hcounter<106 or (hcounter>=114 and hcounter<114+8)) then                             -- one field sync, one short sync
-				out_csync := '1';
+			out_ypbpr1 := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp2_color))), 15));	
+			
+			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen centered) 	
+			tmp_x := hcounter + 1;
+			tmp_y := vcounter + 4;
+			if tmp_x>=228 then
+				tmp_x := tmp_x-228;
+				tmp_y := tmp_y+1;
 			end if;
-			if (vcounter>=8) and (hcounter<16) then                                                                 -- normal line syncs
+			if tmp_y>=312 then
+				tmp_y := tmp_y-312;
+			end if;
+			if (tmp_y=0 or tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- short syncs
+				out_csync := '0';
+			elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then          -- vsyncs
+				out_csync := '0';
+			elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                      -- one vsync, one short sync
+				out_csync := '0';
+			elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then                -- short syncs
+				out_csync := '0';
+			elsif (tmp_y>=8) and (tmp_x<16) then                                                         -- normal line syncs
+				out_csync := '0';
+			else
 				out_csync := '1';
 			end if;
 			
@@ -486,23 +512,10 @@ begin
 		end if;
 		
 		
-		-------------------- asynchronous logic ---------------------
-		-- select color value for proper half of the clock
-		tmp_color := out_color;
-		if CLK='0' and out_overridelum(1)='1' then
-			tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-		elsif CLK='1' and out_overridelum(0)='1' then
-			tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-		end if;		
-		tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 16));	
-		if out_csync='1' then
-			tmp_ypbpr := std_logic_vector(to_unsigned(sync, 16));
-		end if;
-		
-		Y <= tmp_ypbpr(15 downto 10);
-		Pb <= tmp_ypbpr(9 downto 5);
-		Pr <= tmp_ypbpr(4 downto 0);
-				
+		-------------------- output signals ---------------------		
+		CSYNC <= out_csync;
+		YPbPr0 <= out_ypbpr0;
+		YPbPr1 <= out_ypbpr1;				
 	end process;
 	
 end immediate;

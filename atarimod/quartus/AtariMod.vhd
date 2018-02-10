@@ -10,9 +10,6 @@ entity AtariMod is
 		Y: out std_logic_vector(5 downto 0);
 		Pb: out std_logic_vector(4 downto 0);
 		Pr: out std_logic_vector(4 downto 0);
-		
---		-- debug output
---		GPIO2: out std_logic_vector(4 downto 3);
 
 		-- sniffing GTIA pins comming inverted to the GPIO1
 		GPIO1: in std_logic_vector(20 downto 1)	
@@ -24,10 +21,10 @@ architecture immediate of AtariMod is
 
    component GTIA2YPbPr is
 	port (
-		-- digital YPbPr output
-		Y: out std_logic_vector(5 downto 0);
-		Pb: out std_logic_vector(4 downto 0);
-		Pr: out std_logic_vector(4 downto 0);
+		-- digital YPbPr output for two pixels at once
+		CSYNC:  out std_logic;                      -- sync signal
+		YPbPr0: out std_logic_vector(14 downto 0);	-- color for first half of the clock
+		YPbPr1: out std_logic_vector(14 downto 0); -- color for second half of the clock
 		
 		-- Connections to the real GTIAs pins 
 		CLK         : in std_logic;
@@ -40,10 +37,17 @@ architecture immediate of AtariMod is
 	);	
 	end component;
 	
+	signal CSYNC    : std_logic;
+	signal YPbPr0   : std_logic_vector(14 downto 0);
+	signal YPbPr1   : std_logic_vector(14 downto 0);
+
+	
 begin		
 	gtia: GTIA2YPbPr
 	port map (
-		Y, Pb, Pr,		
+		CSYNC,
+		YPbPr0,
+		YPbPr1,
 		NOT GPIO1(19),         -- CLK
 		NOT (
 		GPIO1(6 downto 6)      -- A4
@@ -69,12 +73,19 @@ begin
 		NOT GPIO1(20) 			  -- HALT
 	);	
 	
---	process (GPIO1) 
---	begin
---		GPIO2(3) <= NOT GPIO1(19);		   -- CLK
---		GPIO2(4) <= Y(5);	       	  
---	end process;
+	process (GPIO1,CSYNC,YPbPr0,YPbPr1) 
+	begin
+		Y(5) <= CSYNC;
+		if GPIO1(19)='0' then  
+			Y(4 downto 0) <= YPbPr0(14 downto 10);
+			Pb(4 downto 0) <= YPbPr0(9 downto 5);
+			Pr(4 downto 0) <= YPbPr0(4 downto 0);			
+		else
+			Y(4 downto 0) <= YPbPr1(14 downto 10);
+			Pb(4 downto 0) <= YPbPr1(9 downto 5);
+			Pr(4 downto 0) <= YPbPr1(4 downto 0);					
+		end if;			
+	end process;
 
 end immediate;
-
 
