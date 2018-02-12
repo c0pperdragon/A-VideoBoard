@@ -5,13 +5,14 @@ use ieee.std_logic_1164.all;
 -- Implement a GTIA emulation that sniffs all relevant
 -- input pins of the GTIA and emulates the internal 
 -- behaviour of the GTIA to finally create a YPbPr signal.
+-- Output is generated at every falling edge of the CLK
 
 entity GTIA2YPbPr is	
 	port (
 		-- digital YPbPr output for two pixels at once
 		CSYNC:  out std_logic;                      -- sync signal
-		YPbPr0: out std_logic_vector(14 downto 0);	-- color for first half of the clock
-		YPbPr1: out std_logic_vector(14 downto 0); -- color for second half of the clock
+		YPbPr0: out std_logic_vector(14 downto 0);  -- color for first half of the clock
+		YPbPr1: out std_logic_vector(14 downto 0);  -- color for second half of the clock
 		
 		-- Connections to the real GTIAs pins 
 		CLK         : in std_logic;
