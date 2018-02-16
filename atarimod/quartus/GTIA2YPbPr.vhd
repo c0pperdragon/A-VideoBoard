@@ -9,13 +9,16 @@ use ieee.std_logic_1164.all;
 
 entity GTIA2YPbPr is	
 	port (
-		-- digital YPbPr output for two pixels at once
-		CSYNC:  out std_logic;                      -- sync signal
-		YPbPr0: out std_logic_vector(14 downto 0);  -- color for first half of the clock
-		YPbPr1: out std_logic_vector(14 downto 0);  -- color for second half of the clock
+		-- standard definition YPbPr output
+		SDTV_Y:  out std_logic_vector(5 downto 0);	
+		SDTV_Pb: out std_logic_vector(4 downto 0); 
+		SDTV_Pr: out std_logic_vector(4 downto 0); 
+		
+		-- synchronous clock and phase of the atari clock cylce
+		CLK         : in std_logic;
+		PHASE       : in std_logic_vector(1 downto 0); 
 		
 		-- Connections to the real GTIAs pins 
-		CLK         : in std_logic;
 		A           : in std_logic_vector(4 downto 0);
 		D           : in std_logic_vector(7 downto 0);
 		AN          : in std_logic_vector(2 downto 0);
@@ -28,7 +31,7 @@ end entity;
 
 architecture immediate of GTIA2YPbPr is
 begin
-	process (CLK) 
+	process (CLK,PHASE) 
 
   	type T_ataripalette is array (0 to 255) of integer range 0 to 32767;
    constant ataripalette : T_ataripalette := (
@@ -112,19 +115,20 @@ begin
 	variable tmp_colorlines_res : std_logic_vector(8 downto 0);
 	variable tmp_bgcolor : std_logic_vector(7 downto 0);
 	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
-	variable tmp_color : std_logic_vector(7 downto 0);
-	variable tmp2_color : std_logic_vector(7 downto 0);
-	variable tmp_overridelum : std_logic_vector(1 downto 0) := "00";
 	variable tmp_odd : boolean;
-	variable tmp_ypbpr : std_logic_vector(15 downto 0);
 	variable tmp_x : integer range 0 to 255;
-	variable tmp_y : integer range 0 to 511;
-	
+	variable tmp_y : integer range 0 to 511;	
+	variable tmp_color : std_logic_vector(7 downto 0);	
+	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	
 	-- registered output 
-	variable out_csync : std_logic  := '0';
-	variable out_ypbpr0 : std_logic_vector(14 downto 0)  := "000000000000000";
-	variable out_ypbpr1 : std_logic_vector(14 downto 0)  := "000000000000000";
+	variable csync : std_logic := '1';
+	variable color : std_logic_vector(7 downto 0) := "00000000";
+	variable overridelum : std_logic_vector(1 downto 0) := "00";
+	
+	variable out_Y  : std_logic_vector(5 downto 0) := "000000";
+	variable out_Pb : std_logic_vector(4 downto 0) := "10000";
+	variable out_Pr : std_logic_vector(4 downto 0) := "10000";
 	
 	
 		-- test, if it is now necessary to increment player/missile pixel counter
@@ -142,9 +146,9 @@ begin
 
 	begin
 		--------------------- logic for antic input -------------------
-		if falling_edge(CLK) then
+		if rising_edge(CLK) and PHASE="10" then
 			-- default color lines to show no color at all (only black)
-			tmp_overridelum := "00";
+			overridelum := "00";
 			tmp_colorlines := "000000000";
 			tmp_bgcolor := COLBK & "0";
 			if PRIOR(7 downto 6)="11" then  -- single lum/16 hues mode makes background darkest
@@ -167,7 +171,7 @@ begin
 						tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
 					else
 						tmp_colorlines(6) := '1';
-						tmp_overridelum := command(1 downto 0);
+						overridelum := command(1 downto 0);
 					end if;
 				when "01"  =>   -- single hue, 16 luminances, imposed on background
 					tmp_colorlines(8) := '1';
@@ -360,33 +364,21 @@ begin
 			
 			-- simulate the 'wired or' that mixes together all bits of 
 			-- all selected color lines
-			tmp_color := "00000000";
+			color := "00000000";
 			-- constrain color generation to screen boundaries
 			if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
-				if tmp_colorlines_res(0)='1' then	tmp_color := tmp_color or (COLPM0 & "0"); end if;
-				if tmp_colorlines_res(1)='1' then	tmp_color := tmp_color or (COLPM1 & "0"); end if;
-				if tmp_colorlines_res(2)='1' then	tmp_color := tmp_color or (COLPM2 & "0"); end if;
-				if tmp_colorlines_res(3)='1' then   tmp_color := tmp_color or (COLPM3 & "0"); end if;
-				if tmp_colorlines_res(4)='1' then	tmp_color := tmp_color or (COLPF0 & "0"); end if;
-				if tmp_colorlines_res(5)='1' then	tmp_color := tmp_color or (COLPF1 & "0"); end if;
-				if tmp_colorlines_res(6)='1' then	tmp_color := tmp_color or (COLPF2 & "0"); end if;
-				if tmp_colorlines_res(7)='1' then	tmp_color := tmp_color or (COLPF3 & "0"); end if;
-				if tmp_colorlines_res(8)='1' then	tmp_color := tmp_color or tmp_bgcolor;    end if;
+				if tmp_colorlines_res(0)='1' then	color := color or (COLPM0 & "0"); end if;
+				if tmp_colorlines_res(1)='1' then	color := color or (COLPM1 & "0"); end if;
+				if tmp_colorlines_res(2)='1' then	color := color or (COLPM2 & "0"); end if;
+				if tmp_colorlines_res(3)='1' then   color := color or (COLPM3 & "0"); end if;
+				if tmp_colorlines_res(4)='1' then	color := color or (COLPF0 & "0"); end if;
+				if tmp_colorlines_res(5)='1' then	color := color or (COLPF1 & "0"); end if;
+				if tmp_colorlines_res(6)='1' then	color := color or (COLPF2 & "0"); end if;
+				if tmp_colorlines_res(7)='1' then	color := color or (COLPF3 & "0"); end if;
+				if tmp_colorlines_res(8)='1' then	color := color or tmp_bgcolor;    end if;
 			else
-				tmp_overridelum := "00";
+				overridelum := "00";
 			end if ;
-			
-			-- select output color value for both halves of the clock
-			tmp2_color := tmp_color;
-			if tmp_overridelum(0)='1' then
-				tmp2_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-			end if;
-			out_ypbpr0 := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp2_color))), 15));
-			tmp2_color := tmp_color;
-			if tmp_overridelum(1)='1' then
-				tmp2_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-			end if;
-			out_ypbpr1 := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp2_color))), 15));	
 			
 			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen centered) 	
 			tmp_x := hcounter + 1;
@@ -399,17 +391,17 @@ begin
 				tmp_y := tmp_y-312;
 			end if;
 			if (tmp_y=0 or tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- short syncs
-				out_csync := '0';
+				csync := '0';
 			elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then          -- vsyncs
-				out_csync := '0';
+				csync := '0';
 			elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                      -- one vsync, one short sync
-				out_csync := '0';
+				csync := '0';
 			elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then                -- short syncs
-				out_csync := '0';
+				csync := '0';
 			elsif (tmp_y>=8) and (tmp_x<16) then                                                         -- normal line syncs
-				out_csync := '0';
+				csync := '0';
 			else
-				out_csync := '1';
+				csync := '1';
 			end if;
 			
 			----- count horizontal and vertical pixels (vsync according to command)
@@ -433,8 +425,28 @@ begin
 		end if;
 		
 		
+		------------ select output color for both halves of the atari clock ---------
+		if rising_edge(CLK) and (PHASE="11" or PHASE="01") then
+			if csync='0' then
+				out_y := "000000";
+				out_pb := "10000";
+				out_pr := "10000";
+			else			
+				tmp_color := color;
+				if (PHASE="01" and overridelum(0)='1') or (PHASE="11" and overridelum(1)='1')  then
+					tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
+				end if;				
+				tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
+				out_y(5) := '1';
+				out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
+				out_pb := tmp_ypbpr(9 downto 5);
+				out_pr := tmp_ypbpr(4 downto 0);
+			end if;
+		end if;		
+		
+		
 		--------------------- logic for the cpu/data bus -------------------			
-		if rising_edge(CLK) then
+		if rising_edge(CLK) and PHASE="00" then
 			----- let CPU write to the registers (at second clock where rw is asserted) --
 			if (CS='0') and (RW='0') and (prevrw='0') then
 				case A is
@@ -513,10 +525,11 @@ begin
 		end if;
 		
 		
+		
 		-------------------- output signals ---------------------		
-		CSYNC <= out_csync;
-		YPbPr0 <= out_ypbpr0;
-		YPbPr1 <= out_ypbpr1;				
+		SDTV_Y <= out_y;
+		SDTV_Pb <= out_pb;
+		SDTV_Pr <= out_pr;				
 	end process;
 	
 end immediate;
