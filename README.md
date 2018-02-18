@@ -40,7 +40,9 @@ I has the following connectors:
 * GPIO1  20-pin header that directly connects to FPGA pins
 * GPIO2  10-pin header with two pins providing GND and +3.3V, the remaining 8 connect to the FPGA.
 * JTAG   10-pin header for programming the FPGA (via an USB-Blaster or compatible device)
-* 3 RCA sockets to output the video signal (normally YPbPr, but other formats could be produced as well)
+* 3 RCA sockets to output the video signal (normally YPbPr, but other formats could be produced as well).
+ Note that in the schematics these sockets are denoted as BNC, but are actually RCA connectors of type 
+ RCJ-046 (green), RCJ-042 (red), RCJ-045 (blue).
 
 ## Contact
 If you plan to use an A-Video board, feel free to contact me for assistance:

@@ -2,7 +2,7 @@
 <export version="D">
   <design>
     <source>C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/board/board.sch</source>
-    <date>05/02/2018 22:39:48</date>
+    <date>18/02/2018 12:00:35</date>
     <tool>Eeschema 4.0.4-stable</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -863,11 +863,11 @@
     <library logical="device">
       <uri>C:\Program Files\KiCad\share\kicad\library\device.lib</uri>
     </library>
-    <library logical="components">
-      <uri>C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\board\components.lib</uri>
-    </library>
     <library logical="conn">
       <uri>C:\Program Files\KiCad\share\kicad\library\conn.lib</uri>
+    </library>
+    <library logical="components">
+      <uri>C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\board\components.lib</uri>
     </library>
   </libraries>
   <nets>
