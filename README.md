@@ -34,9 +34,9 @@ The board has these main parts
 * THS7316:          video output amplifier)
 * R1-R19:           three 5-bit ADCs made from transistors)
 
-and various supporting passive components, mainly decoupling and pull-ups.
+and various supporting passive components, mainly decoupling, filtering and pull-ups.
 
-I has the following connectors:
+It has the following connectors:
 * GPIO1  20-pin header that directly connects to FPGA pins
 * GPIO2  10-pin header with two pins providing GND and +3.3V, the remaining 8 connect to the FPGA.
 * JTAG   10-pin header for programming the FPGA (via an USB-Blaster or compatible device)
@@ -48,4 +48,4 @@ I has the following connectors:
 If you plan to use an A-Video board, feel free to contact me for assistance:
 reinhard.grafl (at) aon.at  
 Maybe I will either have some spare PCBs I could send you to populate yourself,
-or even provide you will a fully assembled board for the cost of the parts and shipping. 
+or even provide you with a fully assembled board for the cost of the parts and shipping. 
