@@ -43,7 +43,8 @@ It has the following connectors:
 * 3 RCA sockets to output the video signal (normally YPbPr, but other formats could be produced as well).
  Note that in the schematics these sockets are denoted as BNC, but are actually RCA connectors of type 
  RCJ-046 (green), RCJ-042 (red), RCJ-045 (blue).
-
+* GND, VIN  Provide between 4.5V and 9V as supply voltage. The board consumes about 80mA.
+ 
 ## Contact
 If you plan to use an A-Video board, feel free to contact me for assistance:
 reinhard.grafl (at) aon.at  
