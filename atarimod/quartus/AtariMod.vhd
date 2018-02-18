@@ -8,7 +8,6 @@ entity AtariMod is
 	port (
 		-- reference clock
 		CLK25:  in std_logic;
-		TEST : out std_logic_vector(3 downto 0); 
 
 		-- digital YPbPr output
 		Y: out std_logic_vector(5 downto 0);
@@ -16,37 +15,48 @@ entity AtariMod is
 		Pr: out std_logic_vector(4 downto 0);
 
 		-- sniffing GTIA pins comming inverted to the GPIO1
-		GPIO1: in std_logic_vector(20 downto 1)	
+		GPIO1: in std_logic_vector(20 downto 1);	
+		
+		-- read jumper settings (and provide a GND for jumpers)
+		GPIO2_10: out std_logic;
+		GPIO2_9: in std_logic;
+		GPIO2_8: in std_logic
 	);	
 end entity;
 
 
 architecture immediate of AtariMod is
-	-- various clocks
-	signal CLK     : std_logic;   -- synchronous clock for most of the circuit
+	-- synchronous clock for most of the circuit
+	signal CLK     : std_logic;   
 	signal PHASE   : std_logic_vector(1 downto 0);
-	signal CLK228  : std_logic;	-- highspeed clock to generate synch clock from
+	
+	-- high-speed clock to generate synchronous clock from. this is done
+	-- with two coupled signals that are 90 degree phase shifted to give
+	-- 4 usable edges with at total frequency of 3,546895 x 64 x 4 Mhz	
+	signal CLK227A  : std_logic;
+	signal CLK227B : std_logic;
+	
 	-- SDTV signals
 	signal SDTV_Y   : std_logic_vector(5 downto 0);
 	signal SDTV_Pb  : std_logic_vector(4 downto 0);
 	signal SDTV_Pr  : std_logic_vector(4 downto 0);
-	-- EDTV signals
---	signal EDTV_CSYNC : std_logic;
---	signal EDTV_YPbPr : std_logic_vector(14 downto 0);	
---	-- signals from the SDTV to the EDTV
---	signal linetrigger : std_logic_vector (5 downto 0);
---	-- video memory control
---	signal vramrdaddress : std_logic_vector (8 downto 0);
---	signal vramwraddress : std_logic_vector (8 downto 0);
---	signal vramq         : std_logic_vector (29 downto 0);
+
+	-- video memory control
+	signal vramrdaddress0 : std_logic_vector (9 downto 0);
+	signal vramrdaddress1 : std_logic_vector (9 downto 0);
+	signal vramwraddress : std_logic_vector (9 downto 0);
+	signal vramq0        : std_logic_vector (14 downto 0);
+	signal vramq1        : std_logic_vector (14 downto 0);
 	
-   component PLL228 is
+   component PLL227 is
 	PORT
 	(
 		inclk0		: IN STD_LOGIC  := '0';
-		c0		      : OUT STD_LOGIC 
+		c0		      : OUT STD_LOGIC; 
+		c1		      : OUT STD_LOGIC 
 	);
 	end component;
+	
 	
    component GTIA2YPbPr is
 	port (
@@ -69,11 +79,20 @@ architecture immediate of AtariMod is
 	);	
 	end component;
 
+	component VideoRAM is
+	port (
+		clock		: IN STD_LOGIC  := '1';
+		data		: IN STD_LOGIC_VECTOR (14 DOWNTO 0);
+		rdaddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+		wraddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+		wren		: IN STD_LOGIC  := '0';
+		q		: OUT STD_LOGIC_VECTOR (14 DOWNTO 0)
+	);
+	end component;
 	
 	
 begin		
-	-- building blocks
-	fastpll: PLL228 port map ( CLK25, CLK228 );
+	subdividerpll: PLL227 port map ( CLK25, CLK227A, CLK227B );
 	
 	gtia: GTIA2YPbPr port map (
 		SDTV_Y,
@@ -104,37 +123,46 @@ begin
 		NOT GPIO1(18),         -- CS
 		NOT GPIO1(20) 			  -- HALT
 	);	
---	vram: VideoRAM port map (
---		YPbPr0 & YPbPr1,
---		vramrdaddress,
---		CLK25, -- CLK108,
---		vramwraddress,
---		CLKATARI,
---		'1',
---		vramq		
---	);
+
+	vram0: VideoRAM port map (
+		CLK,
+		SDTV_Y(4 downto 0) & SDTV_Pb & SDTV_Pr,
+		vramrdaddress0,
+		vramwraddress,
+		'1',
+		vramq0		
+	);
+	vram1: VideoRAM port map (
+		CLK,
+		SDTV_Y(4 downto 0) & SDTV_Pb & SDTV_Pr,
+		vramrdaddress1,
+		vramwraddress,
+		'1',
+		vramq1
+	);
 	
 	
-	-- create a 4x atari clock to drive the rest of the circuit	
-	process (GPIO1, CLK228)
+	------------ create a 4x atari clock to drive the rest of the circuit	-----------------
+	process (GPIO1, CLK227A, CLK227B)
 		variable counter0 : integer range 0 to 63 := 0;
 		variable in0_invclk : std_logic := '0'; -- inverted atari clock
 		variable counter1 : integer range 0 to 63 := 0;
 		variable in1_invclk : std_logic := '0'; -- inverted atari clock		
+		variable counter2 : integer range 0 to 63 := 0;
+		variable in2_invclk : std_logic := '0'; -- inverted atari clock		
+		variable counter3 : integer range 0 to 63 := 0;
+		variable in3_invclk : std_logic := '0'; -- inverted atari clock		
 		
 		variable out_phase : std_logic_vector(1 downto 0);
 
-		variable bits0 : std_logic_vector(5 downto 0);
-		variable bits1 : std_logic_vector(5 downto 0);	
-		variable tmp : integer range 0 to 63;
+		variable bits : std_logic_vector(5 downto 0);
 	begin
 		-- Sample the atari clock on the falling and on the rising edge
-		-- of the highspeed clock. This should add only 2.3ns of jitter.
-		if rising_edge(CLK228) then
-			-- compute the clock phase (with huge setup-time)
-			tmp := counter0+6;
-			bits0 := std_logic_vector(to_unsigned(tmp,6));
-			out_phase := bits0(5 downto 4);
+		-- of the coupled clocks. This should add only 1.2ns of jitter.
+		if rising_edge(CLK227A) then
+			-- compute the atari clock phase (with huge setup-time)
+			bits := std_logic_vector(to_unsigned(counter0+6,6));
+			out_phase := bits(5 downto 4);
 			
 			if (counter0/8) /= 0 then
 				counter0 := counter0+1;
@@ -143,7 +171,7 @@ begin
 			end if;						
 			in0_invclk := GPIO1(19);
 		end if;
-		if falling_edge(CLK228) then
+		if rising_edge(CLK227B) then
 			if (counter1/8) /= 0 then
 				counter1 := counter1+1;
 			elsif in1_invclk='0' then
@@ -151,154 +179,129 @@ begin
 			end if;						
 			in1_invclk := GPIO1(19);
 		end if;
+		if falling_edge(CLK227A) then
+			if (counter2/8) /= 0 then
+				counter2 := counter2+1;
+			elsif in2_invclk='0' then
+				counter2 := 8;
+			end if;						
+			in2_invclk := GPIO1(19);
+		end if;
+		if falling_edge(CLK227B) then
+			if (counter3/8) /= 0 then
+				counter3 := counter3+1;
+			elsif in3_invclk='0' then
+				counter3 := 8;
+			end if;						
+			in3_invclk := GPIO1(19);
+		end if;
 		
-      -- merge both clock counters asynchronously
-		bits0:= std_logic_vector(to_unsigned(counter0,6));
-		bits1:= std_logic_vector(to_unsigned(counter1,6));
-		CLK <= bits0(3) or bits1(3);		
+      -- merge clock counters asynchronously
+		bits:= std_logic_vector
+		(	   to_unsigned(counter0,6) or to_unsigned(counter1,6) 
+		   or to_unsigned(counter2,6) or to_unsigned(counter3,6)
+		);
+		CLK <= bits(3);
 		PHASE <= out_phase;
 
-		TEST(0) <= not GPIO1(19);	-- true atari clock
-		TEST(1) <= bits0(3) or bits1(3);			
-		TEST(3 downto 2) <= out_phase;     
+--		TEST(0) <= not GPIO1(19);	-- true atari clock
+--		TEST(1) <= bits(3);
+--		TEST(3 downto 2) <= out_phase;     
 	end process;
 	
 	
-	-- select the correct signal to send to the output 
-	process (SDTV_Y,SDTV_Pb,SDTV_Pr) -- ,EDTV_CSYNC,EDTV_YPbPr) 
-	begin
-		-- use SDTV
-		Y  <= SDTV_Y;
-		Pb <= SDTV_Pb;
-		Pr <= SDTV_Pr;
+	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
+	process (CLK,GPIO2_8,GPIO2_9) 
+		variable hcnt : integer range 0 to 1023 := 0;
+		variable vcnt : integer range 0 to 511 := 0;
+		variable shortsyncs : integer range 0 to 3 := 0;
 		
---		-- use EDTV
---		Y(5) <= EDTV_CSYNC;
---		Y(4 downto 0) <= EDTV_YPbPr(14 downto 10);
---		Pb(4 downto 0) <= EDTV_YPbPr(9 downto 5);
---		Pr(4 downto 0) <= EDTV_YPbPr(4 downto 0);					
+		variable val0 : integer range 0 to 63;
+		variable val1 : integer range 0 to 63;
+		variable uselowres : std_logic; 
+		variable usenoscanlines : std_logic;
+	begin
+		-- handle jumper configuration
+		GPIO2_10 <= '0';    -- provide GND ond pin 10
+		uselowres := not GPIO2_8;
+		usenoscanlines := not GPIO2_9;
+	
+		if rising_edge(CLK) then
+		
+			-- generate EDTV output signal (with syncs and all)
+			if vcnt<3 then			  -- 6 EDTV lines with sync	
+				Y <= "100000";
+				Pb <= "10000";
+				Pr <= "10000";
+				if hcnt<144*4-33 or (hcnt>=114*4 and hcnt<228*4-33) then  -- two EDTV vsyncs
+					Y(5) <= '0';
+				end if;
+			else
+				-- get color from buffer
+				Y <= "1" & vramq0(14 downto 10);
+				Pb <= vramq0(9 downto 5);
+				Pr <= vramq0(4 downto 0);
+				 -- construct scanline darkening from both adjacent lines
+				if hcnt>=2*228 and usenoscanlines='0' then  
+					val0 := to_integer(unsigned(vramq0(14 downto 10)));
+					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
+					Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
+					val0 := to_integer(unsigned(vramq0(9 downto 5)));
+					val1 := to_integer(unsigned(vramq1(9 downto 5)));										
+					Pb <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+					val0 := to_integer(unsigned(vramq0(4 downto 0)));
+					val1 := to_integer(unsigned(vramq1(4 downto 0)));										
+					Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+				end if;				
+				-- two normal EDTV line syncs
+				if hcnt<33 or (hcnt>=114*4 and hcnt<114*4+33) then  
+					Y(5) <= '0';
+				end if;
+			end if;
+			
+			-- look for short sync pulses at start of line (to know when next frame starts)
+			if hcnt=48 then   -- here only on a short sync line, the sync is already off
+				if SDTV_Y(5)='1' and shortsyncs<3 then
+					shortsyncs := shortsyncs+1;
+				else
+					shortsyncs := 0;
+				end if;
+			end if;
+			
+			-- progress counters and detect sync
+			if SDTV_Y(5)='0' and hcnt>4*220 then
+				hcnt := 0;
+				if shortsyncs=3 then 
+					vcnt := 0;
+				elsif vcnt<511 then
+					vcnt := vcnt+1;
+				end if;
+			elsif hcnt<1023 then
+				hcnt := hcnt+1;
+			end if;
+	
+	
+			-- if selected, fall back to plain SDTV
+			if uselowres='1' then
+				Y  <= SDTV_Y;
+				Pb <= SDTV_Pb;
+				Pr <= SDTV_Pr;
+			end if;
+		end if;
+		
+		-- compute VideoRAM write position (write in buffer one line ahead)
+		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 - 2 + ((vcnt+1) mod 2)*512, 10));
+		-- compute VideoRAM read positions to fetch two adjacent lines
+		if hcnt<228*2 then
+			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt + (vcnt mod 2)*512, 10));
+			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt + ((vcnt+1) mod 2)*512, 10));
+		else
+			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt-228*2 + (vcnt mod 2)*512, 10));
+			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-228*2 + ((vcnt+1) mod 2)*512, 10));
+		end if;
+		
 	end process;
 	
---	-- collect the SDTV YPbr signal into the buffer
---	process (CLKATARI)
---		variable hcounter : integer range 0 to 255 := 0;
---		variable vcounter : integer range 0 to 511 := 0;
---		variable numshortsyncs : integer range 0 to 7 := 0;
---		variable out_linetrigger : std_logic_vector(5 downto 0) := "000000";
---	begin
---		if rising_edge(CLKATARI) then
---		   -- trigger the start of EDTV line output
---			out_linetrigger := "000000";
---			if vcounter<2 then 							 
---				if hcounter=0 then
---					out_linetrigger := "010000";		 -- vsync
---				elsif hcounter=114 then
---					out_linetrigger := "100000";      -- vsync
---				end if;
---			elsif vcounter=2 then                   -- vsync and then normal line (black)
---				if hcounter=0 then
---					out_linetrigger := "010000";
---				elsif hcounter=114 then
---					out_linetrigger := "000100";
---				end if;				
---			elsif vcounter mod 2 = 1 then 
---				if hcounter=0 then
---					out_linetrigger := "000001";
---				elsif hcounter=114 then
---					out_linetrigger := "000010";
---				end if;			
---			else
---				if hcounter=0 then
---					out_linetrigger := "000100";
---				elsif hcounter=114 then
---					out_linetrigger := "001000";				
---				end if;
---			end if;
---						
---			-- detect start of lines and progress counters
---			if CSYNC='0' and hcounter>224 then
---				hcounter := 0;
---				if numshortsyncs>=3 then
---					vcounter := 0;
---				elsif vcounter < 511 then
---					vcounter := vcounter+1;
---				end if;
---			elsif hcounter<255 then
---				-- count short syncs - will detect framestart early
---				if hcounter=10 then
---					if CSYNC='1' then
---						numshortsyncs := numshortsyncs+1;
---					else
---						numshortsyncs := 0;
---					end if;
---				end if;	
---				hcounter := hcounter+1;
---			end if;
---		
---		end if;
---		-- compute the address where to write the data
---		vramwraddress <= std_logic_vector(to_unsigned(hcounter + (vcounter mod 2)*256, 9));		
---		-- send line start trigger to EDVT output generator
---		linetrigger <= out_linetrigger;
---		
---	end process;
-	
---	-- generate the EDTV YPbPr signal from the buffer
---	process (CLK108)
---		variable x : integer range 0 to 4095 := 0;
---		variable activeline: std_logic_vector(5 downto 0) := "000000";	
---		variable in_linetrigger: std_logic_vector(5 downto 0) := "000000";
---		
---		variable out_csync: std_logic := '1';
---		variable out_ypbpr: std_logic_vector(14 downto 0);
---		
---	begin
---		if rising_edge(CLK108) then
---			-- create the output signal
---			out_csync := '1';
---			out_ypbpr := "000001000010000";
---			if activeline(4)='1' or activeline(5)='1' then
---				if x<4*(864-63) then 
---					out_csync := '0';
---				end if;
---			else
---				if x<4*63 then
---					out_csync := '0';
---				else
---					if (x/8) mod 2 = 0 then
---						out_ypbpr := vramq(14 downto 0);
---					else
---						out_ypbpr := vramq(29 downto 15);
---					end if;
---				end if;
---			end if;
---					
---			-- progress position
---			if x<4095 then 
---				x:=x+1;
---			end if;
---		
---			-- check if line trigger happened and start line output
---			if in_linetrigger/="000000" and activeline/=in_linetrigger then
---				activeline := in_linetrigger;
---				x := 0;
---			end if;		
---			in_linetrigger := linetrigger;			
---		end if;
---		
---		-- request propper data from vram for next clock
---		if activeline(1)='1' or activeline(0)='1' then
---			vramrdaddress <= std_logic_vector(to_unsigned((x+2)/16 + 4, 9));
---		else
---			vramrdaddress <= std_logic_vector(to_unsigned((x+2)/16 + 4 + 256, 9));
---		end if;
---		
---		EDTV_CSYNC <= out_csync;
---		EDTV_YPbPr <= out_ypbpr;
---		
---		TEST(2) <= '0';
---		TEST(3) <= out_csync;
---	end process;
 
 end immediate;
 

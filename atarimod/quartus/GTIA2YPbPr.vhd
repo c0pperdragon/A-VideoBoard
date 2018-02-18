@@ -54,7 +54,7 @@ begin
     );	
 	
 	-- visible screen area
-	constant topedge    : integer := 42;
+	constant topedge    : integer := 45;
 	constant bottomedge : integer := 282;
 	constant leftedge   : integer := 41; 
 	constant rightedge  : integer := 217;
