@@ -28,11 +28,11 @@ Currently I have built applications of the A-Video board for
 
 The board has these main parts
 
-* 10M02SCE144: fairly cheap FPGA of the MAX10 series)
-* LM1117IMPX-3.3:   linear voltage regulator)
-* LFSPX0024957:     25Mhz clock generator)
-* THS7316:          video output amplifier)
-* R1-R19:           three 5-bit ADCs made from transistors)
+* 10M02SCE144: fairly cheap FPGA of the MAX10 series
+* LM1117IMPX-3.3:   linear voltage regulator
+* LFSPX0024957:     25Mhz clock generator
+* THS7316:          video output amplifier
+* R1-R19:           three 5-bit DACs made from transistors
 
 and various supporting passive components, mainly decoupling, filtering and pull-ups.
 

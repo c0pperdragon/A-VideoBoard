@@ -85,14 +85,11 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to D[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to D[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to D
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to WR
-set_global_assignment -name VHDL_FILE ZXVideoRAM.vhd
 set_global_assignment -name CDF_FILE Run.cdf
 set_global_assignment -name CDF_FILE Program.cdf
 set_global_assignment -name SDC_FILE zxspectrum.sdc
 set_global_assignment -name VHDL_FILE ULA2YPbPr.vhd
-set_global_assignment -name VHDL_FILE PLL112.vhd
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to IOREQ
-set_global_assignment -name QIP_FILE PLL112_224.qip
 set_location_assignment PIN_98 -to D[7]
 set_location_assignment PIN_92 -to D[6]
 set_location_assignment PIN_88 -to D[5]
@@ -121,4 +118,20 @@ set_location_assignment PIN_65 -to Pr[3]
 set_location_assignment PIN_67 -to Pr[2]
 set_location_assignment PIN_69 -to Pr[1]
 set_location_assignment PIN_70 -to Pr[0]
+set_location_assignment PIN_40 -to GPIO2_4
+set_location_assignment PIN_33 -to GPIO2_6
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_4
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_6
+set_location_assignment PIN_31 -to GPIO2_8
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_8
+set_global_assignment -name QIP_FILE PLL4PHASES.qip
+set_global_assignment -name QIP_FILE ZXVideoRAM.qip
+set_location_assignment PIN_103 -to GPIO1_18
+set_location_assignment PIN_105 -to GPIO1_19
+set_location_assignment PIN_106 -to GPIO1_20
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_20
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_19
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_18
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_19
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_18
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
