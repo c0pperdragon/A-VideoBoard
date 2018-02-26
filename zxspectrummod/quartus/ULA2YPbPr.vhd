@@ -21,9 +21,9 @@ entity ULA2YPbPr is
 		GPIO2_4: out std_logic;
 		GPIO2_6: out std_logic;
 		GPIO2_8: out std_logic;
-		GPIO1_18: in std_logic;
-		GPIO1_19: in std_logic;
-		GPIO1_20: out std_logic
+		GPIO1_15: in std_logic;
+		GPIO1_17: out std_logic;
+		GPIO1_18: in std_logic
 	);	
 end entity;
 
@@ -303,7 +303,7 @@ begin
 	
 	------------------- generate the YPbPr signal from the video ram image -----------------
 	-- while image generation is running, fine-tune the clock to match the incomming image frequency
-	process (CLK14,inframetrigger,GPIO1_18,GPIO1_19)
+	process (CLK14,inframetrigger,GPIO1_15,GPIO1_18)
 
 		constant sync:   integer := 0 + 16*32 + 16;
 		type T_zxpalette is array (0 to 15) of integer range 0 to 65535;
@@ -340,19 +340,22 @@ begin
 		variable f2: std_logic := '0';
 	
 		variable tmp_col:std_logic_vector(15 downto 0);
+		variable tmp_col1:std_logic_vector(15 downto 0);
+		variable tmp_ypbpr1: integer range 0 to 65535 := 0;		
 		variable outofsync : integer range -1048576 to 1048575;		
 	
 		variable uselowres : std_logic; 
-		variable usenoscanlines : std_logic;	
+		variable usescanlines : std_logic;	
 	begin
-		GPIO1_20 <= '0';    -- provide GND on pin 20
-		uselowres := not GPIO1_18;
-		usenoscanlines := not GPIO1_19;
+		GPIO1_17 <= '0';    -- provide GND on pin 17
+		uselowres := not GPIO1_15;
+		usescanlines := not GPIO1_18;
 
 		
 		if rising_edge(CLK14) then
 			-- idle black
 			out_ypbpr := zxpalette(0);
+			tmp_ypbpr1 := zxpalette(0);
 			
 			-- generate video signal for low-res mode
 			if uselowres='1' then  
@@ -402,7 +405,7 @@ begin
 				out_rdaddress1 := ((cy+1-vstart) mod 4)*32 + (cx+3-hstart) / 8;
 			end if;
 			
-			-- compute image
+			-- compute image (with border)
 			if cx>=hstart and cx<hstart+256 and cy>=vstart and cy<vstart+vheight then
 				px := (cx-hstart) mod 8;				
 				foreground := to_integer(unsigned(vram_q0(10 downto 8)));
@@ -411,19 +414,53 @@ begin
 				if vram_q0(15)='1' and frame>=16 then
 					foreground := to_integer(unsigned(vram_q0(13 downto 11)));
 					background := to_integer(unsigned(vram_q0(10 downto 8)));
-				end if;
-					
+				end if;					
 				if vram_q0(7-px)='1' then
 					out_ypbpr := zxpalette(foreground+bright*8);
 				else
 					out_ypbpr := zxpalette(background+bright*8);
 				end if;				
-				
-			-- apply border color
 			elsif cx>=hstart-borderthickness and cx<hstart+256+borderthickness 
 			  and cy>=vstart-borderthickness and cy<vstart+vheight+borderthickness then
 				out_ypbpr := zxpalette(to_integer(unsigned(BORDER)));
 			end if;				
+			
+			-- combine output with second scanline to give a darker in-between line
+			if uselowres='0' and usescanlines='1' and (cxhi>=w) then
+				-- compute image of second line (with border)
+				if cx>=hstart and cx<hstart+256 and (cy+1)>=vstart and (cy+1)<vstart+vheight then
+					px := (cx-hstart) mod 8;				
+					foreground := to_integer(unsigned(vram_q1(10 downto 8)));
+					background := to_integer(unsigned(vram_q1(13 downto 11)));
+					bright := to_integer(unsigned(vram_q0(14 downto 14)));
+					if vram_q1(15)='1' and frame>=16 then
+						foreground := to_integer(unsigned(vram_q1(13 downto 11)));
+						background := to_integer(unsigned(vram_q1(10 downto 8)));
+					end if;					
+					if vram_q1(7-px)='1' then
+						tmp_ypbpr1 := zxpalette(foreground+bright*8);
+					else
+						tmp_ypbpr1 := zxpalette(background+bright*8);
+					end if;				
+				elsif cx>=hstart-borderthickness and cx<hstart+256+borderthickness 
+				  and cy+1>=vstart-borderthickness and cy+1<vstart+vheight+borderthickness then
+					tmp_ypbpr1 := zxpalette(to_integer(unsigned(BORDER)));
+				end if;				
+				-- do combination by using half average
+				tmp_col := std_logic_vector(to_unsigned(out_ypbpr, 16));
+				if tmp_col(15) = '1' then
+					tmp_col(14 downto 10) := std_logic_vector(to_unsigned(
+						(((out_ypbpr/1024) mod 32) + ((tmp_ypbpr1/1024) mod 32))/4
+					, 5));
+					tmp_col(9 downto 5)   := std_logic_vector(to_unsigned(
+						(((out_ypbpr/32) mod 32) + ((tmp_ypbpr1/32) mod 32))/4 + 8
+					, 5));
+					tmp_col(4 downto 0)   := std_logic_vector(to_unsigned(
+						((out_ypbpr mod 32) + (tmp_ypbpr1 mod 32))/4 + 8
+					, 5));
+					out_ypbpr := to_integer(unsigned(tmp_col));
+				end if;
+			end if;
 			
 										
 			-- detect input screen start or half screen end and bring output to sync

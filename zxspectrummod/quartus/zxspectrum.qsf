@@ -127,11 +127,12 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_8
 set_global_assignment -name QIP_FILE PLL4PHASES.qip
 set_global_assignment -name QIP_FILE ZXVideoRAM.qip
 set_location_assignment PIN_103 -to GPIO1_18
-set_location_assignment PIN_105 -to GPIO1_19
-set_location_assignment PIN_106 -to GPIO1_20
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_20
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_19
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_18
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_19
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_18
+set_location_assignment PIN_99 -to GPIO1_15
+set_location_assignment PIN_101 -to GPIO1_17
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_15
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1_17
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_15
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO1_17
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
