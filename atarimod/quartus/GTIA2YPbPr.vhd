@@ -56,7 +56,7 @@ begin
 	-- visible screen area
 	constant topedge    : integer := 45;
 	constant bottomedge : integer := 282;
-	constant leftedge   : integer := 41; 
+	constant leftedge   : integer := 45; 
 	constant rightedge  : integer := 217;
 	
 	-- registers of the GTIA
@@ -112,7 +112,10 @@ begin
 	
 	-- temporary variables
 	variable tmp_colorlines : std_logic_vector(8 downto 0);
-	variable tmp_colorlines_res : std_logic_vector(8 downto 0);
+	variable tmp_colorlines_res0 : std_logic_vector(8 downto 0);
+	variable tmp_colorlines_res1 : std_logic_vector(8 downto 0);
+	variable tmp_colorlines_res2 : std_logic_vector(8 downto 0);
+	variable tmp_colorlines_res3 : std_logic_vector(8 downto 0);
 	variable tmp_bgcolor : std_logic_vector(7 downto 0);
 	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
 	variable tmp_odd : boolean;
@@ -150,17 +153,27 @@ begin
 			-- default color lines to show no color at all (only black)
 			overridelum := "00";
 			tmp_colorlines := "000000000";
-			tmp_bgcolor := COLBK & "0";
-			if PRIOR(7 downto 6)="11" then  -- single lum/16 hues mode makes background darkest
-				tmp_bgcolor(3 downto 1) := "000";
-			end if;
-			
+						
 			-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
 			if (hcounter mod 2) = 1 then
 				tmp_4bitvalue := command(1 downto 0) & AN(1 downto 0);
 			else 
 				tmp_4bitvalue := prevcommand(1 downto 0) & command(1 downto 0);
 			end if;
+			
+			-- chose proper background color for special color interpretation modes
+			case PRIOR(7 downto 6) is
+			when "00" =>    -- standard background color
+				tmp_bgcolor := COLBK & "0";
+			when "01"  =>   -- single hue, 16 luminances
+				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4);
+				tmp_bgcolor(3 downto 0) := tmp_4bitvalue;
+			when "10" =>   -- indexed color look up 
+				tmp_bgcolor := COLPM0 & "0";
+			when "11" =>   -- 16 hues, single luminance
+				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
+				tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
+			end case;
 
 			----- process previously read antic command ---
 			if command(2) = '1' then	 -- playfield command
@@ -171,12 +184,10 @@ begin
 						tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
 					else
 						tmp_colorlines(6) := '1';
-						overridelum := command(1 downto 0);
+						overridelum := command(1 downto 0);				
 					end if;
 				when "01"  =>   -- single hue, 16 luminances, imposed on background
 					tmp_colorlines(8) := '1';
-					tmp_bgcolor(3 downto 1) := COLBK(3 downto 1) or tmp_4bitvalue(3 downto 1);
-					tmp_bgcolor(0) := tmp_4bitvalue(0);
 				when "10" =>   -- indexed color look up 
 					case tmp_4bitvalue is
 					when "0000" => tmp_colorlines(0) := '1';
@@ -198,8 +209,6 @@ begin
 					end case;
 				when "11"  =>   -- 16 hues, single luminance, imposed on background
 					tmp_colorlines(8) := '1';
-					tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
-					tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
 				end case;
 			elsif command(1) = '1' then  -- blank command (setting/clearing highres)
 				highres := command(0);
@@ -207,14 +216,6 @@ begin
 			   -- has no effect here, will influence pixel counter 
 			else                          -- background color
 				tmp_colorlines(8) := '1';
-				case PRIOR(7 downto 6) is
-				when "00" =>    -- standard background color
-				when "01"  =>   -- single hue, 16 luminances
-				when "10" =>   -- indexed color look up 
-					tmp_bgcolor := COLPM0 & "0";
-				when "11" =>   -- 16 hues, single luminance
-				tmp_bgcolor(3 downto 0) := "0000"; 	-- force luminance to 0
-				end case;
 			end if;
 
 	      -- determine which part of players and missiles are visible
@@ -302,90 +303,80 @@ begin
 			end if;
 			
 					
-		   -- apply priorities by suppressing correct color lines
+		   -- apply priorities by suppressing specific color lines
 
-			-- everything else cancels background
+			-- everything else cancels background immediately
 			if tmp_colorlines(7 downto 0) /= "00000000" then
 				tmp_colorlines(8) := '0';
 			end if;
-			-- normally every PM cancels PM with higher index
-			if PRIOR(5)='0' then
-				if tmp_colorlines(0)='1' then
-					tmp_colorlines(3 downto 1) := "000";
-				elsif tmp_colorlines(1)='1' then
-					tmp_colorlines(3 downto 2) := "00";			
-				elsif tmp_colorlines(2)='1' then
-					tmp_colorlines(3) := '0';			
-				end if;
-			-- in player multicolor mode, PM0/PM1 and PM2/PM3 each can coexist
-			else 
-				if tmp_colorlines(0)='1' or tmp_colorlines(1)='1' then
-					tmp_colorlines(3 downto 2) := "00";
-				end if;
-			end if;
-			-- normally playfield color lines can not be concurrently visible,
-			-- but when 5th player is present, it cancels other colors
-			if tmp_colorlines(7)='1' then
-				tmp_colorlines(6 downto 4) := "000";
-			end if;
 			
-			-- apply cancelation according to priority bits
-			tmp_colorlines_res := tmp_colorlines;
-			if PRIOR(0)='1' then
-				-- PM cancels playfield
-				if tmp_colorlines(3 downto 0) /= "0000" then
-					tmp_colorlines_res(7 downto 4) := "0000";
-				end if;
+			-- apply cancelation according to priority bits (works in parallel)
+			tmp_colorlines_res0 := tmp_colorlines;
+			if PRIOR(0)='1' then 
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(3 downto 2) := "00"; end if;
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
+				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
+				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(7 downto 6) := "00"; end if;
 			end if;
+			tmp_colorlines_res1 := tmp_colorlines;
 			if PRIOR(1)='1' then 
-				-- PM0/PM1 cancel playfield,  playfield cancels PM2/PM3
-				if tmp_colorlines(1 downto 0) /= "00" then
-					tmp_colorlines_res(7 downto 4) := "0000";
-				end if;
-				if tmp_colorlines(7 downto 4) /= "0000" then
-					tmp_colorlines_res(3 downto 2) := "00";
-				end if;
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(5 downto 4) := "00"; end if;
+				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
 			end if;
+			tmp_colorlines_res2 := tmp_colorlines;
 			if PRIOR(2)='1' then 
-				-- playfield cancels PM
-				if tmp_colorlines(7 downto 4) /= "0000" then
-					tmp_colorlines_res(3 downto 0) := "0000";
-				end if;			
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
+				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
+				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
+				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
 			end if;
+			tmp_colorlines_res3 := tmp_colorlines;
 			if PRIOR(3)='1' then 
-				-- playfield 0/1 cancels PM, PM cancels playfield 2/3
-				if tmp_colorlines(5 downto 4) /= "00" then
-					tmp_colorlines_res(3 downto 0) := "0000";
-				end if;			
-				if tmp_colorlines(3 downto 0) /= "0000" then
-					tmp_colorlines_res(7 downto 6) := "00";
-				end if;			
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res3(3 downto 2) := "00"; end if;
+				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
+				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(1 downto 0) := "00"; end if;
+			end if; 			
+			tmp_colorlines := tmp_colorlines_res0 and tmp_colorlines_res1 and tmp_colorlines_res2 and tmp_colorlines_res3;
+			
+			-- apply final cancelation to the "surviving" color lines
+			if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
+			if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(7 downto 6) := "00"; end if;
+			if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
+			if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines(5 downto 4) := "00"; end if;
+			-- only one playfield color will be shown
+			if tmp_colorlines(6)/='0' then tmp_colorlines(7) := '0'; end if;
+			if tmp_colorlines(4)/='0' then tmp_colorlines(5) := '0'; end if;
+			if PRIOR(5)='0' then  -- no multicolor players allowed
+				if tmp_colorlines(0)/='0' then tmp_colorlines(1) := '0'; end if;
+				if tmp_colorlines(2)/='0' then tmp_colorlines(3) := '0'; end if;
 			end if;
 			
 			-- simulate the 'wired or' that mixes together all bits of 
-			-- all selected color lines
+			-- all still selected color lines
 			color := "00000000";
 			-- constrain color generation to screen boundaries
 			if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
-				if tmp_colorlines_res(0)='1' then	color := color or (COLPM0 & "0"); end if;
-				if tmp_colorlines_res(1)='1' then	color := color or (COLPM1 & "0"); end if;
-				if tmp_colorlines_res(2)='1' then	color := color or (COLPM2 & "0"); end if;
-				if tmp_colorlines_res(3)='1' then   color := color or (COLPM3 & "0"); end if;
-				if tmp_colorlines_res(4)='1' then	color := color or (COLPF0 & "0"); end if;
-				if tmp_colorlines_res(5)='1' then	color := color or (COLPF1 & "0"); end if;
-				if tmp_colorlines_res(6)='1' then	color := color or (COLPF2 & "0"); end if;
-				if tmp_colorlines_res(7)='1' then	color := color or (COLPF3 & "0"); end if;
-				if tmp_colorlines_res(8)='1' then	color := color or tmp_bgcolor;    end if;
+				if tmp_colorlines(0)='1' then	color := color or (COLPM0 & "0"); end if;
+				if tmp_colorlines(1)='1' then	color := color or (COLPM1 & "0"); end if;
+				if tmp_colorlines(2)='1' then	color := color or (COLPM2 & "0"); end if;
+				if tmp_colorlines(3)='1' then color := color or (COLPM3 & "0"); end if;
+				if tmp_colorlines(4)='1' then	color := color or (COLPF0 & "0"); end if;
+				if tmp_colorlines(5)='1' then	color := color or (COLPF1 & "0"); end if;
+				if tmp_colorlines(6)='1' then	color := color or (COLPF2 & "0"); end if;
+				if tmp_colorlines(7)='1' then	color := color or (COLPF3 & "0"); end if;
+				if tmp_colorlines(8)='1' then	color := color or tmp_bgcolor;    end if;
 			else
 				overridelum := "00";
 			end if ;
 			
-			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen centered) 	
-			tmp_x := hcounter + 1;
-			tmp_y := vcounter + 4;
-			if tmp_x>=228 then
-				tmp_x := tmp_x-228;
-				tmp_y := tmp_y+1;
+			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly alligned) 	
+			if hcounter>0 then
+				tmp_x := hcounter - 1;
+				tmp_y := vcounter + 4;
+			else
+				tmp_x := 227;
+				tmp_y := vcounter + 4 - 1;
 			end if;
 			if tmp_y>=312 then
 				tmp_y := tmp_y-312;
