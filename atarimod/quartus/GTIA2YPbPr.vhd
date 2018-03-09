@@ -98,7 +98,8 @@ begin
 	variable command : std_logic_vector(2 downto 0) := "000";
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
 	variable prevrw: std_logic := '0';
-	variable prevhalt : std_logic := '0';
+	variable detectpdma : std_logic := '0';
+	variable detectmdma : std_logic := '0';
 	
 	-- variables for player and missile display
 	variable ticker_p0 : integer range 0 to 15 := 15;
@@ -336,6 +337,7 @@ begin
 				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res3(3 downto 2) := "00"; end if;
 				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
 				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(1 downto 0) := "00"; end if;
+				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
 			end if; 			
 			tmp_colorlines := tmp_colorlines_res0 and tmp_colorlines_res1 and tmp_colorlines_res2 and tmp_colorlines_res3;
 			
@@ -344,9 +346,8 @@ begin
 			if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(7 downto 6) := "00"; end if;
 			if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
 			if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines(5 downto 4) := "00"; end if;
-			-- only one playfield color will be shown
-			if tmp_colorlines(6)/='0' then tmp_colorlines(7) := '0'; end if;
-			if tmp_colorlines(4)/='0' then tmp_colorlines(5) := '0'; end if;
+			-- only one playfield color will be shown 
+			if tmp_colorlines(7)/='0' then tmp_colorlines(6) := '0'; end if;
 			if PRIOR(5)='0' then  -- no multicolor players allowed
 				if tmp_colorlines(0)/='0' then tmp_colorlines(1) := '0'; end if;
 				if tmp_colorlines(2)/='0' then tmp_colorlines(3) := '0'; end if;
@@ -476,24 +477,12 @@ begin
 				end case;
 			end if;	
 			prevrw := RW; 
-			
-			-- receive player/missile data via DMA
-			if prevhalt='0' then
-				tmp_odd := (vcounter mod 2) = 1;
-				if GRACTL(1)='1' then
-					if hcounter=3*2+1 and (VDELAY(4)='0' or tmp_odd) then
-						GRAFP0 := D;
-					end if;
-					if hcounter=4*2+1 and (VDELAY(5)='0' or tmp_odd) then
-						GRAFP1 := D;
-					end if;
-					if hcounter=5*2+1 and (VDELAY(6)='0' or tmp_odd) then
-						GRAFP2 := D;
-					end if;
-					if hcounter=6*2+1 and (VDELAY(7)='0' or tmp_odd) then
-						GRAFP3 := D;
-					end if;
-				end if;
+		end if;
+		
+		if rising_edge(CLK) and PHASE="00" then
+			tmp_odd := (vcounter mod 2) = 1;
+			-- receive player/missile data via DMA (if it was detected to use dma this line)
+			if detectmdma='1' then
 				if GRACTL(0)='1' then
 					if hcounter=1*2+1 then
 						if VDELAY(0)='0' or tmp_odd then
@@ -509,9 +498,31 @@ begin
 							GRAFM(7 downto 6) := D(7 downto 6);
 						end if;
 					end if;
+				end if;				
+			end if;
+			if detectpdma='1' then
+				if GRACTL(1)='1' then
+					if hcounter=3*2+1 and (VDELAY(4)='0' or tmp_odd) then
+						GRAFP0 := D;
+					end if;
+					if hcounter=4*2+1 and (VDELAY(5)='0' or tmp_odd) then
+						GRAFP1 := D;
+					end if;
+					if hcounter=5*2+1 and (VDELAY(6)='0' or tmp_odd) then
+						GRAFP2 := D;
+					end if;
+					if hcounter=6*2+1 and (VDELAY(7)='0' or tmp_odd) then
+						GRAFP3 := D;
+					end if;
 				end if;
 			end if;
-			prevhalt := HALT;
+			-- sense the HALT signal to see if there is ongoing dma
+			if hcounter=1 then
+				detectpdma := not HALT;
+			end if;
+			if hcounter=1 then
+				detectmdma := not HALT;
+			end if;
 	
 		end if;
 		
