@@ -7,7 +7,7 @@ YPbPr signal in either 288p or 576p to display on modern displays.
 ## Motivation
 
 As many home computers of the era, the ZX Spectrum (16K,48K) generates its
-video output in the form of a composite signal that was if notoriously
+video output in the form of a composite signal that was of notoriously
 bad quality, even if viewed on an analogue cathode ray tube. With 
 modern LCD screens that do some digital preprocessing of the signal,
 the result is even more horrible.
@@ -15,16 +15,22 @@ Even though the graphics chip (the ULA) outputs the video signal
 as a kind of RGB signal (YUV for these who know their colour formats), this
 signal is still very noisy and there is a lot of digital processing
 that shows up in the image. 
-So this machine was also a good candidate to for improvement with
+So this machine was also a good candidate for improvement with
 my A-Video board. 
 
 ## Building
 
 The construction uses the A-Video board with a small daughter board for shifting
 the logic levels from 5V to 3.3V. 
-To prevent soldering leads directly to the ULA, I took the
+To avoid soldering leads directly to the ULA, I took the
 signals from various via points on the board - basically wherever I could
-find one.
+find one. In a few instances I soldered the leads to some other pins of 
+various parts - but never to the ULA itself.
+
+You may notice that the mod just fits into the tiny space that is
+left in the ZX Spectrum after removing the RF modulator. That is no coincidence. 
+The design of the A-Video board itself was totally driven by this exact space
+constraint. 
 
 
 ## Implementation details
