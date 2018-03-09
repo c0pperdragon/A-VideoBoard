@@ -32,6 +32,11 @@ left in the ZX Spectrum after removing the RF modulator. That is no coincidence.
 The design of the A-Video board itself was totally driven by this exact space
 constraint. 
 
+As a side note I want to mention that I have replaced the original 
+voltage regulator with its huge heat sink with a modern buck converter 
+that generates nearly no heat at all. This will probably reduce the stress on the 
+power supply (the original one) as well reduce the temperature in the cramped 
+computer case.
 
 ## Implementation details
 
