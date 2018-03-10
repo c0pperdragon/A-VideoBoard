@@ -164,9 +164,16 @@ begin
 			-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
 			if (hcounter mod 2) = 1 then
 				tmp_4bitvalue := command(1 downto 0) & AN(1 downto 0);
+				if PRIOR(7 downto 6)="10" and command(2)='1' and AN(2)='0' and tmp_4bitvalue/="0000" then  -- background color command in 9-color mode
+					tmp_4bitvalue := "1000";
+				end if;
 			else 
 				tmp_4bitvalue := prevcommand(1 downto 0) & command(1 downto 0);
+				if PRIOR(7 downto 6)="10" and prevcommand(2)='1' and command(2)='0' and tmp_4bitvalue/="0000" then -- background color command in 9-color mode
+					tmp_4bitvalue := "1000";
+				end if;
 			end if;
+			
 			
 			-- chose proper background color for special color interpretation modes
 			case PRIOR(7 downto 6) is
@@ -176,7 +183,7 @@ begin
 				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4);
 				tmp_bgcolor(3 downto 0) := tmp_4bitvalue;
 			when "10" =>   -- indexed color look up 
-				tmp_bgcolor := COLPM0 & "0";
+				tmp_bgcolor := COLBK & "0";
 			when "11" =>   -- 16 hues, single luminance
 				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
 				tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
@@ -222,7 +229,28 @@ begin
 			elsif  command(0) = '1' then  -- vsync command
 			   -- has no effect here, will influence pixel counter 
 			else                          -- background color
-				tmp_colorlines(8) := '1';
+				if PRIOR(7 downto 6)="10" then 
+					case tmp_4bitvalue is
+					when "0000" => tmp_colorlines(0) := '1';
+					when "0001" => tmp_colorlines(1) := '1';
+					when "0010" => tmp_colorlines(2) := '1';
+					when "0011" => tmp_colorlines(3) := '1';
+					when "0100" => tmp_colorlines(4) := '1';
+					when "0101" => tmp_colorlines(5) := '1';
+					when "0110" => tmp_colorlines(6) := '1';
+					when "0111" => tmp_colorlines(7) := '1';
+					when "1000" => tmp_colorlines(8) := '1';
+					when "1001" => tmp_colorlines(8) := '1';
+					when "1010" => tmp_colorlines(8) := '1';
+					when "1011" => tmp_colorlines(8) := '1';
+					when "1100" => tmp_colorlines(4) := '1';
+					when "1101" => tmp_colorlines(5) := '1';
+					when "1110" => tmp_colorlines(6) := '1';
+					when "1111" => tmp_colorlines(7) := '1';
+					end case;
+				else
+					tmp_colorlines(8) := '1';					
+				end if;
 			end if;
 
 	      -- determine which part of players and missiles are visible
