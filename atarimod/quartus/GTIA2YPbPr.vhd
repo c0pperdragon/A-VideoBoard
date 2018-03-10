@@ -98,8 +98,7 @@ begin
 	variable command : std_logic_vector(2 downto 0) := "000";
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
 	variable prevrw: std_logic := '0';
-	variable detectpdma : std_logic := '0';
-	variable detectmdma : std_logic := '0';
+	variable prevhalt: std_logic := '0';
 	
 	-- variables for player and missile display
 	variable ticker_p0 : integer range 0 to 15 := 15;
@@ -110,6 +109,13 @@ begin
 	variable ticker_m1 : integer range 0 to 3 := 3;
 	variable ticker_m2 : integer range 0 to 3 := 3;
 	variable ticker_m3 : integer range 0 to 3 := 3;
+		
+	-- delayed p/m data
+	variable GRAFP0_DELAYED : std_logic_vector (7 downto 0) := "00000000";
+	variable GRAFP1_DELAYED : std_logic_vector (7 downto 0) := "00000000";
+	variable GRAFP2_DELAYED : std_logic_vector (7 downto 0) := "00000000";
+	variable GRAFP3_DELAYED : std_logic_vector (7 downto 0) := "00000000";
+	variable GRAFM_DELAYED  : std_logic_vector (7 downto 0) := "00000000";	
 	
 	-- temporary variables
 	variable tmp_colorlines : std_logic_vector(8 downto 0);
@@ -480,52 +486,72 @@ begin
 		end if;
 		
 		if rising_edge(CLK) and PHASE="00" then
-			tmp_odd := (vcounter mod 2) = 1;
-			-- receive player/missile data via DMA (if it was detected to use dma this line)
-			if detectmdma='1' then
-				if GRACTL(0)='1' then
-					if hcounter=1*2+1 then
-						if VDELAY(0)='0' or tmp_odd then
-							GRAFM(1 downto 0) := D(1 downto 0);
-						end if;
-						if VDELAY(1)='0' or tmp_odd then
-							GRAFM(3 downto 2) := D(3 downto 2);
-						end if;
-						if VDELAY(2)='0' or tmp_odd then
-							GRAFM(5 downto 4) := D(5 downto 4);
-						end if;
-						if VDELAY(3)='0' or tmp_odd then
-							GRAFM(7 downto 6) := D(7 downto 6);
-						end if;
+			if prevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
+				tmp_odd := (vcounter mod 2) = 0;
+			
+				-- transfer dma player/missile data into registers
+				if GRACTL(0)='1' and hcounter=3 then
+					if VDELAY(0)='0' or tmp_odd then
+						GRAFM(1 downto 0) := D(1 downto 0);
+					else
+						GRAFM(1 downto 0) := GRAFM_DELAYED(1 downto 0);
+						GRAFM_DELAYED(1 downto 0) := D(1 downto 0);
+					end if;
+					if VDELAY(1)='0' or tmp_odd then
+						GRAFM(3 downto 2) := D(3 downto 2);
+					else
+						GRAFM(3 downto 2) := GRAFM_DELAYED(3 downto 2);
+						GRAFM_DELAYED(3 downto 2) := D(3 downto 2);
+					end if;
+					if VDELAY(2)='0' or tmp_odd then
+						GRAFM(5 downto 4) := D(5 downto 4);
+					else
+						GRAFM(5 downto 4) := GRAFM_DELAYED(5 downto 4);
+						GRAFM_DELAYED(5 downto 4) := D(5 downto 4);
+					end if;
+					if VDELAY(3)='0' or tmp_odd then
+						GRAFM(7 downto 6) := D(7 downto 6);
+					else
+						GRAFM(7 downto 6) := GRAFM_DELAYED(7 downto 6);
+						GRAFM_DELAYED(7 downto 6) := D(7 downto 6);
 					end if;
 				end if;				
-			end if;
-			if detectpdma='1' then
-				if GRACTL(1)='1' then
-					if hcounter=3*2+1 and (VDELAY(4)='0' or tmp_odd) then
+				if GRACTL(1)='1' and hcounter=7 then
+					if VDELAY(4)='0' or tmp_odd then
 						GRAFP0 := D;
+					else  
+						GRAFP0 := GRAFP0_DELAYED;
+						GRAFP0_DELAYED := D;
 					end if;
-					if hcounter=4*2+1 and (VDELAY(5)='0' or tmp_odd) then
+				end if;
+				if GRACTL(1)='1' and hcounter=9 then
+					if VDELAY(5)='0' or tmp_odd then 
 						GRAFP1 := D;
+					else  
+						GRAFP1 := GRAFP1_DELAYED;
+						GRAFP1_DELAYED := D;
 					end if;
-					if hcounter=5*2+1 and (VDELAY(6)='0' or tmp_odd) then
+				end if;
+				if GRACTL(1)='1' and hcounter=11 then
+					if VDELAY(6)='0' or tmp_odd then
 						GRAFP2 := D;
+					else 
+						GRAFP2 := GRAFP2_DELAYED;
+						GRAFP2_DELAYED := D;
 					end if;
-					if hcounter=6*2+1 and (VDELAY(7)='0' or tmp_odd) then
+				end if;
+				if GRACTL(1)='1' and hcounter=13 then
+					if VDELAY(7)='0' or tmp_odd then 
 						GRAFP3 := D;
+					else
+						GRAFP3 := GRAFP3_DELAYED;
+						GRAFP3_DELAYED := D;
 					end if;
 				end if;
 			end if;
-			-- sense the HALT signal to see if there is ongoing dma
-			if hcounter=1 then
-				detectpdma := not HALT;
-			end if;
-			if hcounter=1 then
-				detectmdma := not HALT;
-			end if;
-	
-		end if;
-		
+			
+			prevhalt := HALT;
+		end if;		
 		
 		
 		-------------------- output signals ---------------------		

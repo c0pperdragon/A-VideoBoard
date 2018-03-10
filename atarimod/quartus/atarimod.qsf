@@ -146,13 +146,9 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[0]
 set_global_assignment -name CDF_FILE Prog.cdf
-set_global_assignment -name QIP_FILE PLL.qip
 set_location_assignment PIN_25 -to CLK25
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLK25
-set_global_assignment -name QIP_FILE PLL27.qip
 set_global_assignment -name QIP_FILE VideoRAM.qip
-set_global_assignment -name QIP_FILE PLL108.qip
-set_global_assignment -name QIP_FILE PLL228.qip
 set_global_assignment -name QIP_FILE PLL227.qip
 set_location_assignment PIN_27 -to GPIO2_10
 set_location_assignment PIN_28 -to GPIO2_9
