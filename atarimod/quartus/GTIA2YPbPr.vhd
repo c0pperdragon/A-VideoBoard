@@ -55,7 +55,7 @@ begin
 	
 	-- visible screen area
 	constant topedge    : integer := 45;
-	constant bottomedge : integer := 282;
+	constant bottomedge : integer := 285;
 	constant leftedge   : integer := 45; 
 	constant rightedge  : integer := 217;
 	
@@ -181,7 +181,7 @@ begin
 				tmp_bgcolor := COLBK & "0";
 			when "01"  =>   -- single hue, 16 luminances
 				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4);
-				tmp_bgcolor(3 downto 0) := tmp_4bitvalue;
+				tmp_bgcolor(3 downto 0) := (COLBK(3 downto 1) & '0') or tmp_4bitvalue;
 			when "10" =>   -- indexed color look up 
 				tmp_bgcolor := COLBK & "0";
 			when "11" =>   -- 16 hues, single luminance
