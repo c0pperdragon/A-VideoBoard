@@ -94,4 +94,7 @@ set_location_assignment PIN_48 -to Y[3]
 set_location_assignment PIN_49 -to Y[2]
 set_location_assignment PIN_50 -to Y[1]
 set_location_assignment PIN_51 -to Y[0]
+set_global_assignment -name QIP_FILE PLL_14_625.qip
+set_location_assignment PIN_40 -to TESTBLINK
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TESTBLINK
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

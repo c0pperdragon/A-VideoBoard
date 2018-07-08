@@ -5,7 +5,9 @@ use ieee.std_logic_1164.all;
 entity TestPattern is	
 	port (
 		-- external oscillator
-		CLKREF : in std_logic;
+		CLKREF	: in std_logic;
+		
+		TESTBLINK : out std_logic;
 				
 		-- digital YPbPr output
 		Y: out std_logic_vector(5 downto 0);
@@ -18,7 +20,7 @@ end entity;
 
 architecture immediate of TestPattern is
 	
-   component PLL7_31 is
+   component PLL_14_625 is
 	PORT
 	(
 		inclk0		: IN STD_LOGIC  := '0';
@@ -31,7 +33,7 @@ architecture immediate of TestPattern is
 
 begin		
 	-- create actual clock frequency 
-	clkpll: PLL7_31 port map ( CLKREF, CLKPIXEL );
+	clkpll: PLL_14_625 port map ( CLKREF, CLKPIXEL );
 	
 
 	-- generate a test image
@@ -58,18 +60,10 @@ begin
 	 );	
 	constant sync : integer := 0 + 16*32 + 16;
 	
--- PAL: 	
-	constant w: integer := 468;  -- (about 64 microseconds -> 15.625kHz)
-	constant h: integer := 312;  -- (19968 microseconds -> about 50Hz)	
-	constant vheight: integer := 288;
-	constant vstart:  integer := 24;
-	constant hstart: integer := 107;	
--- NTSC:
---	constant w: integer := 509;  -- (63.625 microseconds -> 15.717kHz)
---	constant h: integer := 262;  -- (16669.75 microseconds -> about 60Hz)
---	constant vheight: integer := 240;
---	constant vstart:  integer := 21;
---	constant hstart: integer := 124;
+	constant w: integer := 468;  
+	constant h: integer := 625;  	
+	constant vstart:  integer := 2*32-1;
+	constant hstart: integer := 110;	
 	
 	variable cx: integer range 0 to w-1 := 0;
 	variable cy: integer range 0 to h-1 := 0;
@@ -77,6 +71,7 @@ begin
 	
 	variable out_ypbpr: integer range 0 to 65535 := 0;
 	
+	constant pheight: integer := 270;
 	variable px: integer range 0 to 511;
 	variable py: integer range 0 to 511;
 	variable vis: std_logic_vector(7 downto 0);
@@ -88,59 +83,58 @@ begin
 			out_ypbpr := ataripalette(0);
 
 			-- compute sync pulses
-			if (cy<3 or cy=6 or cy=7) and (cx<18 or (cx>=w/2 and cx<w/2+18)) then     -- short syncs
+			if (cy<6) and (cx<w-32)	then			-- field syncs
 				out_ypbpr := sync;
 			end if;
-			if (cy=3 or cy=4) and (cx<201 or (cx>=w/2 and cx<w/2+201)) then           -- field syncs
-				out_ypbpr := sync;
-			end if;
-			if cy=5 and (cx<201 or (cx>=w/2 and cx<w/2+18)) then                      -- one field sync, one short sync
-				out_ypbpr := sync;
-			end if;
-			if (cy>=8) and (cx<32) then                                               -- normal line syncs
+			if (cy>=6) and (cx<32) then      -- normal line syncs
 				out_ypbpr := sync;
 			end if;
 			
 
 			-- compute image
-			if cx>=hstart and cx<hstart+320 and cy>=vstart and cy<vstart+vheight then
+			if cx>=hstart and cx<hstart+320 and cy>=vstart and cy<vstart+2*pheight then
 				px := cx-hstart;
-				py := cy-vstart;
+				py := (cy-vstart)/2;
 				vis := std_logic_vector(to_unsigned(framecounter,8));
 				
+				-- background color
 				out_ypbpr := ataripalette(4);
-				if px=0 or py=0 or px=319 or py=vheight-1 or (px>315 and py mod 4=0) then
+				
+				-- outline frame
+				if px=0 or py=0 or px=319 or py=pheight-1 then
 					out_ypbpr := ataripalette(8);
 				else				
+					-- atari palette matrix				
 					if px>=16 and py>=32 and px<16+16*8 and py<32+16*8 then
 						out_ypbpr := ataripalette( ((px-16)/8) + ((py-32)/8) * 16 );
+						
+					-- grey gradient	
 					elsif px>=16 and px<16+32*8 and py>=180 and py<200 then					
 						out_ypbpr := (32 + (px-16)/8)*1024 + 16*32 + 16;
 						
-					elsif ((py>=10 and py<40) or (py>=vheight-40 and py<vheight-10)) and px>=290 and px<310 then
+					-- Pb gradient
+					elsif px>=16 and px<16+32*8 and py>=210 and py<230 then					
+						out_ypbpr := (32 + 16)*1024 + ((px-16)/8)*32 + 16;
+						
+					-- Pr gradient
+					elsif px>=16 and px<16+32*8 and py>=240 and py<260 then					
+						out_ypbpr := (32 + 16)*1024 + 16*32 + ((px-16)/8);
+						
+			      -- blinking rectangles
+					elsif ((py>=10 and py<40) or (py>=pheight-40 and py<pheight-10)) and px>=290 and px<310 then
 						if vis(5)='0' then
 							out_ypbpr:=ataripalette(0); 
 						else        
 							out_ypbpr:=ataripalette(15); 
 						end if;						
---					elsif py>220 and py<250 and px>200 and px<230 then
---						if vis(2)='0' then
+						
+--					-- quickly flashing rectangle
+--					elsif py>110 and py<140 and px>=290 and px<310 then
+--						if vis(0)='0' then
 --							out_ypbpr:=ataripalette(0); 
 --						else        
 --							out_ypbpr:=ataripalette(15); 
 --						end if;						
---					elsif py>220 and py<250 and px>140 and px<170 then
---						if vis(1)='0' then
---							out_ypbpr:=ataripalette(0); 
---						else        
---							out_ypbpr:=ataripalette(15); 
---						end if;						
-					elsif py>110 and py<140 and px>=290 and px<310 then
-						if vis(0)='0' then
-							out_ypbpr:=ataripalette(0); 
-						else        
-							out_ypbpr:=ataripalette(15); 
-						end if;						
 					end if;
 				
 				end if;
@@ -164,6 +158,9 @@ begin
 		Y  <= tmp_ypbpr(15 downto 10);
 		PB <= tmp_ypbpr(9 downto 5);
 		PR <= tmp_ypbpr(4 downto 0);
+		
+		vis := std_logic_vector(to_unsigned(framecounter,8));
+		TESTBLINK <= vis(5);
 
 	end process;
 
