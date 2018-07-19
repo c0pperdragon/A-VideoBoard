@@ -10,37 +10,52 @@ entity C64Decoder is
 		CHROMA: in std_logic_vector(7 downto 0);
 		
 		-- output for further processing
-		PIXEL: out boolean;   -- true if new data is ready
-		HSYNC: out boolean;   -- true when beginning a new line
 		VSYNC: out boolean;   -- true when beginning a new frame
-		COLOR: out integer range 0 to 15;  -- C64 color
-
-      -- debug info
-		CHROMAANGLE: out integer range 0 to 255;
-		LUMINANCE: out integer range 0 to 255
+		HSYNC: out boolean;   -- true when beginning a new line		
+		LUMINANCE: out integer range 0 to 255;   -- luma value 
+		CHROMAPHASE: out integer range 0 to 255;  -- chroma angle relative to the color burst 
+		CHROMAENERGY: out integer range 0 to 255;
+		
+		-- debugging signal
+		CHROMAANGLE: out integer range 0 to 255; -- current angle of the chroma signal
+		CHROMAX : out integer range 0 to 63;
+		CHROMAXPOSITIVE : out boolean;
+		CHROMAXD : out integer range 0 to 63;
+		ChROMAXDPOSITIVE : out boolean
 	);	
 end entity;
 
 
 architecture immediate of C64Decoder is
 
+signal SIG_CHROMAANGLE: integer range 0 to 255;	
+signal SIG_SUBCARRIER: integer range 0 to 255;	
 
 begin		
+
+	
 	-- use the input luminance to determine horizontal and vertical syncs
+	-- calculate the chroma phase by using the color burst as reference
 	process (CLKADC)
 		variable l_in : integer range 0 to 255 := 0;
 		
 		variable hcounter : integer range 0 to 65535 := 0;
 		variable vcounter : integer range 0 to 511 := 0;
+		
+		variable samplecounter : integer range 0 to 2097151;
+		variable samples205: integer range 0 to 2097151 := 0; -- determine number of samples in 205 lines
+		variable subcarrier: integer range 0 to 4194303 := 0; -- subcarrier simulation
 				
-		variable out_luminance : integer range 0 to 255 := 0;
-		variable out_hsync : boolean := false;
 		variable out_vsync : boolean := false;
-	
+		variable out_hsync : boolean := false;
+		variable out_luminance2 : integer range 0 to 255 := 0;
+		variable out_luminance3 : integer range 0 to 255 := 0;
+		variable out_luminance4 : integer range 0 to 255 := 0;
+		
 	begin	
 		if rising_edge(CLKADC) then
 			
-			-- produce output sync signal and pixel tick
+			-- produce output sync signals 
 			out_hsync := false;
 			out_vsync := false;
 			if hcounter = 0 then
@@ -50,22 +65,44 @@ begin
 				end if;
 			end if;			
 			
+			
+			-- generate the subcarrier signal 
+			if hcounter=536 then
+				subcarrier := SIG_CHROMAANGLE * 8192; -- use the color burst to sync subcarrier
+			else
+				subcarrier := subcarrier + 116235; -- twice the subcarrier ticks in 205 lines
+				if subcarrier >= 2*samples205 then
+					subcarrier := subcarrier-2*samples205;
+				end if;
+			end if;
+			
+			-- count and memorize the number of samples in 205 lines (should be near 2^21 in total)
+			if hcounter=1 and vcounter=215 then
+				samples205 := samplecounter;
+			end if;
+			if hcounter=1 and vcounter=10 then				
+				samplecounter :=0;
+			else
+				samplecounter := samplecounter+1;
+			end if;
+
 			-- detect start of lines and synchronize horizontal 80mhz counter			
 			if l_in<50 and hcounter>4000 then
 				hcounter := 0;
-				vcounter := vcounter+1;
+				vcounter := vcounter+1;				
 			elsif l_in<50 and hcounter=1600 then
 				vcounter := 0;
 			else
-				hcounter := hcounter+1;
+				hcounter := hcounter+1;				
 			end if;		
-				
-				
-			-- compute luminance value
+								
+			-- compute luminance value and push through pipeline
+			out_luminance4 := out_luminance3;
+			out_luminance3 := out_luminance2;
 			if l_in<76 then
-				out_luminance := 0;
+				out_luminance2 := 0;
 			else
-				out_luminance := (l_in-76);
+				out_luminance2 := (l_in-76);
 			end if;					
 		
 			-- sampling input luma		
@@ -73,14 +110,13 @@ begin
 		end if;		
 		
 		-- output for further processing
-		PIXEL <= true;
 		HSYNC <= out_hsync;
 		VSYNC <= out_vsync;
-		COLOR <= 0;
+		LUMINANCE <= out_luminance4;
+		SIG_SUBCARRIER <= subcarrier / 8192;
 		
 		-- debug output
-		LUMINANCE <= out_luminance;
-		
+
 	end process;
 
 		
@@ -109,10 +145,11 @@ begin
 			26,26,27,27,27,28,28,28,
 			29,29,29,30,30,31,31,31
 		);		
-		constant chroma_center:integer := 110;
+		constant chroma_center:integer := 124;
 	
-		variable c_in : integer range 0 to 255 := 0;			
-		variable c_prev : integer range 0 to 255 := 0;	
+		variable c_next : integer range 0 to 255 := 0;			
+		variable c_in : integer range 0 to 255 := 0;
+		variable c_prev : integer range 0 to 255 := 0;
 		
 		variable x : integer range 0 to 63;
 		variable xpositive : boolean;
@@ -122,8 +159,12 @@ begin
 		variable slope : integer range 0 to 63;
 		variable baseangle : integer range 0 to 255;
 		variable use_negatively : boolean;
+		variable energy1: integer range 0 to 4095;
+		variable energy2: integer range 0 to 4095;
 		
+		variable phase : integer range 0 to 255;
 		variable angle : integer range 0 to 255;
+		variable energy: integer range 0 to 255;		
 		
 		variable tmp: integer range 0 to 255;
 	begin
@@ -136,6 +177,11 @@ begin
 			else
 				angle := baseangle + atan(slope);
 			end if;
+			-- use the subcarrier in combination with the current ANGLE to extract the PHASE			
+			phase := angle - SIG_SUBCARRIER;
+			
+			-- stage 4: pass on chroma energy 
+			energy := energy1 / 16;
 			
 			-- stage 3: compute x/xd slope values and prepare next computations
 			slope := 0;
@@ -160,8 +206,15 @@ begin
 				else
 					if xdpositive then baseangle:=64; else baseangle:=192; use_negatively:=true; end if;
 				end if;
+			end if;			
+			-- stage 3: calculate the chroma energy
+			energy1 := x*x;
+			energy2 := xd*xd;
+			if energy1+energy2<=4095 then
+				energy1 := energy1 + energy2;
+			else
+				energy1 := 4095;
 			end if;
-						
 			
 			-- stage 2: compute and scale the x,xd values
 			if c_in>=chroma_center then 
@@ -180,27 +233,35 @@ begin
 				end if;
 			end if;
 			
-			if c_in>=c_prev then 
-				xdpositive := true;
-				tmp := c_in-c_prev;
-			else
+			if c_next>=c_prev then 
 				xdpositive := false;
-				tmp := c_prev-c_in;
+				tmp := c_next-c_prev;
+			else
+				xdpositive := true;
+				tmp := c_prev-c_next;
 			end if;
-			if tmp<=46 then
-				xd := (tmp*11)/8;
+			if tmp<=92 then
+				xd := (tmp*11)/16;
 			else	
 				xd := 63;
 			end if;
 							
 			-- stage 1: sample input data 
 			c_prev := c_in;
-			c_in := to_integer(unsigned(CHROMA));			
+			c_in := c_next;
+			c_next := to_integer(unsigned(CHROMA));			
 		end if;
-	
-	
+		
+		-- output
+		CHROMAANGLE <= angle;
+		SIG_CHROMAANGLE <= angle;		
+		CHROMAENERGY <= energy;
+		CHROMAPHASE <= phase;
 		-- debug output
-		CHROMAANGLE <= angle;	
+		CHROMAX <= x;
+		CHROMAXPOSITIVE <= xpositive;
+		CHROMAXD <= xd;
+		ChROMAXDPOSITIVE <= xdpositive;
 	
 	end process;	
 

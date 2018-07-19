@@ -70,43 +70,7 @@ set_location_assignment PIN_60 -to Pb[1]
 set_location_assignment PIN_59 -to Pb[2]
 set_location_assignment PIN_53 -to Pb[3]
 set_location_assignment PIN_52 -to Pb[4]
-set_location_assignment PIN_106 -to LUMA[0]
-set_location_assignment PIN_105 -to LUMA[1]
-set_location_assignment PIN_103 -to LUMA[2]
-set_location_assignment PIN_101 -to LUMA[3]
-set_location_assignment PIN_100 -to LUMA[4]
-set_location_assignment PIN_99 -to LUMA[5]
-set_location_assignment PIN_98 -to LUMA[6]
-set_location_assignment PIN_97 -to LUMA[7]
-set_location_assignment PIN_88 -to CLKADC
-set_location_assignment PIN_81 -to CHROMA[0]
-set_location_assignment PIN_80 -to CHROMA[1]
-set_location_assignment PIN_79 -to CHROMA[2]
-set_location_assignment PIN_78 -to CHROMA[3]
-set_location_assignment PIN_77 -to CHROMA[4]
-set_location_assignment PIN_76 -to CHROMA[5]
-set_location_assignment PIN_75 -to CHROMA[6]
-set_location_assignment PIN_74 -to CHROMA[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLKADC
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CHROMA
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to LUMA
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[3]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[1]
@@ -128,10 +92,47 @@ set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name FLOW_ENABLE_POWER_ANALYZER ON
 set_global_assignment -name POWER_DEFAULT_INPUT_IO_TOGGLE_RATE "12.5 %"
-set_location_assignment PIN_41 -to TST
+set_location_assignment PIN_40 -to TST
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TST
 set_global_assignment -name VHDL_FILE c64decoder.vhd
 set_global_assignment -name SDC_FILE c64converter.sdc
 set_global_assignment -name VHDL_FILE c64converter.vhd
 set_global_assignment -name CDF_FILE Run.cdf
+set_global_assignment -name QIP_FILE PLL378.qip
+set_location_assignment PIN_25 -to CLK25
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLK25
+set_location_assignment PIN_32 -to CSYNC
+set_instance_assignment -name IO_STANDARD "3.3 V SCHMITT TRIGGER" -to CSYNC
+set_global_assignment -name QIP_FILE PLL300.qip
+set_location_assignment PIN_27 -to TST2
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TST2
+set_location_assignment PIN_78 -to MCLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to MCLK
+set_location_assignment PIN_88 -to OP[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[7]
+set_location_assignment PIN_92 -to OP[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[6]
+set_location_assignment PIN_98 -to OP[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[5]
+set_location_assignment PIN_100 -to OP[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[4]
+set_location_assignment PIN_103 -to OP[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[3]
+set_location_assignment PIN_106 -to OP[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[2]
+set_location_assignment PIN_105 -to OP[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[1]
+set_location_assignment PIN_101 -to OP[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP[0]
+set_location_assignment PIN_76 -to RSMP
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to RSMP
+set_location_assignment PIN_99 -to SCK
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to SCK
+set_location_assignment PIN_97 -to SDI
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to SDI
+set_location_assignment PIN_87 -to SEN
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to SEN
+set_location_assignment PIN_74 -to VSMP
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to VSMP
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to OP
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
