@@ -35,7 +35,82 @@ end entity;
 
 
 architecture immediate of C64Converter is
-	constant pixelfinedelay : integer := 20;		
+	-- toolbox helper functions to transfer cartesian coordinates to polar coordinates
+	subtype int8 is integer range 0 to 255;
+	function atan2 (xabs:integer range 0 to 63; xpositive:boolean; yabs:integer range 0 to 63; ypositive:boolean) return int8 
+	is	
+		type T_inv is array (0 to 63) of integer range 0 to 4095;
+		constant inv : T_inv := (
+			4095,4095,2048,1365,1024,819,683,585,
+			512,455,410,372,341,315,293,273,
+			256,241,228,216,205,195,186,178,
+			171,164,158,152,146,141,137,132,
+			128,124,120,117,114,111,108,105,
+			102,100,98,95,93,91,89,87,
+			85,84,82,80,79,77,76,74,
+			73,72,71,69,68,67,66,65
+		);
+		type T_atan is array(0 to 63) of integer range 0 to 31;
+		constant atan : T_atan := (
+			0,0,1,1,2,3,3,4,
+			5,5,6,6,7,8,8,9,
+			9,10,11,11,12,12,13,14,
+			14,15,15,16,16,17,17,18,
+			18,19,19,20,20,21,21,22,
+			22,23,23,24,24,24,25,25,
+			26,26,27,27,27,28,28,28,
+			29,29,29,30,30,31,31,31
+		);		
+		variable slope : integer range 0 to 63;
+		variable at : integer range 0 to 31;
+	begin
+		-- determine slope to use and atan
+		if xpositive>ypositive then
+			slope := (yabs * inv(xabs)) / 64;
+		else
+			slope := (xabs * inv(yabs)) / 64;
+		end if;
+		at := atan(slope);
+		
+		-- determine octant and compute angle (in range 0-255)
+		if xabs=yabs then
+			if xpositive then 
+				if ypositive then return 32; else return 224; end if;
+			else
+				if ypositive then return 96; else return 160; end if;
+			end if;
+		elsif xabs>yabs then
+			if xpositive then 
+				if ypositive then return 0+at; else return 255-at; end if;
+			else
+				if ypositive then return 128-at; else return 128+at; end if;
+			end if;
+		else
+			if xpositive then 
+				if ypositive then return 64-at; else return 192+at; end if;
+			else
+				if ypositive then return 64+at; else return 192-at; end if;
+			end if;
+		end if;
+	end atan2;
+	
+	function dsquared (xabs:integer range 0 to 63; yabs:integer range 0 to 63) return int8 
+	is
+		variable xsq : integer range 0 to 4095;
+		variable ysq : integer range 0 to 4095;	
+	begin
+		xsq := xabs * xabs;
+		ysq := yabs * yabs;
+		if xsq+ysq>=4096 then
+			return 255;
+		else	
+			return (xsq+ysq) / 16;
+		end if;
+	end dsquared;
+
+
+	
+	constant pixelfinedelay : integer := 15;		
 
    component PLL378 is
 	PORT
@@ -117,7 +192,17 @@ begin
 		variable step : integer range 0 to 5 := 0;
 		variable hcounter : integer range 0 to 511 := 0;
 		variable vcounter : integer range 0 to 511 := 0;
+		variable carrierangle : integer range 0 to 255 := 0;
 		
+		variable chromamax : integer range 0 to 255 := 0;
+		variable chromamin : integer range 0 to 255 := 0;
+		variable chromaabs : integer range 0 to 63 := 0;
+		variable chromapositive : boolean := false;
+		variable chr2max : integer range 0 to 255 := 0;
+		variable chr2min : integer range 0 to 255 := 0;
+		variable chr2abs : integer range 0 to 63 := 0;
+		variable chr2positive : boolean := false;
+						
 		variable out_pixel : std_logic := '0';
 		variable out_mclk : std_logic := '0';		
 		variable out_vsmp : std_logic := '0';
@@ -127,38 +212,98 @@ begin
 		variable out_pr : integer range 0 to 31;		
 		
 		variable tmp_csync : integer range 0 to 1;
+		variable chr2zero : integer range 0 to 255;
+		variable chromazero : integer range 0 to 255;
+		variable colorangle : integer range 0 to 255;
 	begin
 
 		-- operation for every 6th of a pixel
 		if rising_edge(CLK) then		
-			-- when all values for a pixel are collected from the ADC, try to make sense of
-			-- the color
-			if step=5 then
+			-- because computation is not fast enough to do everything in one clock, this is
+			-- second pipelining stage
+			if step=2 then
 				-- calculate csync for PAL
-				if (vcounter=0 or vcounter=1 or vcounter=2) and (hcounter<17 or (hcounter>=252 and hcounter<252+17)) then        -- short syncs
+				if (vcounter=0 or vcounter=1 or vcounter=2) and (hcounter<17 or (hcounter>=252 and hcounter<252+17)) then -- short syncs
 					tmp_csync := 0;
-				elsif (vcounter=3 or vcounter=4) and (hcounter<252-17 or (hcounter>=252 and hcounter<504-34)) then          -- vsyncs
+				elsif (vcounter=3 or vcounter=4) and (hcounter<252-17 or (hcounter>=252 and hcounter<504-34)) then        -- vsyncs
 					tmp_csync := 0;
 				elsif (vcounter=5) and (hcounter<252-34 or (hcounter>=252 and hcounter<252+17)) then                      -- one vsync, one short sync
 					tmp_csync := 0;
-				elsif (vcounter=6 or vcounter=7) and (hcounter<17 or (hcounter>=252 and hcounter<252+17)) then                -- short syncs
-					tmp_csync := 0;
-				elsif (vcounter>=8) and (hcounter<34) then                                                         -- normal line syncs
+				elsif (vcounter=6 or vcounter=7) and (hcounter<17 or (hcounter>=252 and hcounter<252+17)) then            -- short syncs
+					tmp_csync := 0; 
+				elsif (vcounter>=8) and (hcounter<34) then                                                                -- normal line syncs
 					tmp_csync := 0;
 				else
 					tmp_csync := 1;
 				end if;
+				-- calculate current angle of the color signal (and take sample of color burst)
+				colorangle := atan2(chr2abs, chr2positive, chromaabs, chromapositive);
 				-- only show color inside a certain bound area
 				if vcounter>40 and vcounter<300 and hcounter>100 and hcounter<480 then
 					out_y := tmp_csync*32 + in_luma/8;
-					out_pb := in_chroma/8;				
-					out_pr := in_chr2/8;				
+					if hcounter>=120 and hcounter<124 then
+						out_pb := 1;
+						out_pr := 1;
+					elsif hcounter>=124 and hcounter<128 then
+						out_pb := 31;
+						out_pr := 31;
+					elsif hcounter>=128 and hcounter<132 then
+						out_pb := chromamin/8;
+						out_pr := chr2min/8;
+					elsif hcounter>=132 and hcounter<136 then
+						out_pb := chromamax/8;
+						out_pr := chr2max/8;
+					else
+						if vcounter mod 2 = 0 then
+							out_pb := (colorangle - carrierangle)/8; 
+						else
+							out_pb := (carrierangle - colorangle)/8; 
+						end if;
+						out_pr := dsquared(chr2abs, chromaabs) / 8;
+					end if;
 				else
 					out_y := tmp_csync*32;
 					out_pb := 16;
 					out_pr := 16;
-				end if;			
+				end if;				
+				-- take angle of color burst for future comparisons
+				if hcounter=70 then 
+					carrierangle := colorangle;
+				end if;					
 			end if;
+			-- when all values for a pixel are collected from the ADC, try to make sense of
+			-- the values
+			if step=1 then   -- this is the exact time when all three values are collected from the same sample		
+				-- determine the minimum and maximum values for the chroma and its derivative signal
+				if hcounter=40 then
+					chromamax := 0;
+					chromamin := 255;
+					chr2max := 0;
+					chr2min := 255;
+				elsif hcounter<70 then
+					if in_chroma>chromamax then chromamax := in_chroma; end if;
+					if in_chroma<chromamin then chromamin := in_chroma; end if;
+					if in_chr2<chr2min then chr2min := in_chr2; end if;
+					if in_chr2>chr2max then chr2max := in_chr2; end if;			
+				end if;	
+				-- determine quadrant for chroma signal and make absolute distance values
+				chr2zero := (chr2max+chr2min)/2;			
+				if in_chr2>=chr2zero then 
+					chr2positive := true;
+					if in_chr2-chr2zero>=128 then chr2abs := 63; else chr2abs := (in_chr2-chr2zero) / 2; end if;
+				else
+					chr2positive := false; 
+					if chr2zero-in_chr2>=128 then chr2abs := 63; else chr2abs := (chr2zero-in_chr2) / 2; end if;
+				end if;
+				chromazero := (chromamax+chromamin)/2;			
+				if in_chroma>=chromazero then 
+					chromapositive := true;
+					if in_chroma-chromazero>=128 then chromaabs := 63; else chromaabs := (in_chroma-chromazero) / 2; end if;
+				else
+					chromapositive := false; 
+					if chromazero-in_chroma>=128 then chromaabs := 63; else chromaabs := (chromazero-in_chroma) / 2; end if;
+				end if;
+			end if;			
 		
 		
 			-- progress step counter (and use the new value in the same CLK)
@@ -170,7 +315,8 @@ begin
 				elsif vcounter<511 then
 					vcounter := vcounter+1;
 				end if;
-				hcounter := 0;				
+				hcounter := 0;		
+				carrierangle := 0;		
 			else
 				-- step through pixel
 				if step<5 then 
@@ -181,6 +327,7 @@ begin
 					if hcounter<511 then 
 						hcounter := hcounter+1;
 					end if;
+					carrierangle := carrierangle + 7*16;
 				end if;
 			end if;
 			
@@ -221,7 +368,6 @@ begin
 		end if;
 		
 		
-		TST <= out_pixel;
       Y <= std_logic_vector(to_unsigned(out_y,6));
 		Pb <= std_logic_vector(to_unsigned(out_pb, 5));		
 		Pr <= std_logic_vector(to_unsigned(out_pr, 5));
@@ -229,11 +375,13 @@ begin
 		MCLK <= out_mclk;
 		VSMP <= out_vsmp;
 		RSMP <= '0';
+		
+		TST <= out_vsmp;
 	end process;
 
 	-- TODO: initialize the ADC
 	process (CLK)
-		constant numvalues: integer := 5;		
+		constant numvalues: integer := 6;		
 		type T_initvalues is array (0 to numvalues-1) of integer range 0 to 16383;
 		constant initvalues : T_initvalues := 
 		--   AAAAAADDDDDDDD
@@ -241,7 +389,8 @@ begin
 		   2#00000100000001#,          -- setup register 1: disable CDS
 		   2#00001000100001#,          -- setup register 2: use only 8-bit data transfer
 			2#00001100000110#,          -- setup register 3: set single ended reference voltage to approx. 1.1V
-			2#00100000000000#           -- setup register 6: disable Reset Level Clamping
+			2#00100000000000#,          -- setup register 6: disable Reset Level Clamping
+			2#10101000000101#           -- set gain for B (chroma input) to 0.8
 		);	
 	
 		variable delay:integer range 0 to 47;   -- delay counter to send data with 1Mhz

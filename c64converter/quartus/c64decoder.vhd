@@ -28,8 +28,13 @@ end entity;
 
 architecture immediate of C64Decoder is
 
+
+
+	
+
 signal SIG_CHROMAANGLE: integer range 0 to 255;	
 signal SIG_SUBCARRIER: integer range 0 to 255;	
+
 
 begin		
 
