@@ -26,7 +26,10 @@ entity C64Converter is
 		SEN: out std_logic;
 		-- receive data back from ADC
 		OP: in std_logic_vector(7 downto 0);
-
+		
+		-- user input switches
+		KEYS : in std_logic_vector(2 downto 0);  -- active low
+		
 		-- debug output pins
 		TST : out std_logic;       -- test output to show pixel clock
 		TST2 : out std_logic       -- test output to show pixel clock
@@ -35,6 +38,15 @@ end entity;
 
 
 architecture immediate of C64Converter is
+	-- clock generator PLL
+   component PLL378 is
+	PORT
+	(
+		inclk0		: IN STD_LOGIC  := '0';
+		c0		: OUT STD_LOGIC 
+	);
+	end component;
+
 	-- toolbox helper functions to transfer cartesian coordinates to polar coordinates
 	subtype int8 is integer range 0 to 255;
 	function atan2 (xabs:integer range 0 to 63; xpositive:boolean; yabs:integer range 0 to 63; ypositive:boolean) return int8 
@@ -108,39 +120,198 @@ architecture immediate of C64Converter is
 		end if;
 	end dsquared;
 
+	-- toolbox funciton for showing digits on the screen
+	function digitpixel(value: integer range 0 to 15; x:integer range 0 to 7; y:integer range 0 to 7) return boolean
+	is
+		type T_bitmap is array (0 to 16*8-1) of std_logic_vector(7 downto 0);
+		constant bitmap : T_bitmap := 
+		(	"00000000",
+			"00111100",
+			"01100110",
+			"01101110",
+			"01110110",
+			"01100110",
+			"00111100",
+			"00000000",	
+		
+			"00000000",
+			"00011000",
+			"00111000",
+			"00011000",
+			"00011000",
+			"00011000",
+			"01111110",
+			"00000000",		
+			
+			"00000000",			
+			"00111100",
+			"01100110",
+			"00001100",
+			"00011000",
+			"00110000",
+			"01111110",
+			"00000000",		
+			
+			"00000000",			
+			"01111110",
+			"00001100",
+			"00011000",
+			"00001100",
+			"01100110",
+			"00111100",
+			"00000000",		
+			
+			"00000000",			
+			"00001100",
+			"00011100",
+			"00111100",
+			"01101100",
+			"01111110",
+			"00001100",
+			"00000000",		
+			
+			"00000000",			
+			"01111110",
+			"01100000",
+			"01111100",
+			"00000110",
+			"01100110",
+			"00111100",
+			"00000000",		
+			
+			"00000000",			
+			"00111100",
+			"01100000",
+			"01111100",
+			"01100110",
+			"01100110",
+			"00111100",
+			"00000000",		
+			
+			"00000000",			
+			"01111110",
+			"00000110",
+			"00001100",
+			"00011000",
+			"00110000",
+			"00110000",
+			"00000000",		
+			
+			"00000000",			
+			"00111100",
+			"01100110",
+			"00111100",
+			"01100110",
+			"01100110",
+			"00111100",
+			"00000000",		
+			
+			"00000000",			
+			"00111100",
+			"01100110",
+			"00111110",
+			"00000110",
+			"00001100",
+			"00111000",
+			"00000000",		
+			
+			"00000000",			
+			"00011000",
+			"00111100",
+			"01100110",
+			"01100110",
+			"01111110",
+			"01100110",
+			"00000000",		
+			
+			"00000000",			
+			"01111100",
+			"01100110",
+			"01111100",
+			"01100110",
+			"01100110",
+			"01111100",
+			"00000000",		
+			
+			"00000000",			
+			"00111100",
+			"01100110",
+			"01100000",
+			"01100000",
+			"01100110",
+			"00111100",
+			"00000000",		
+			
+			"00000000",			
+			"01111000",
+			"01101100",
+			"01100110",
+			"01100110",
+			"01101100",
+			"01111000",
+			"00000000",		
+			
+			"00000000",			
+			"01111110",
+			"01100000",
+			"01111100",
+			"01100000",
+			"01100000",
+			"01111110",
+			"00000000",		
+			
+			"00000000",			
+			"01111110",
+			"01100000",
+			"01111100",
+			"01100000",
+			"01100000",
+			"01100000",
+			"00000000"		
+	   );
+		variable b : std_logic_vector(7 downto 0);
+	begin	
+		b := bitmap(value*8+y);
+		return b(7-x)='1';
+	end digitpixel;
+	
 
-	
-	constant pixelfinedelay : integer := 15;		
 
-   component PLL378 is
-	PORT
-	(
-		inclk0		: IN STD_LOGIC  := '0';
-		c0		: OUT STD_LOGIC 
-	);
-	end component;
-   component PLL300 is
-	PORT
-	(
-		inclk0		: IN STD_LOGIC  := '0';
-		c0		: OUT STD_LOGIC 
-	);
-	end component;
-	
-	signal CLK48TH : std_logic;          -- high speed clock to derive slower clocks from	
-	
+	-- global signals to tie processes together ---	
+	signal CLK48TH : std_logic;          -- high speed clock to derive slower clocks from		
 	signal CLK : std_logic;              -- internal clock is synced to a 6th of a pixel
 	signal SYNCDETECT: boolean;          -- encountered a falling csync. is active once during next CLK
+		
+	
+	type T_REGISTERS is array (0 to 7) of integer range 0 to 255;
+	constant REG_DEBUGSIGNAL : integer := 1;
+	constant REG_SAMPLEDELAY : integer := 2;
+	constant REG_CHROMAZERO  : integer := 3;
+	constant REG_CHR2ZERO    : integer := 4;
+	
+	signal REGISTERS : T_REGISTERS; 
+	signal sELECTEDREGISTER : integer range 0 to 7;
+	
+	constant pixelfinedelay : integer := 15;		
+	
 	
 begin		
 	
-	------- recover pixel clock timing from the C64 csync pulse -----	
+	------ recover pixel clock timing from the C64 csync pulse 
 	pllclk48th: PLL378 port map ( CLK25, CLK48TH);
 	
 	process (CLK48TH,CSYNC)
-		variable in_csync : std_logic_vector(pixelfinedelay downto 0);
+		variable delay : std_logic_vector(5 downto 0) := "000000";
+		variable delay32 : std_logic_vector(32 downto 0) := "000000000000000000000000000000000";
+		variable delay16 : std_logic_vector(16 downto 0) := "00000000000000000";
+		variable delay8 : std_logic_vector(8 downto 0)   := "000000000";
+		variable delay4 : std_logic_vector(4 downto 0)   := "00000";
+		variable delay2 : std_logic_vector(2 downto 0)   := "000";
+		variable delay1 : std_logic_vector(1 downto 0)   := "00";
 		
-		variable counter: std_logic_vector(3 downto 0);
+		variable in_csync : std_logic_vector(3 downto 0) := "0000";
+		
+		variable counter: std_logic_vector(3 downto 0) := "0000";
 		variable out_syncdetect: boolean := false;
 		
 		variable tmp : integer range 0 to 15;
@@ -171,19 +342,53 @@ begin
 			
 			counter := std_logic_vector(to_unsigned(tmp,4));
 					
-			-- use synchronizer chain to prevent metastability on asynchronous input
-			in_csync := CSYNC & in_csync(pixelfinedelay downto 1);			
+			-- take signal from delaybuffer and keep for further processing
+			if delay(0)='1' then
+				in_csync := delay1(0) & in_csync(3 downto 1);	
+			else
+				in_csync := delay1(1) & in_csync(3 downto 1);   -- skip 1 tick
+			end if;			
+			-- move data through delaybuffers according to the fine-tune settings of the delay			
+			if delay(1)='1' then   
+				delay1 := delay2(0) & delay1(1 downto 1);
+			else
+				delay1 := delay2(2) & delay1(1 downto 1);       -- skip 2 ticks
+			end if;
+			if delay(2)='1' then
+				delay2 := delay4(0) & delay2(2 downto 1);
+			else
+				delay2 := delay4(4) & delay2(2 downto 1);       -- skip 4 ticks
+			end if;
+			if delay(3)='1' then
+				delay4 := delay8(0) & delay4(4 downto 1);
+			else
+				delay4 := delay8(8) & delay4(4 downto 1);       -- skip 8 ticks
+			end if;
+			if delay(4)='1' then                         
+				delay8 := delay16(0) & delay8(8 downto 1);
+			else
+				delay8 := delay16(16) & delay8(8 downto 1);     -- skip 16 ticks
+			end if;			
+			if delay(5)='1' then
+				delay16 := delay32(0) & delay16(16 downto 1);
+			else
+				delay16 := delay32(32) & delay16(16 downto 1);  -- skip 32 ticks
+			end if;
+			delay32 := CSYNC & delay32(32 downto 1);				-- fetch input into first delay buffer
+																
+			-- get the delay stetting from the register for super-fast access
+			delay := std_logic_vector(to_unsigned(REGISTERS(REG_SAMPLEDELAY) mod 64, 6));
 		end if;	
 
 		
 		CLK <= counter(2);		-- use this bit of the counter directly as the output clock 
 		SYNCDETECT <= out_syncdetect;	 -- propagate sync detection
 		
-		TST2 <= in_csync(0);
+		TST2 <= delay32(32);
 	end process;
 	
 	
-	-- progress the steps counter
+	----- process the video signal from the C64
 	process (CLK)
 		variable in_luma : integer range 0 to 255;
 		variable in_chroma : integer range 0 to 255;
@@ -203,7 +408,6 @@ begin
 		variable chr2abs : integer range 0 to 63 := 0;
 		variable chr2positive : boolean := false;
 						
-		variable out_pixel : std_logic := '0';
 		variable out_mclk : std_logic := '0';		
 		variable out_vsmp : std_logic := '0';
 
@@ -239,55 +443,66 @@ begin
 				-- calculate current angle of the color signal (and take sample of color burst)
 				colorangle := atan2(chr2abs, chr2positive, chromaabs, chromapositive);
 				-- only show color inside a certain bound area
+				out_y := tmp_csync*32;
+				out_pb := 16;
+				out_pr := 16;
 				if vcounter>40 and vcounter<300 and hcounter>100 and hcounter<480 then
-					out_y := tmp_csync*32 + in_luma/8;
-					if hcounter>=120 and hcounter<124 then
-						out_pb := 1;
-						out_pr := 1;
-					elsif hcounter>=124 and hcounter<128 then
-						out_pb := 31;
-						out_pr := 31;
-					elsif hcounter>=128 and hcounter<132 then
-						out_pb := chromamin/8;
-						out_pr := chr2min/8;
-					elsif hcounter>=132 and hcounter<136 then
-						out_pb := chromamax/8;
-						out_pr := chr2max/8;
-					else
+					-- generate various debug output signals for calibration
+					if REGISTERS(REG_DEBUGSIGNAL)=2 then    -- show chroma signal range
+						if (chromapositive and vcounter<=200 and vcounter>=200-chromaabs) 
+						or ((not chromapositive) and vcounter>=200 and vcounter<=200+chromaabs) 
+						or (vcounter=200-64) or (vcounter=200+64)
+						then
+							out_y := tmp_csync*32 + 20;
+						else
+							out_y := tmp_csync*32;
+						end if;
+					elsif REGISTERS(REG_DEBUGSIGNAL)=3 then    -- show chr2 signal range
+						if (chr2positive and vcounter<=200 and vcounter>=200-chr2abs) 
+						or ((not chr2positive) and vcounter>=200 and vcounter<=200+chr2abs) 
+						or (vcounter=200-64) or (vcounter=200+64)
+						then
+							out_y := tmp_csync*32 + 20;
+						else
+							out_y := tmp_csync*32;
+						end if;							
+					elsif REGISTERS(REG_DEBUGSIGNAL)=4 then    -- color angle and energy on Pb and Pr output (use with oscilloscope)
+						out_y := tmp_csync*32 + in_luma/8;		
 						if vcounter mod 2 = 0 then
 							out_pb := (colorangle - carrierangle)/8; 
 						else
 							out_pb := (carrierangle - colorangle)/8; 
 						end if;
 						out_pr := dsquared(chr2abs, chromaabs) / 8;
+					else
+						out_y := tmp_csync*32 + in_luma/8;			
 					end if;
-				else
-					out_y := tmp_csync*32;
-					out_pb := 16;
-					out_pr := 16;
+					
+				-- show register values
+				elsif vcounter>=300 and vcounter<308 and hcounter>=128 and hcounter<128+8 then
+					if digitpixel(SELECTEDREGISTER,hcounter-128,vcounter-300) then
+						out_y := tmp_csync*32 + 18;
+					end if;					
+				elsif vcounter>=300 and vcounter<308 and hcounter>=144 and hcounter<144+8 then
+					if digitpixel(REGISTERS(SELECTEDREGISTER)/16,hcounter-144,vcounter-300) then
+						out_y := tmp_csync*32 + 18;
+					end if;					
+				elsif vcounter>=300 and vcounter<308 and hcounter>=152 and hcounter<152+8 then
+					if digitpixel(REGISTERS(SELECTEDREGISTER) mod 16,hcounter-152,vcounter-300) then
+						out_y := tmp_csync*32 + 18;
+					end if;					
 				end if;				
+				
 				-- take angle of color burst for future comparisons
-				if hcounter=70 then 
+				if hcounter=64 then 
 					carrierangle := colorangle;
 				end if;					
 			end if;
 			-- when all values for a pixel are collected from the ADC, try to make sense of
 			-- the values
 			if step=1 then   -- this is the exact time when all three values are collected from the same sample		
-				-- determine the minimum and maximum values for the chroma and its derivative signal
-				if hcounter=40 then
-					chromamax := 0;
-					chromamin := 255;
-					chr2max := 0;
-					chr2min := 255;
-				elsif hcounter<70 then
-					if in_chroma>chromamax then chromamax := in_chroma; end if;
-					if in_chroma<chromamin then chromamin := in_chroma; end if;
-					if in_chr2<chr2min then chr2min := in_chr2; end if;
-					if in_chr2>chr2max then chr2max := in_chr2; end if;			
-				end if;	
 				-- determine quadrant for chroma signal and make absolute distance values
-				chr2zero := (chr2max+chr2min)/2;			
+				chr2zero := REGISTERS(REG_CHR2ZERO);
 				if in_chr2>=chr2zero then 
 					chr2positive := true;
 					if in_chr2-chr2zero>=128 then chr2abs := 63; else chr2abs := (in_chr2-chr2zero) / 2; end if;
@@ -295,7 +510,7 @@ begin
 					chr2positive := false; 
 					if chr2zero-in_chr2>=128 then chr2abs := 63; else chr2abs := (chr2zero-in_chr2) / 2; end if;
 				end if;
-				chromazero := (chromamax+chromamin)/2;			
+				chromazero := REGISTERS(REG_CHROMAZERO);
 				if in_chroma>=chromazero then 
 					chromapositive := true;
 					if in_chroma-chromazero>=128 then chromaabs := 63; else chromaabs := (in_chroma-chromazero) / 2; end if;
@@ -337,13 +552,7 @@ begin
 			else
 				out_mclk := '0';
 			end if;
-			
-			-- generate debug output
-			if step<3 then
-				out_pixel := '0';
-			else
-				out_pixel := '1';
-			end if;			
+	
 			
 			-- read in first derivative of CHROMA (on the R analog input)
 			if step=0 then
@@ -379,7 +588,8 @@ begin
 		TST <= out_vsmp;
 	end process;
 
-	-- TODO: initialize the ADC
+	
+	----- initialize the ADC	
 	process (CLK)
 		constant numvalues: integer := 6;		
 		type T_initvalues is array (0 to numvalues-1) of integer range 0 to 16383;
@@ -442,5 +652,53 @@ begin
 		SDI <= out_sdi;
 		SEN <= out_sen;
 	end process;
+	
+	
+	------ manage the settings registers 
+	process (CLK)
+		variable delay:integer range 0 to 99999;   -- delay counter to handle input with only 50 Hz
+		
+		variable selected:integer range 0 to 7 := 0;  -- currently selected register to change
+		variable regs:T_REGISTERS := 
+		(	0,
+			0,         -- REG_DEBUGSIGNAL
+			16#03#,    -- REG_SAMPLEDELAY	 	   
+			16#70#,    -- REG_CHROMAZERO
+			16#70#,    -- REG_CHR2ZERO
+			0,
+			0,
+			0
+		);
+		variable keys_in : std_logic_vector(2 downto 0) := "000";
+		variable keys_prev : std_logic_vector(2 downto 0) := "000";		
+	begin
+		if rising_edge(CLK) then
+			if delay<99999 then
+				delay:=delay+1;
+			else
+				delay:=0;
+				
+				-- press increase key
+				if keys_in(2)='0' and keys_prev(2)='1' then
+					regs(selected) := regs(selected)+1;
+				end if;
+				-- press decrease key
+				if keys_in(1)='0' and keys_prev(1)='1' then
+					regs(selected) := regs(selected)-1;
+				end if;
+				-- pressed select key
+				if keys_in(0)='0' and keys_prev(0)='1' then
+					selected := selected+1;				
+				end if;				
+				
+				keys_prev := keys_in;
+				keys_in := KEYS;
+			end if;			
+		end if;
+		
+		REGISTERS <= regs;
+		SELECTEDREGISTER <= selected;
+	end process;
+	
 	
 end immediate;
