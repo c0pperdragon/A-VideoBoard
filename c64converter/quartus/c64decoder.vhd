@@ -34,8 +34,6 @@ architecture immediate of C64Decoder is
 	subtype int8 is integer range 0 to 255;
 	subtype int9 is integer range 0 to 511;
 
-	constant synclevel: integer := 70;
-
 	
 	-- global signals and constants to tie processes together ---	
 	
@@ -44,20 +42,35 @@ architecture immediate of C64Decoder is
 	signal CLK12TH : std_logic;          -- internal clock is synced to a 12th of a pixel
 	
 	signal CLKPIXEL : std_logic;         -- clock when a pixel is ready for computation
-	signal LUMPIXEL : int8;  -- luma value for a pixel
-	signal CRM1PIXEL : int8; -- 1. chroma value for a pixel
-	signal CRM2PIXEL : int8; -- 2. chroma value for a pixel
+	signal SYNCSTART : std_logic; -- is '1' once when falling csync was detected
+	signal LUMPIXEL : int8;     -- luma value for a pixel
+	signal CHROMPIXEL0 : int8;  -- 1. chroma value for a pixel
+	signal CHROMPIXEL1 : int8;  -- 2. chroma value for a pixel
 
-	type T_REGISTERS is array (0 to 7) of int8;
-	constant REG_VISUALMODE : integer := 0;
---	constant REG_SYNCLEVEL : integer := 1;
-	constant REG_SAMPLEDELAY : integer := 2;
-	constant REG_CHROMAZERO  : integer := 3;
+	type T_REGISTERS is array (0 to 15) of int8;
+	constant REG_VISUALMODE  : integer := 0;
+	constant REG_SYNCDELAY   : integer := 1;
+	constant REG_LUMSAMPLE   : integer := 2;
+	constant REG_CHROMSAMPLE : integer := 3;
+	constant REG_CHROMAZERO  : integer := 4;
+	constant REG_THREASHOLD0 : integer := 8;
+	constant REG_THREASHOLD1 : integer := 9;
+	constant REG_THREASHOLD2 : integer := 10;
+	constant REG_THREASHOLD3 : integer := 11;
+	constant REG_THREASHOLD4 : integer := 12;
+	constant REG_THREASHOLD5 : integer := 13;
+	constant REG_THREASHOLD6 : integer := 14;
+	constant REG_THREASHOLD7 : integer := 15;
 	
 	signal REGISTERS : T_REGISTERS; 
-	signal sELECTEDREGISTER : int3;		
+	signal SELECTEDREGISTER : int4;		
 	
-
+--   signal triggerdump : std_logic;
+--
+--	signal dumpdata : STD_LOGIC_VECTOR(15 downto 0);
+--	signal dumprdaddress : STD_LOGIC_VECTOR (12 DOWNTO 0);
+--	signal dumpwraddress : STD_LOGIC_VECTOR (12 DOWNTO 0);
+--	signal dumpq : STD_LOGIC_VECTOR (15 DOWNTO 0);
 
 	-- clock generator PLL
    component PLL378 is
@@ -68,6 +81,18 @@ architecture immediate of C64Decoder is
 	);
 	end component;
 
+--   component DUMPRAM is
+--	PORT
+--	(
+--		data		: IN STD_LOGIC_VECTOR (15 DOWNTO 0);
+--		rdaddress		: IN STD_LOGIC_VECTOR (12 DOWNTO 0);
+--		rdclock		: IN STD_LOGIC ;
+--		wraddress		: IN STD_LOGIC_VECTOR (12 DOWNTO 0);
+--		wrclock		: IN STD_LOGIC  := '1';
+--		wren		: IN STD_LOGIC  := '0';
+--		q		: OUT STD_LOGIC_VECTOR (15 DOWNTO 0)
+--	);
+--	end component;
 	
 	-- toolbox function for showing digits on the screen
 	function digitpixel(value: int4; x:int3; y:int3) return boolean
@@ -224,127 +249,19 @@ architecture immediate of C64Decoder is
 		return b(7-x)='1';
 	end digitpixel;
 	
-	-- toolbox functions to compute the phase and energy of a sinus signal, given two
-	-- points of defined distance
-	function computephase(y1: int8; y2:int8; zerolevel:int8) return int8
-	is
-		type T_quotient2angle is array (0 to 255) of int6;
-		constant quotient2angle : T_quotient2angle := (
-			0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-			0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-			0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
-			1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-			2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-			2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,
-			3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,
-			4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,
-			6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,
-			7,7,7,8,8,8,8,8,8,8,9,9,9,9,9,9,
-			9,10,10,10,10,10,10,11,11,11,11,11,12,12,12,12,
-			12,13,13,13,13,14,14,14,14,15,15,15,16,16,16,16,
-			17,17,17,18,18,18,19,19,20,20,20,21,21,22,22,23,
-			23,24,24,25,25,26,26,27,27,28,29,29,30,31,31,32,
-			33,33,34,35,36,37,37,38,39,40,41,42,43,44,45,46,
-			47,48,49,50,51,52,53,54,55,56,58,59,60,61,62,63	);
-		variable abs1:int8;
-		variable abs2:int8;		
-		variable pos1:boolean;
-		variable pos2:boolean;
-		variable absbigger:int8;
-		variable abssmaller:int8;
-		variable quot:int8;
-		variable angle:int6;
-	begin		
-		-- determine absolute values and memorize signs
-		if y1>=zerolevel then
-			pos1:=true;
-			abs1:=y1-zerolevel;
-		else
-			pos1:=false;
-			abs1:=zerolevel-y1;
-		end if;
-		if y2>=zerolevel then
-			pos2:=true;
-			abs2:=y2-zerolevel;
-		else
-			pos2:=false;
-			abs2:=zerolevel-y2;
-		end if;
-				
-		-- determine the quotient and look up the angle 
-		if y1=y2 then
-			if pos2 then 
-				return 64;
-			else
-				return 192;
-			end if;
-		elsif abs1=abs2 then
-			if pos2 then 
-				return 0;
-			else
-				return 0128;
-			end if;
-		else
-			if abs2>abs1 then
-				absbigger := abs2;
-				abssmaller := abs1;
-			else		
-				absbigger := abs1;
-				abssmaller := abs2;
-			end if;
-			quot := (abssmaller*128) / absbigger;		
-			if pos1=pos2 then
-				quot := 128 + quot;
-			else
-				quot := 127 - quot;
-			end if;
-			angle := quotient2angle(quot);		
-			-- determine the quadrant
-			if abs2>abs1 then		
-				if pos2 then
-					return angle;
-				else
-					return 128+angle;
-				end if;
-			else			
-				if pos1 then
-					return 128-angle;
-				else
-					return  256-angle;
-				end if;
-			end if;		
-		end if;		
-	end computephase;	
-	
-	function computeenergy(y1: int8; y2:int8; zerolevel:int8) return int8	
-	is
-		variable abs2:int8;		
-		variable difference:int8;
-		variable tmp1:integer range 0 to 65535;
-		variable tmp2:integer range 0 to 65535;
-	begin
-		-- determine absolute values
-		if y2>=zerolevel then
-			abs2:=y2-zerolevel;
-		else
-			abs2:=zerolevel-y2;
-		end if;		
-		-- compute the energy
-		if y1>=y2 then
-			difference := y1-y2;
-		else
-			difference := y2-y1;
-		end if;
-		tmp1 := abs2*abs2;
-		tmp2 := difference*difference*11;
-		return (tmp1+tmp2) / 256;	
-	end computeenergy;
-
 
 begin		
 
 	pllclk48th: PLL378 port map ( CLK25, CLK48TH);
-	
+--	dmpram : DUMPRAM port map 
+--	(	dumpdata,
+--		dumprdaddress,
+--		CLK12TH,
+--		dumpwraddress,
+--		CLK12TH,
+--		'1',
+--		dumpq
+--	);
 		
 	process (CLK48TH)
 	variable counter:std_logic_vector(1 downto 0) := "00";
@@ -375,22 +292,31 @@ begin
 	process (CLK12TH)
 	variable prev_lum : int8;
 	variable in_lum : int8;	
-	variable diff : int7;
-	variable diff2 : int7;
+	variable prev_crm : int8;	
 	variable in_crm : int8;	
 	
-	variable needdelay : int6 := 0;
+	variable needdelay : int3 := 0;
 	variable delayrequest : std_logic := '0';
 	variable subpixelcounter : int4 := 0;	
+	variable syncrunning : int4 := 0;
+
+	variable store_lumpixel0 : int8;
+	variable store_lumpixel1 : int8;
+	variable store_chrompixel0 : int8;
+	variable store_chrompixel1 : int8;
 		
 	variable out_clkpixel : std_logic := '0';
+	variable out_syncstart: std_logic;
 	variable out_lumpixel : int8;
-	variable out_crm1pixel : int8;
-	variable out_crm2pixel : int8;
+	variable out_chrompixel0 : int8;
+	variable out_chrompixel1 : int8;
 	
+	variable synclevel : integer range 0 to 255;
+	variable diff : int7;
+	variable diff2 : int7;
 	begin
 		if rising_edge(CLK12TH) then
-			-- request additional delays from the fast base clock
+			-- request additional tiny delays from the fast base clock
 			if delayrequest='1' then
 				delayrequest := '0';
 			elsif needdelay>0 then
@@ -399,51 +325,70 @@ begin
 			end if;
 			
 			-- take samples at correct times
-			if subpixelcounter=11 then
-				out_crm2pixel := in_crm;
-			elsif subpixelcounter=10 then
-				out_lumpixel := in_lum;
-				out_crm1pixel := in_crm;
+			if subpixelcounter=REGISTERS(REG_LUMSAMPLE) mod 16 then
+				store_lumpixel0 := prev_lum;
+				store_lumpixel1 := in_lum;
+			end if;
+			if subpixelcounter=REGISTERS(REG_CHROMSAMPLE) mod 16 then
+				store_chrompixel0 := prev_crm;
+				store_chrompixel1 := in_crm;
+			end if;
+						
+			-- pass input values to lower clocked process (with enough setup time)
+			if subpixelcounter=0 then
+				out_lumpixel := (store_lumpixel0 + store_lumpixel1) / 2;
+				out_chrompixel0 := store_chrompixel0;
+				out_chrompixel1 := store_chrompixel1;
 			end if;
 
 			-- count through the samples that belong to a single pixel
-			if needdelay>=4 then
-				needdelay := needdelay-4;
-			else
-				if subpixelcounter<11 then				
-					subpixelcounter:=subpixelcounter+1;				
-					if subpixelcounter = 6 then
-						out_clkpixel := '1';
-					end if;
-				else
-					subpixelcounter := 0;
+			if subpixelcounter<11 then				
+				if subpixelcounter=0 and out_clkpixel='1' then
+					out_syncstart:='0';
+				end if;
+				subpixelcounter:=subpixelcounter+1;				
+				if subpixelcounter = 6 then
 					out_clkpixel := '0';
-				end if;									
+				end if;
+			else
+				subpixelcounter := 0;
+				out_clkpixel := '1';
+			end if;
+			
+			-- generate the output sync pulse and let the inhib time pass
+			if syncrunning>0 then
+				syncrunning := syncrunning-1;
+				out_syncstart := '1';
+			else
+				out_syncstart := '0';
 			end if;
 									
 			-- detected falling sync. estimate time when the threashold was passed
 			-- and compute delay that needs to be injected 
-			if in_lum<=synclevel and prev_lum>synclevel then
-				needdelay := REGISTERS(REG_SAMPLEDELAY) mod 64;
-				subpixelcounter := 6;
+			synclevel := REGISTERS(REG_THREASHOLD0);
+			if in_lum<=synclevel and prev_lum>synclevel and out_syncstart='0' then
+				subpixelcounter := 0;
 				out_clkpixel := '0';
-				
+				syncrunning := 13; -- out_syncstart := '1';
+					
 				diff := prev_lum - in_lum;
 				diff2 := prev_lum - synclevel;
 				if diff2 <= diff/4 then
-					needdelay := needdelay + 0;
+					needdelay := 0;
 				elsif	diff2 <= diff/2 then
-					needdelay := needdelay + 1;
+					needdelay := 1;
 				elsif diff2 <= diff/2 + diff/4 then
-					needdelay := needdelay + 2;
+					needdelay := 2;
 				else
-					needdelay := needdelay + 3;
+					needdelay := 3;
 				end if;
+				needdelay := needdelay + (REGISTERS(REG_SYNCDELAY) mod 4);
 			end if;			
 						
 			-- take next samples
 			prev_lum := in_lum;
 			in_lum := to_integer(unsigned(LUMA));
+			prev_crm := in_crm;
 			in_crm := to_integer(unsigned(CHROMA));
 		end if;	
 		
@@ -451,9 +396,12 @@ begin
 		CLKADC <= CLK12TH;		
 		
 		CLKPIXEL <= out_clkpixel;
+		SYNCSTART <= out_syncstart;
 		LUMPIXEL <= out_lumpixel;
-		CRM1PIXEL <= out_crm1pixel;
-		CRM2PIXEL <= out_crm2pixel;
+		CHROMPIXEL0 <= out_chrompixel0;
+		CHROMPIXEL1 <= out_chrompixel1;
+
+		TST <= out_clkpixel;	 	   
 	end process;	
 
 	
@@ -462,14 +410,20 @@ begin
 		variable hcounter : int9 := 0;
 		variable vcounter : int9 := 0;
 	
-		variable syncduration : int9 := 0;
+		variable timesincesync : int9 := 0;
 		variable foundshortsyncs : int5 := 0;
+		
 		variable out_csync : integer range 0 to 1;
 		variable out_lum : int5;	
 		variable out_pb : int5;
 		variable out_pr : int5;
 		
 		variable carrier : int8;
+		
+		variable dumpdelay : integer range 0 to 63 := 0;
+		variable dumpcounter : integer range 0 to 511 := 0;
+		variable out_triggerdump : std_logic;
+		
 	begin
 	
 		if rising_edge(CLKPIXEL) then
@@ -479,13 +433,39 @@ begin
 			out_pb := 16;
 			out_pr := 16;
 			if hcounter>=110 and hcounter<=460 and vcounter>=40 and vcounter<280 then			
-				if REGISTERS(REG_VISUALMODE)=0 then			
-					out_lum := LUMPIXEL/8;
+				if REGISTERS(REG_VISUALMODE)=0 then	
+					if LUMPIXEL < REGISTERS(REG_THREASHOLD4) then
+						if LUMPIXEL < REGISTERS(REG_THREASHOLD2) then
+							if LUMPIXEL < REGISTERS(REG_THREASHOLD1) then
+								out_lum := 0;
+							else
+								out_lum := 4;
+							end if;
+						else
+							if LUMPIXEL < REGISTERS(REG_THREASHOLD3) then
+								out_lum := 8;
+							else
+								out_lum := 12;
+							end if;						
+						end if;
+					else
+						if LUMPIXEL < REGISTERS(REG_THREASHOLD6) then
+							if LUMPIXEL < REGISTERS(REG_THREASHOLD5) then
+								out_lum := 16;
+							else
+								out_lum := 20;
+							end if;
+						else
+							if LUMPIXEL < REGISTERS(REG_THREASHOLD7) then
+								out_lum := 25;
+							else
+								out_lum := 31;
+							end if;						
+						end if;					
+					end if;
+		
 				elsif REGISTERS(REG_VISUALMODE)=1 then
-					carrier := (hcounter*9*16) mod 256;
 					out_lum := LUMPIXEL/8;
-					out_pb := (computephase(CRM1PIXEL,CRM2PIXEL, REGISTERS(REG_CHROMAZERO)) - carrier) / 8;
-					out_pr := computeenergy(CRM1PIXEL,CRM2PIXEL, REGISTERS(REG_CHROMAZERO)) / 8;					
 				end if;				
 				
 			-- show register values
@@ -521,38 +501,29 @@ begin
 				hcounter := hcounter+1;			
 			end if;			
 		
-			-- detect the horizontal sync and adjust horizontal counter
-			if LUMPIXEL<=synclevel then
-				-- falling edge of csync
-				if syncduration=0 then	 
-					if foundshortsyncs=2 and vcounter>50 then
-						-- force counters to the vsync point
-						vcounter := 0;
-						hcounter := 0;
+			-- detect the sync signal edge and adjust counters
+			if SYNCSTART='1' then
+				if hcounter>375 then
+					hcounter := 0;
+					if vcounter<311 then
+						vcounter:=vcounter+1;
 					else
-						if hcounter<50 then
-							hcounter := 0;
-						elsif hcounter>450 then
-							hcounter := 0;	
-							if vcounter<511 then
-								vcounter := vcounter+1;
-							end if;
-						end if;
+						vcounter:=0;
 					end if;
-					syncduration := 1;
-				elsif syncduration<511 then
-					syncduration := syncduration+1;					
-				end if;				
-				-- rising edge of csync: try to detect the short syncs
-			elsif syncduration>0 then
-				if syncduration>10 and syncduration<25 then					
-					if foundshortsyncs<31  then
+				end if;
+				if timesincesync<375 then
+					if foundshortsyncs<31 then
 						foundshortsyncs := foundshortsyncs+1;
 					end if;
-				else	
+				else
 					foundshortsyncs := 0;
 				end if;
-				syncduration := 0;
+				if foundshortsyncs = 3 then
+					vcounter := 0;
+				end if;
+				timesincesync:=0;
+			elsif timesincesync<511 then
+				timesincesync := timesincesync+1;
 			end if;
 		end if;
 	
@@ -561,7 +532,7 @@ begin
 		Pb <= std_logic_vector(to_unsigned(out_pb, 5));
 		Pr <= std_logic_vector(to_unsigned(out_pr, 5));
 		
-		TST <= '0'; --CLKPIXEL; 
+--		triggerdump <= out_triggerdump;
 	end process;
 
 	
@@ -570,16 +541,24 @@ begin
 	process (CLKPIXEL)
 		variable delay:integer range 0 to 131071;   -- delay counter to handle input with only 50 Hz
 		
-		variable selected:int3 := 0;  -- currently selected register to change
+		variable selected:int4 := 0;  -- currently selected register to change
 		variable regs:T_REGISTERS := 
 		(	0,         -- REQ_VISUALMODE
-			16#40#,    -- REG_SYNCLEVEL
-			16#13#,    -- REG_SAMPLEDELAY	 	   
+			16#00#,    -- REG_SYNCDELAY
+			16#08#,    -- REG_LUMSAMPLE	 	   
+			16#09#,    -- REG_CHROMSAMPLE	 	   
 			16#70#,    -- REG_CHROMAZERO
-			0, 
 			0,
 			0,
-			0
+			0,
+			16#40#,     -- REG_THREASHOLD0 (sync level)
+			16#75#,     -- REG_THREASHOLD1
+			16#8E#,     -- REG_THREASHOLD2
+			16#9A#,     -- REG_THREASHOLD3
+			16#A8#,     -- REG_THREASHOLD4
+			16#C3#,     -- REG_THREASHOLD5
+			16#DC#,     -- REG_THREASHOLD6
+			16#F5#      -- REG_THREASHOLD7
 		);
 		variable keys_in : std_logic_vector(2 downto 0) := "000";
 		variable keys_prev : std_logic_vector(2 downto 0) := "000";		
@@ -612,5 +591,81 @@ begin
 		SELECTEDREGISTER <= selected;
 	end process;
 	
+	
+--	-- output a dump of the samples via serial protocol 
+--	process (CLK12TH, triggerdump)
+--		variable readcursor : integer range 0 to 8191 := 8191;
+--		variable writecursor : integer range 0 to 8191 := 8191;
+--		variable writebit : integer range 0 to 21 := 0; -- two bytes, 1 start, 2 stop bits each
+--		variable writedelay : integer range 0 to 819 := 0;  -- to get 115200 baud
+--		
+--		variable d : std_logic_vector(15 downto 0);
+--		
+--		variable out_data: std_logic_vector(15 downto 0);
+--		variable out_bit : std_logic;
+--		
+--		variable in_trigger : std_logic := '0';
+--		variable prev_trigger : std_logic := '0';  
+--	begin
+--		if rising_edge(CLK12TH) then
+--			d := dumpq;
+--         if writecursor=0 then
+--				d := "1111111111111111";
+--			end if;
+--			
+--			if writebit<11 then -- first byte
+--				if writebit=0 then
+--					out_bit := '0';  -- start bit
+--				elsif writebit<=8 then  -- 1 .. 8
+--					out_bit := d(writebit-1); -- LSB first
+--				else			
+--					out_bit := '1';  -- stop bit(s)
+--				end if;
+--			else   -- second byte
+--				if writebit=11 then
+--					out_bit := '0';  -- start bit
+--				elsif writebit<=19 then  -- 12 .. 19
+--					out_bit := d(8+writebit-12); -- LSB first
+--				else			
+--					out_bit := '1';  -- stop bit(s)
+--				end if;			
+--			end if;
+--			
+--			if readcursor<8191 then
+--				readcursor := readcursor+1;
+--			end if;
+--				
+--			if writedelay<819 then
+--				writedelay := writedelay+1;
+--			else
+--				writedelay := 0;
+--				if writebit<21 then
+--					writebit:=writebit+1;
+--				elsif writecursor<5999 then
+--					writebit:=0;
+--					writecursor:=writecursor+1;
+--				end if;
+--			end if;
+--			
+--			if in_trigger='1' and prev_trigger='0' then
+--				readcursor := 0;
+--				writecursor := 0;
+--				writebit := 0;
+--				writedelay := 0;
+--			end if;
+--		
+--		
+--			prev_trigger := in_trigger;
+--			in_trigger := triggerdump;
+--			
+--			out_data := CHROMA & LUMA;
+--		end if;
+--
+--		dumpdata <= out_data;
+--		dumprdaddress <= std_logic_vector(to_unsigned(writecursor,13));
+--		dumpwraddress <= std_logic_vector(to_unsigned(readcursor,13));
+--		
+--		TST <= '0'; -- out_bit;
+--	end process;
 		
 end immediate;
