@@ -1,12 +1,13 @@
 EESchema Schematic File Version 4
+LIBS:c64board-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 1
-Title ""
+Title "C64 mod"
 Date ""
-Rev ""
+Rev "1"
 Comp ""
 Comment1 ""
 Comment2 ""
@@ -27,13 +28,13 @@ $EndComp
 $Comp
 L Connector_Generic:Conn_02x10_Odd_Even J1
 U 1 1 5B7FD3C0
-P 8850 3100
-F 0 "J1" H 8900 3717 50  0000 C CNN
-F 1 "Conn_02x10_Odd_Even" H 8900 3626 50  0000 C CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_2x10_P2.54mm_Vertical" H 8850 3100 50  0001 C CNN
-F 3 "~" H 8850 3100 50  0001 C CNN
-	1    8850 3100
-	1    0    0    -1  
+P 8950 3200
+F 0 "J1" H 9000 3817 50  0000 C CNN
+F 1 "Conn_02x10_Odd_Even" H 9000 3726 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_2x10_P2.54mm_Vertical" H 8950 3200 50  0001 C CNN
+F 3 "~" H 8950 3200 50  0001 C CNN
+	1    8950 3200
+	-1   0    0    1   
 $EndComp
 $Comp
 L Regulator_Linear:MIC5504-3.3YM5 U2
@@ -717,8 +718,6 @@ F 3 "~" H 3250 6800 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2700 7000 3250 7000
-Wire Wire Line
 	3250 7000 3250 6900
 Wire Wire Line
 	3250 6700 3250 6550
@@ -803,4 +802,6 @@ Wire Wire Line
 	5350 4850 5800 4850
 Wire Wire Line
 	6100 4850 6200 4850
+Wire Wire Line
+	2650 7000 3250 7000
 $EndSCHEMATC
