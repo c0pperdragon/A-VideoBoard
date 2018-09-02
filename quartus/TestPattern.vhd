@@ -6,21 +6,20 @@ entity TestPattern is
 	port (
 		-- external oscillator
 		CLKREF	: in std_logic;
-		
-		TESTBLINK : out std_logic;
 				
 		-- digital YPbPr output
 		Y: out std_logic_vector(5 downto 0);
 		Pb: out std_logic_vector(4 downto 0);
-		Pr: out std_logic_vector(4 downto 0)
-
+		Pr: out std_logic_vector(4 downto 0);
+		
+		TEST : out std_logic
 	);	
 end entity;
 
 
 architecture immediate of TestPattern is
 	
-   component PLL_14_625 is
+   component PLL_14_387 is
 	PORT
 	(
 		inclk0		: IN STD_LOGIC  := '0';
@@ -33,7 +32,7 @@ architecture immediate of TestPattern is
 
 begin		
 	-- create actual clock frequency 
-	clkpll: PLL_14_625 port map ( CLKREF, CLKPIXEL );
+	clkpll: PLL_14_387 port map ( CLKREF, CLKPIXEL );
 	
 
 	-- generate a test image
@@ -58,12 +57,32 @@ begin
         16#95b1#,16#9d91#,16#a572#,16#ad52#,16#b532#,16#bcf3#,16#c4d3#,16#ccb4#,16#d494#,16#dc74#,16#e455#,16#e474#,16#e8b4#,16#ecf3#,16#f132#,16#f152#,
         16#8dd2#,16#95b3#,16#9994#,16#9d95#,16#a575#,16#a956#,16#ad37#,16#b538#,16#b919#,16#c0fa#,16#c4da#,16#ccf9#,16#d138#,16#d957#,16#e175#,16#e594#	
 	 );	
+	type T_c64palette is array (0 to 15) of integer range 0 to 65535;
+	constant c64palette : T_c64palette :=
+	(	32768 +  0*1024 + 16*32 + 16,  -- black
+		32768 + 31*1024 + 16*32 + 16,  -- white
+		32768 +  5*1024 + 13*32 + 24,  -- red
+		32768 + 28*1024 + 16*32 + 11,  -- cyan
+		32768 + 14*1024 + 21*32 + 22,  -- purple
+		32768 + 16*1024 + 12*32 + 4,   -- green
+		32768 +  2*1024 + 26*32 + 4,   -- blue
+		32768 + 27*1024 +  8*32 + 17,  -- yellow
+		32768 + 19*1024 + 11*32 + 21,  -- orange
+		32768 +  9*1024 + 11*32 + 18,  -- brown
+		32768 + 19*1024 + 13*32 + 24,  -- light red
+		32768 +  6*1024 + 16*32 + 16,  -- dark gray
+		32768 + 14*1024 + 16*32 + 16,  -- medium gray
+		32768 + 26*1024 +  8*32 + 12,  -- light green
+		32768 + 13*1024 + 26*32 +  6,  -- light blue
+		32768 + 23*1024 + 16*32 + 16   -- light gray		
+	);
+	 
 	constant sync : integer := 0 + 16*32 + 16;
 	
-	constant w: integer := 468;  
-	constant h: integer := 625;  	
+	constant w: integer := 460;  
+	constant h: integer := 624; -- 625;  	
 	constant vstart:  integer := 2*32-1;
-	constant hstart: integer := 110;	
+	constant hstart: integer := 82;	
 	
 	variable cx: integer range 0 to w-1 := 0;
 	variable cy: integer range 0 to h-1 := 0;
@@ -71,6 +90,7 @@ begin
 	
 	variable out_ypbpr: integer range 0 to 65535 := 0;
 	
+	constant pwidth: integer := 360;
 	constant pheight: integer := 270;
 	variable px: integer range 0 to 511;
 	variable py: integer range 0 to 511;
@@ -92,21 +112,28 @@ begin
 			
 
 			-- compute image
-			if cx>=hstart and cx<hstart+320 and cy>=vstart and cy<vstart+2*pheight then
+			if cx>=hstart and cx<hstart+pwidth and cy>=vstart and cy<vstart+2*pheight then
+				vis := std_logic_vector(to_unsigned(framecounter,8));
 				px := cx-hstart;
 				py := (cy-vstart)/2;
-				vis := std_logic_vector(to_unsigned(framecounter,8));
 				
 				-- background color
-				out_ypbpr := ataripalette(4);
+				out_ypbpr := ataripalette(2);
 				
 				-- outline frame
-				if px=0 or py=0 or px=319 or py=pheight-1 then
-					out_ypbpr := ataripalette(8);
+				if px=0 or py=0 or px=pwidth-1 or py=pheight-1 then
+					out_ypbpr := ataripalette(6);
+				-- height markers
+				elsif px>=0 and px<3 and (py=15 or py=30 or py=238 or py=253) then
+					out_ypbpr := ataripalette(6);
 				else				
 					-- atari palette matrix				
 					if px>=16 and py>=32 and px<16+16*8 and py<32+16*8 then
 						out_ypbpr := ataripalette( ((px-16)/8) + ((py-32)/8) * 16 );
+
+					-- c64 palette stripe
+					elsif px>=160 and px<=180 and py>=32 and py<32+16*8 then
+						out_ypbpr := c64palette( (py-32)/8 );					
 						
 					-- grey gradient	
 					elsif px>=16 and px<16+32*8 and py>=180 and py<200 then					
@@ -120,21 +147,20 @@ begin
 					elsif px>=16 and px<16+32*8 and py>=240 and py<260 then					
 						out_ypbpr := (32 + 16)*1024 + 16*32 + ((px-16)/8);
 						
-			      -- blinking rectangles
-					elsif ((py>=10 and py<40) or (py>=pheight-40 and py<pheight-10)) and px>=290 and px<310 then
-						if vis(5)='0' then
+			      -- blinking areas
+					elsif ((py>=10 and py<40) or (py>=pheight-40 and py<pheight-10)) and px>=290 and px<310 
+					then
+						if vis(7)='0' then
 							out_ypbpr:=ataripalette(0); 
 						else        
 							out_ypbpr:=ataripalette(15); 
-						end if;						
-						
---					-- quickly flashing rectangle
---					elsif py>110 and py<140 and px>=290 and px<310 then
---						if vis(0)='0' then
---							out_ypbpr:=ataripalette(0); 
---						else        
---							out_ypbpr:=ataripalette(15); 
---						end if;						
+						end if;	
+					
+					-- horizontal scrolling test
+					elsif py>=50 and py<160 and px>=200 and px<350 then
+						if px mod 16 = framecounter mod 16 then
+	                   out_ypbpr:=ataripalette(15);
+						end if;
 					end if;
 				
 				end if;
@@ -160,8 +186,7 @@ begin
 		PR <= tmp_ypbpr(4 downto 0);
 		
 		vis := std_logic_vector(to_unsigned(framecounter,8));
-		TESTBLINK <= vis(5);
-
+		TEST <= vis(7);
 	end process;
 
 
