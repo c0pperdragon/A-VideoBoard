@@ -202,9 +202,9 @@ begin
 		variable usenoscanlines : std_logic;
 	begin
 		-- handle jumper configuration
-		GPIO2_10 <= CLK;  -- '0';    -- provide GND ond pin 10
-		uselowres := '1'; -- not GPIO2_8; 
-		usenoscanlines := not GPIO2_9;
+		GPIO2_10 <= '0';    -- provide GND ond pin 10
+		uselowres := not GPIO2_8; 
+		usenoscanlines := '0'; -- not GPIO2_9;
 	
 		if rising_edge(CLK) then
 		
@@ -213,7 +213,7 @@ begin
 				Y <= "100000";
 				Pb <= "10000";
 				Pr <= "10000";
-				if hcnt<144*4-33 or (hcnt>=114*4 and hcnt<228*4-33) then  -- two EDTV vsyncs
+				if hcnt<504-33 or (hcnt>=504 and hcnt<2*504-33) then  -- two EDTV vsyncs
 					Y(5) <= '0';
 				end if;
 			else
@@ -222,7 +222,7 @@ begin
 				Pb <= vramq0(9 downto 5);
 				Pr <= vramq0(4 downto 0);
 				 -- construct scanline darkening from both adjacent lines
-				if hcnt>=2*228 and usenoscanlines='0' then  
+				if hcnt>=504 and usenoscanlines='0' then  
 					val0 := to_integer(unsigned(vramq0(14 downto 10)));
 					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
 					Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
@@ -234,9 +234,11 @@ begin
 					Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
 				end if;				
 				-- two normal EDTV line syncs
-				if hcnt<32 or (hcnt>=114*4 and hcnt<114*4+32) then  
+				if hcnt<32 or (hcnt>=504 and hcnt<504+32) then  
 					Y(5) <= '0';
 				end if;
+				
+				-- Y <= "100000";
 			end if;
 			
 			-- look for short sync pulses at start of line (to know when next frame starts)
@@ -249,7 +251,7 @@ begin
 			end if;
 			
 			-- progress counters and detect sync
-			if SDTV_Y(5)='0' and hcnt>4*220 then
+			if SDTV_Y(5)='0' and hcnt>1000 then
 				hcnt := 0;
 				if shortsyncs=3 then 
 					vcnt := 0;
@@ -272,12 +274,12 @@ begin
 		-- compute VideoRAM write position (write in buffer one line ahead)
 		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 - 2 + ((vcnt+1) mod 2)*512, 10));
 		-- compute VideoRAM read positions to fetch two adjacent lines
-		if hcnt<228*2 then
+		if hcnt<504 then
 			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt + (vcnt mod 2)*512, 10));
 			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt + ((vcnt+1) mod 2)*512, 10));
 		else
-			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt-228*2 + (vcnt mod 2)*512, 10));
-			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-228*2 + ((vcnt+1) mod 2)*512, 10));
+			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt-504 + (vcnt mod 2)*512, 10));
+			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-504 + ((vcnt+1) mod 2)*512, 10));
 		end if;
 		
 	end process;
