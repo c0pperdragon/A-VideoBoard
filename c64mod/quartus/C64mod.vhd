@@ -203,8 +203,8 @@ begin
 	begin
 		-- handle jumper configuration
 		GPIO2_10 <= '0';    -- provide GND ond pin 10
-		uselowres := not GPIO2_8; 
-		usenoscanlines := '0'; -- not GPIO2_9;
+		uselowres := '1'; -- not GPIO2_8; 
+		usenoscanlines := '1'; -- not GPIO2_9;
 	
 		if rising_edge(CLK) then
 		
@@ -269,6 +269,7 @@ begin
 				Pb <= SDTV_Pb;
 				Pr <= SDTV_Pr;
 			end if;
+			
 		end if;
 		
 		-- compute VideoRAM write position (write in buffer one line ahead)
