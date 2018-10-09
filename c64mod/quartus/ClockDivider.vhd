@@ -20,10 +20,6 @@ entity C64Mod is
 		-- read jumper settings 
 		GPIO2_3: in std_logic;
 		GPIO2_5: in std_logic
-		
---		-- debug output
---		GPIO2_8: out std_logic;
---		GPIO2_10: out std_logic
 	);	
 end entity;
 
@@ -31,14 +27,13 @@ end entity;
 architecture immediate of C64Mod is
 	-- synchronous clock for most of the circuit
 	signal CLK     : std_logic;                     -- 15.763977 MHz
+	signal PHASE   : std_logic_vector(3 downto 0);  -- 16 phases give one C64 clock
 	
 	-- high-speed clock to generate synchronous clock from. this is done
-	-- with 4 coupled signals that are 0,45,90,135 degree phase shifted to give
-	-- 8 usable edges.
-	signal CLK252A : std_logic;  -- 504.447288 Mhz
+	-- with two coupled signals that are 90 degree phase shifted to give
+	-- 4 usable edges with at total frequency of 15.7639 x 16 x 4 Mhz	
+	signal CLK252A : std_logic;  -- 252.223644 Mhz
 	signal CLK252B : std_logic;
-	signal CLK252C : std_logic;
-	signal CLK252D : std_logic;
 	
 	-- SDTV signals
 	signal SDTV_Y   : std_logic_vector(5 downto 0);
@@ -55,11 +50,9 @@ architecture immediate of C64Mod is
    component PLL252 is
 	PORT
 	(
-		inclk0 : IN STD_LOGIC ;
-		c0		: OUT STD_LOGIC ;
-		c1		: OUT STD_LOGIC ;
-		c2		: OUT STD_LOGIC ;
-		c3		: OUT STD_LOGIC 
+		inclk0		: IN STD_LOGIC  := '0';
+		c0		      : OUT STD_LOGIC; 
+		c1		      : OUT STD_LOGIC 
 	);
 	end component;
 	
@@ -73,9 +66,9 @@ architecture immediate of C64Mod is
 		
 		-- synchronous clock and phase of the c64 clock cylce
 		CLK         : in std_logic;
+		PHASE       : in std_logic_vector(3 downto 0); 
 		
 		-- Connections to the real GTIAs pins 
-		PHI0        : in std_logic;
 		DB          : in std_logic_vector(11 downto 0);
 		A           : in std_logic_vector(5 downto 0);
 		RW          : in std_logic; 
@@ -98,14 +91,14 @@ architecture immediate of C64Mod is
 	
 	
 begin		
-	subdividerpll: PLL252 port map ( CLK25, CLK252A, CLK252B, CLK252C, CLK252D );
+	subdividerpll: PLL252 port map ( CLK25, CLK252A, CLK252B );
 	
 	vic: VIC2YPbPr port map (
 		SDTV_Y,
 		SDTV_Pb,
 		SDTV_Pr,
 		CLK,
-		GPIO1(1),                                 -- PHI0
+		PHASE,
 		GPIO1(12 downto 9) & GPIO1(20 downto 13), -- DB
 	   GPIO1(12 downto 7),                       -- A
 		GPIO1(5),                                 -- RW 
@@ -133,126 +126,66 @@ begin
 	
 	
 	------------ create a 16x C64 clock to drive the rest of the circuit	-----------------
-	process (GPIO1, CLK252A, CLK252B, CLK252C, CLK252D)
-		-- having 8 versions of the circuit running slightly 
-		-- time-shifted
-		variable counter0 : integer range 0 to 15 := 0;
-		variable counter1 : integer range 0 to 15 := 0;
-		variable counter2 : integer range 0 to 15 := 0;
-		variable counter3 : integer range 0 to 15 := 0;
-		variable counter4 : integer range 0 to 15 := 0;
-		variable counter5 : integer range 0 to 15 := 0;
-		variable counter6 : integer range 0 to 15 := 0;
-		variable counter7 : integer range 0 to 15 := 0;
-		variable in0_clk : std_logic := '0'; 
-		variable in1_clk : std_logic := '0'; 		
-		variable in2_clk : std_logic := '0'; 		
-		variable in3_clk : std_logic := '0'; 		
-		variable in4_clk : std_logic := '0'; 
-		variable in5_clk : std_logic := '0'; 		
-		variable in6_clk : std_logic := '0'; 		
-		variable in7_clk : std_logic := '0'; 		
-		variable prev0_clk : std_logic := '0';
-		variable prev1_clk : std_logic := '0';		
-		variable prev2_clk : std_logic := '0';		
-		variable prev3_clk : std_logic := '0';	
-		variable prev4_clk : std_logic := '0';
-		variable prev5_clk : std_logic := '0';		
-		variable prev6_clk : std_logic := '0';		
-		variable prev7_clk : std_logic := '0';	
-			
-		variable bits : std_logic_vector(3 downto 0);
-		constant reset: integer := 4;
+	process (GPIO1, CLK252A, CLK252B)
+		variable counter0 : integer range 0 to 255 := 0;
+		variable in0_clk : std_logic := '0'; -- sampling c64 clock
+		variable counter1 : integer range 0 to 255 := 0;
+		variable in1_clk : std_logic := '0'; -- sampling c64 clock		
+		variable counter2 : integer range 0 to 255 := 0;
+		variable in2_clk : std_logic := '0'; -- sampling c64 clock		
+		variable counter3 : integer range 0 to 255 := 0;
+		variable in3_clk : std_logic := '0'; -- sampling c64 clock		
+		
+		variable out_phase : std_logic_vector(3 downto 0);
+
+		variable bits : std_logic_vector(7 downto 0);
 	begin
-	
+		-- Sample the c64 clock on the falling and on the rising edge
+		-- of the coupled clocks. This should add only 1ns of jitter.
 		if rising_edge(CLK252A) then
-			if in0_clk='0' and prev0_clk='1' then 
-				counter0 := reset; 
-			else
+			-- compute the c64 clock phase (with huge setup-time)
+			bits := std_logic_vector(to_unsigned(counter0+14,8));
+			out_phase := bits(7 downto 4);
+			
+			if counter0<248 then
 				counter0 := counter0+1;
-			end if;
-			prev0_clk := in0_clk;
-			in0_clk := GPIO1(1);  
+			elsif in0_clk='0' then
+				counter0 := 0;
+			end if;						
+			in0_clk := GPIO1(1);
 		end if;
 		if rising_edge(CLK252B) then
-			if in1_clk='0' and prev1_clk='1' then 
-				counter1 := reset; 
-			else
+			if counter1<248 then
 				counter1 := counter1+1;
-			end if;
-			prev1_clk := in1_clk;
-			in1_clk := GPIO1(1);  
-		end if;
-		if rising_edge(CLK252C) then
-			if in2_clk='0' and prev2_clk='1' then 
-				counter2 := reset; 
-			else
-				counter2 := counter2+1;
-			end if;
-			prev2_clk := in2_clk;
-			in2_clk := GPIO1(1);  
-		end if;
-		if rising_edge(CLK252D) then
-			if in3_clk='0' and prev3_clk='1' then 
-				counter3 := reset; 
-			else
-				counter3 := counter3+1;
-			end if;
-			prev3_clk := in3_clk;
-			in3_clk := GPIO1(1);  
+			elsif in1_clk='0' then
+				counter1 := 0;
+			end if;						
+			in1_clk := GPIO1(1);
 		end if;
 		if falling_edge(CLK252A) then
-			if in4_clk='0' and prev4_clk='1' then 
-				counter4 := reset; 
-			else
-				counter4 := counter4+1;
-			end if;
-			prev4_clk := in4_clk;
-			in4_clk := GPIO1(1);  
+			if counter2<248 then
+				counter2 := counter2+1;
+			elsif in2_clk='0' then
+				counter2 := 0;
+			end if;						
+			in2_clk := GPIO1(1);
 		end if;
 		if falling_edge(CLK252B) then
-			if in5_clk='0' and prev5_clk='1' then 
-				counter5 := reset; 
-			else
-				counter5 := counter5+1;
-			end if;
-			prev5_clk := in5_clk;
-			in5_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252C) then
-			if in6_clk='0' and prev6_clk='1' then 
-				counter6 := reset; 
-			else
-				counter6 := counter6+1;
-			end if;
-			prev6_clk := in6_clk;
-			in6_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252D) then
-			if in7_clk='0' and prev7_clk='1' then 
-				counter7 := reset; 
-			else
-				counter7 := counter7+1;
-			end if;
-			prev7_clk := in7_clk;
-			in7_clk := GPIO1(1);  
+			if counter3<248 then
+				counter3 := counter3+1;
+			elsif in3_clk='0' then
+				counter3 := 0;
+			end if;						
+			in3_clk := GPIO1(1);
 		end if;
 		
       -- merge clock counters asynchronously
 		bits:= std_logic_vector
-		(	   to_unsigned(counter0,4) 
-			or to_unsigned(counter1,4) 
-		   or to_unsigned(counter2,4) 
-			or to_unsigned(counter3,4)
-			or to_unsigned(counter4,4) 
-		   or to_unsigned(counter5,4) 
-			or to_unsigned(counter6,4)
-			or to_unsigned(counter7,4)
+		(	   to_unsigned(counter0,8) or to_unsigned(counter1,8) 
+		   or to_unsigned(counter2,8) or to_unsigned(counter3,8)
 		);
-		
 		CLK <= bits(3);
---		GPIO2_8 <= bits(3);
---		GPIO2_10 <= GPIO1(1);
+		PHASE <= out_phase;
 	end process;
 	
 	
@@ -260,7 +193,7 @@ begin
 	process (CLK) 
 		variable hcnt : integer range 0 to 1023 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
-		variable needvsync : boolean := false;
+		variable shortsyncs : integer range 0 to 3 := 0;
 		
 		variable val0 : integer range 0 to 63;
 		variable val1 : integer range 0 to 63;
@@ -268,17 +201,17 @@ begin
 		variable usescanlines : std_logic;
 	begin
 		-- handle jumper configuration
-		usehighres := '1';   -- not GPIO2_3; 
-		usescanlines := '1'; -- not GPIO2_5;
+		usehighres := '0';   -- not GPIO2_3; 
+		usescanlines := '0'; -- not GPIO2_5;
 	
 		if rising_edge(CLK) then
 		
 			-- generate EDTV output signal (with syncs and all)
-			if vcnt=0 or (vcnt=1 and hcnt<504) then	  -- 3 EDTV lines with sync	
+			if vcnt<3 then			  -- 6 EDTV lines with sync	
 				Y <= "100000";
 				Pb <= "10000";
 				Pr <= "10000";
-				if hcnt<504-37 or (hcnt>=504 and hcnt<2*504-37) then 
+				if hcnt<504-33 or (hcnt>=504 and hcnt<2*504-33) then  -- two EDTV vsyncs
 					Y(5) <= '0';
 				end if;
 			else
@@ -299,30 +232,35 @@ begin
 					Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
 				end if;				
 				-- two normal EDTV line syncs
-				if hcnt<37 or (hcnt>=504 and hcnt<504+37) then  
+				if hcnt<32 or (hcnt>=504 and hcnt<504+32) then  
 					Y(5) <= '0';
 				end if;
 				
 				-- Y <= "100000";
 			end if;
 			
+			-- look for short sync pulses at start of line (to know when next frame starts)
+			if hcnt=48 then   -- here only on a short sync line, the sync is already off
+				if SDTV_Y(5)='1' and shortsyncs<3 then
+					shortsyncs := shortsyncs+1;
+				else
+					shortsyncs := 0;
+				end if;
+			end if;
+			
 			-- progress counters and detect sync
 			if SDTV_Y(5)='0' and hcnt>1000 then
 				hcnt := 0;
-				if needvsync then 
+				if shortsyncs=3 then 
 					vcnt := 0;
-					needvsync := false;
 				elsif vcnt<511 then
 					vcnt := vcnt+1;
 				end if;
 			elsif hcnt<1023 then
-				-- a sync in the middle of a scanline: starts the vsync sequence
-				if hcnt=200 and SDTV_Y(5)='0' and vcnt>50 then
-					needvsync := true;
-				end if;
 				hcnt := hcnt+1;
 			end if;
-
+	
+	
 			-- if highres is not selected, fall back to plain SDTV
 			if usehighres='0' and usescanlines='0' then
 				Y  <= SDTV_Y;
@@ -333,7 +271,7 @@ begin
 		end if;
 		
 		-- compute VideoRAM write position (write in buffer one line ahead)
-		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 + ((vcnt+1) mod 2)*512, 10));
+		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 - 2 + ((vcnt+1) mod 2)*512, 10));
 		-- compute VideoRAM read positions to fetch two adjacent lines
 		if hcnt<504 then
 			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt + (vcnt mod 2)*512, 10));

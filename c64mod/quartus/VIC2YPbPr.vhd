@@ -16,9 +16,9 @@ entity VIC2YPbPr is
 		
 		-- synchronous clock and phase of the c64 clock cylce
 		CLK         : in std_logic;
-		PHASE       : in std_logic_vector(3 downto 0); 
 		
 		-- Connections to the real GTIAs pins 
+		PHI0        : in std_logic;
 		DB          : in std_logic_vector(11 downto 0);
 		A           : in std_logic_vector(5 downto 0);
 		RW          : in std_logic; 
@@ -31,7 +31,7 @@ end entity;
 
 architecture immediate of VIC2YPbPr is
 begin
-	process (CLK,PHASE) 
+	process (CLK) 
 
   	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
    constant c64palette : T_c64palette := 
@@ -57,54 +57,55 @@ begin
 	constant totalvisibleheight : integer := 270;
 	
 	-- registers of the VIC and their default values
-	variable sprite0x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite0y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite1x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite1y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite2x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite2y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite3x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite3y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite4x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite4y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite5x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite5y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite6x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite6y: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite7x: std_logic_vector(7 downto 0) := "00000000";
-	variable sprite7y: std_logic_vector(7 downto 0) := "00000000";
-	variable spritexhighbits: std_logic_vector(7 downto 0) := "00000000";
-	variable control1: std_logic_vector(7 downto 0) := "00011000";
-	variable spriteactive: std_logic_vector(7 downto 0) := "00000000";
-	variable control2: std_logic_vector(7 downto 0) := "00001000";
-	variable doubleheight: std_logic_vector(7 downto 0) := "00000000";
-	variable spritepriority: std_logic_vector(7 downto 0) := "00000000";
+	variable sprite0x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite0y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite1x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite1y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite2x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite2y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite3x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite3y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite4x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite4y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite5x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite5y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite6x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite6y:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite7x:         std_logic_vector(7 downto 0) := "00000000";
+	variable sprite7y:         std_logic_vector(7 downto 0) := "00000000";
+	variable spritexhighbits:  std_logic_vector(7 downto 0) := "00000000";
+	variable control1:         std_logic_vector(7 downto 0) := "00011011";
+	variable spriteactive:     std_logic_vector(7 downto 0) := "00000000";
+	variable control2:         std_logic_vector(7 downto 0) := "11001000";
+	variable doubleheight:     std_logic_vector(7 downto 0) := "00000000";
+	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
-	variable doublewidth: std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor: std_logic_vector(3 downto 0) := "1110";
-	variable backgroundcolor: std_logic_vector(3 downto 0) := "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000";
-	variable spritecolor1: std_logic_vector(3 downto 0) := "0000";
-	variable spritecolor2: std_logic_vector(3 downto 0) := "0000";
-	variable sprite0color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite1color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite2color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite3color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite4color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite5color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite6color: std_logic_vector(3 downto 0) := "0000";
-	variable sprite7color: std_logic_vector(3 downto 0) := "0000";
+	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "1110";
+	variable backgroundcolor:  std_logic_vector(3 downto 0) := "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011";
+	variable spritecolor1:     std_logic_vector(3 downto 0) := "0100";
+	variable spritecolor2:     std_logic_vector(3 downto 0) := "0000";
+	variable sprite0color:     std_logic_vector(3 downto 0) := "0001";
+	variable sprite1color:     std_logic_vector(3 downto 0) := "0010";
+	variable sprite2color:     std_logic_vector(3 downto 0) := "0011";
+	variable sprite3color:     std_logic_vector(3 downto 0) := "0100";
+	variable sprite4color:     std_logic_vector(3 downto 0) := "0101";
+	variable sprite5color:     std_logic_vector(3 downto 0) := "0110";
+	variable sprite6color:     std_logic_vector(3 downto 0) := "0111";
+	variable sprite7color:     std_logic_vector(3 downto 0) := "1100";
 	
 	
 	-- variables for synchronious operation
+	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
 	variable cycle : integer range 0 to 63 := 0;        -- cpu cycle
 	variable displayline: integer range 0 to 511 := 0;  -- VIC-II line numbering
 
 	type T_videomatrix is array (0 to 39) of std_logic_vector(11 downto 0);
 	variable videomatrix : T_videomatrix;
-	variable pixelpattern : std_logic_vector(19 downto 0);
+	variable pixelpattern : std_logic_vector(26 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 		
@@ -122,8 +123,9 @@ begin
 	variable xcoordinate : integer range 0 to 511;   -- x-position in sprite coordinates
 	variable tmp_c : integer range 0 to 15;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
-	variable tmp_p : integer range 0 to 15;
 	variable tmp_vm : std_logic_vector(11 downto 0);
+	variable tmp_pixelindex : integer range 0 to 511;
+	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_lefthit : boolean;
 	variable tmp_tophit : boolean;
 	variable tmp_righthit: boolean;
@@ -132,10 +134,9 @@ begin
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then
-			tmp_p := to_integer(unsigned(PHASE));   -- use integer for easier handling
 			-- convert from C64 cycle/lines  to  hcounter,vcounter for generating syncs and such 
 			vcounter := displayline+18;
-			hcounter := (cycle-1)*8 + tmp_p/2;
+			hcounter := (cycle-1)*8 + phase/2;
 			if hcounter>=8 then
 				hcounter:=hcounter-8;
 			else
@@ -144,7 +145,7 @@ begin
 			end if;
 			if vcounter>=312 then vcounter := vcounter-312;	end if;
 			-- coordinates for sprite display and the border engine
-			xcoordinate := cycle*8 - 7 + tmp_p/2;
+			xcoordinate := cycle*8 - 7 + phase/2;
 			if xcoordinate>=14*8 then
 				xcoordinate := xcoordinate-14*8;
 			else
@@ -152,7 +153,7 @@ begin
 			end if;
 			
 			-- generate pixel output (as soon as sync was found)	
-			if (tmp_p mod 2) = 0 and didinitialsync then   
+			if (phase mod 2) = 0 and didinitialsync then   
 			
 				-- output defaults to black (no csync active)
 				out_Y  := "100000";
@@ -166,8 +167,15 @@ begin
 					-- main screen area color processing
 					tmp_c := to_integer(unsigned(backgroundcolor));					
 					if cycle>=18 and cycle<58 then
-						tmp_vm := videomatrix(cycle-18);
-						if pixelpattern(19)='1' then
+						tmp_hscroll := to_integer(unsigned(control2(2 downto 0)));
+						tmp_pixelindex := (cycle-17) * 8 + phase/2 - tmp_hscroll;
+						if tmp_pixelindex>=8 then
+							tmp_vm := videomatrix((tmp_pixelindex-8)/8);
+						else
+							tmp_vm := "000000000000";
+						end if;
+						
+						if pixelpattern(19 + tmp_hscroll)='1' then
 							tmp_c := to_integer(unsigned(tmp_vm(11 downto 8)));
 						end if;
 					end if;
@@ -184,23 +192,25 @@ begin
 					out_Pr := tmp_ypbpr(4 downto 0);
 	
 				-- generate csync for PAL 288p signal
-				elsif (vcounter=0 or vcounter=1 or vcounter=2) and (hcounter<16 or (hcounter>=252 and hcounter<252+16)) then  -- short syncs
+				elsif (vcounter=0) and (hcounter<37 or (hcounter>=252 and hcounter<252+18)) then                    -- normal sync, short sync
 					out_Y := "000000";
-				elsif (vcounter=3 or vcounter=4) and (hcounter<252-16 or (hcounter>=252 and hcounter<504-16)) then             -- vsyncs
+				elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
 					out_Y := "000000";
-				elsif (vcounter=5) and (hcounter<252-16 or (hcounter>=252 and hcounter<252+16)) then                           -- one vsync, one short sync
+				elsif (vcounter=3 or vcounter=4) and (hcounter<252-18 or (hcounter>=252 and hcounter<504-18)) then  -- vsyncs
 					out_Y := "000000";
-				elsif (vcounter=6 or vcounter=7) and (hcounter<16 or (hcounter>=252 and hcounter<252+16)) then                -- short syncs
+				elsif (vcounter=5) and (hcounter<252-18 or (hcounter>=252 and hcounter<252+18)) then                -- one vsync, one short sync
 					out_Y := "000000";
-				elsif (vcounter>=8) and (hcounter<32) then                                                                 -- normal line syncs
+				elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
+					out_Y := "000000";
+				elsif (vcounter>=8) and (hcounter<37) then                                                          -- normal syncs
 					out_Y := "000000";
 				end if;			
 			end if;
 			
 			-- per-pixel modifications of internal registers and flags
-			if (tmp_p mod 2)=0 then
+			if (phase mod 2)=0 then
 				-- shift pixels along through buffers
-				pixelpattern := pixelpattern(18 downto 0) & '0';
+				pixelpattern := pixelpattern(25 downto 0) & '0';
 				
 				-- border flipflops management
 				if control2(3)='0' then    -- CSEL bit
@@ -226,17 +236,19 @@ begin
 			end if;
 						
 			-- data from memory
-			if tmp_p=15 and AEC='0' then   -- received while blocking CPU
+			if phase=15 and AEC='0' then   -- received while blocking CPU
 				if cycle>=15 and cycle<55 then
 					videomatrix(cycle-15) := DB;
 				end if;
 			end if;
-			if tmp_p=7 then                -- received in first half of cycle
-				pixelpattern(7 downto 0) := DB(7 downto 0);
+			if phase=7 then                -- received in first half of cycle
+				if cycle>=16 and cycle<56 then
+					pixelpattern(7 downto 0) := DB(7 downto 0);
+				end if;
 			end if;
 			
 			-- CPU writes into registers (very short time slot were address is stable)
-			if tmp_p=12 and AEC='1' and RW='0' and CS='0' then  
+			if phase=10 and AEC='1' and RW='0' and CS='0' then  
 				case to_integer(unsigned(A)) is 
 					when 0  => sprite0x := DB(7 downto 0);
 					when 1  => sprite0y := DB(7 downto 0);
@@ -282,7 +294,7 @@ begin
 			end if;
 
 			-- progress counters
-			if tmp_p=15 then
+			if phase=15 then
 				if cycle<63 then
 					cycle := cycle+1;
 				else
@@ -299,7 +311,7 @@ begin
 			-- at the first AEC occurence after a specific (big) amount of 
 			-- no AEC happening, this means the C64 has started up with default screen
 			-- in this situation, we once know the horizontal and vertical beam position
-			if tmp_p=14 and not didinitialsync then
+			if phase=14 and not didinitialsync then
 				if AEC='0' then
 					if noAECrunlength = (312-200+7)*63 + (63-40) then
 						displayline := 51;
@@ -313,6 +325,14 @@ begin
 					end if;
 				end if;
 			end if;
+			
+			-- progress the phase
+			if phase>12 and PHI0='0' then
+				phase:=0;
+			elsif phase<15 then
+				phase:=phase+1;
+			end if;
+				
 			
 		-- end of synchronous logic
 		end if;		

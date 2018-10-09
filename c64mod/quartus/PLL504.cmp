@@ -13,7 +13,7 @@
 --refer to the applicable agreement for further details.
 
 
-component PLL252
+component PLL504
 	PORT
 	(
 		inclk0		: IN STD_LOGIC  := '0';

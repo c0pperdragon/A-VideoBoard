@@ -152,4 +152,11 @@ set_global_assignment -name CDF_FILE Run.cdf
 set_global_assignment -name CDF_FILE Prog.cdf
 set_location_assignment PIN_40 -to GPIO2_4
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_4
+set_location_assignment PIN_41 -to GPIO2_3
+set_location_assignment PIN_39 -to GPIO2_5
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_3
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_5
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_3
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_5
+set_global_assignment -name QIP_FILE PLL504.qip
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
