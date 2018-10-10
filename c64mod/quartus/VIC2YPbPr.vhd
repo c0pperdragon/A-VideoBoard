@@ -76,7 +76,7 @@ begin
 	variable spritexhighbits:  std_logic_vector(7 downto 0) := "00000000";
 	variable control1:         std_logic_vector(7 downto 0) := "00011011";
 	variable spriteactive:     std_logic_vector(7 downto 0) := "00000000";
-	variable control2:         std_logic_vector(7 downto 0) := "11001000";
+	variable control2:         std_logic_vector(5 downto 0) := "001000";
 	variable doubleheight:     std_logic_vector(7 downto 0) := "00000000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
@@ -121,7 +121,7 @@ begin
 	variable hcounter : integer range 0 to 511;      -- pixel in current scan line
 	variable vcounter : integer range 0 to 511 := 0; -- current scan line 
 	variable xcoordinate : integer range 0 to 511;   -- x-position in sprite coordinates
-	variable tmp_c : integer range 0 to 15;
+	variable tmp_c : std_logic_vector(3 downto 0);
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_vm : std_logic_vector(11 downto 0);
 	variable tmp_pixelindex : integer range 0 to 511;
@@ -130,7 +130,9 @@ begin
 	variable tmp_tophit : boolean;
 	variable tmp_righthit: boolean;
 	variable tmp_bottomhit: boolean;
-		
+	variable tmp_bit : std_logic;
+	variable tmp_2bit : std_logic_vector(1 downto 0);
+	
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then
@@ -165,28 +167,85 @@ begin
 				and vcounter>=34 and vcounter<34+totalvisibleheight then
 				
 					-- main screen area color processing
-					tmp_c := to_integer(unsigned(backgroundcolor));					
+					tmp_c := backgroundcolor;		
+					
 					if cycle>=18 and cycle<58 then
 						tmp_hscroll := to_integer(unsigned(control2(2 downto 0)));
 						tmp_pixelindex := (cycle-17) * 8 + phase/2 - tmp_hscroll;
+
+						-- access the correct video matrix cell
 						if tmp_pixelindex>=8 then
 							tmp_vm := videomatrix((tmp_pixelindex-8)/8);
 						else
 							tmp_vm := "000000000000";
 						end if;
 						
-						if pixelpattern(19 + tmp_hscroll)='1' then
-							tmp_c := to_integer(unsigned(tmp_vm(11 downto 8)));
-						end if;
+						-- extract relevant bit or 2 bits from bitmap data
+						tmp_bit := pixelpattern(19 + tmp_hscroll);
+						tmp_2bit(1) := pixelpattern(19 + tmp_hscroll + tmp_pixelindex mod 2);
+						tmp_2bit(0) := pixelpattern(18 + tmp_hscroll + tmp_pixelindex mod 2);
+						
+						-- set color depending on graphics/text mode
+						case control1(6 downto 5) & control2(4) is  -- ECM/BMM/MCM
+						when "000" =>   -- standard text mode
+							if tmp_bit='1' then
+								tmp_c := tmp_vm(11 downto 8);
+							end if;
+						when "001" =>   -- multicolor text mode
+							if tmp_vm(11)='0' then
+								if tmp_bit='1' then
+									tmp_c := "0" & tmp_vm(10 downto 8);
+								end if;
+							else
+								case tmp_2bit is
+								when "00" => tmp_c := backgroundcolor;
+								when "01" => tmp_c := backgroundcolor1;
+								when "10" => tmp_c := backgroundcolor2;
+								when "11" => tmp_c := "0" & tmp_vm(10 downto 8);
+								end case;
+							end if;
+						when "010" =>  -- standard bitmap mode
+							if tmp_bit='0' then
+								tmp_c := tmp_vm(3 downto 0);
+							else
+								tmp_c := tmp_vm(7 downto 4);
+							end if;
+						when "011" =>  -- multicolor bitmap mode
+							case tmp_2bit is
+							when "00" => tmp_c := backgroundcolor;
+							when "01" => tmp_c := tmp_vm(7 downto 4);
+							when "10" => tmp_c := tmp_vm(3 downto 0);
+							when "11" => tmp_c := tmp_vm(11 downto 8);
+							end case;
+						when "100" =>  -- ECM text mode
+							if tmp_bit='1' then
+								tmp_c := tmp_vm(11 downto 8);
+							else
+								case tmp_vm(7 downto 6) is
+								when "00" => tmp_c := backgroundcolor;
+								when "01" => tmp_c := backgroundcolor1;
+								when "10" => tmp_c := backgroundcolor2;
+								when "11" => tmp_c := backgroundcolor3;
+								end case;								
+							end if;
+						when "101" =>  -- Invalid text mode
+							tmp_c := "0000";
+						when "110" =>  -- Invalid bitmap mode 1
+							tmp_c := "0000";
+						when "111" =>  -- Invalid bitmap mode 2
+							tmp_c := "0000";
+						end case;
+						
 					end if;
 					
 					-- overlay with border 
 					if mainborderflipflop='1' then
-						tmp_c := to_integer(unsigned(bordercolor));
+						tmp_c := bordercolor;
 					end if;
 					
 					-- generate the YPbPr signal using a fixed palette
-					tmp_ypbpr := std_logic_vector(to_unsigned(c64palette(tmp_c),15));
+					tmp_ypbpr := std_logic_vector(to_unsigned
+					( c64palette(to_integer(unsigned(tmp_c))),15 ));
 					out_Y := '1' & tmp_ypbpr(14 downto 10);
 					out_Pb := tmp_ypbpr(9 downto 5);
 					out_Pr := tmp_ypbpr(4 downto 0);
@@ -269,7 +328,7 @@ begin
 					when 16 => spritexhighbits := DB(7 downto 0);
 					when 17 => control1 := DB(7 downto 0);
 					when 21 => spriteactive := DB(7 downto 0);
-					when 22 => control2 := DB(7 downto 0);
+					when 22 => control2 := DB(5 downto 0);
 					when 23 => doubleheight := DB(7 downto 0);
 					when 27 => spritepriority := DB(7 downto 0);
 					when 28 => spritemulticolor := DB(7 downto 0);
