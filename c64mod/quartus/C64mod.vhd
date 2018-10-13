@@ -17,9 +17,9 @@ entity C64Mod is
 		-- sniffing VIC-II pins comming to the GPIO1
 		GPIO1: in std_logic_vector(20 downto 1);	
 		
-		-- read jumper settings 
-		GPIO2_3: in std_logic;
-		GPIO2_5: in std_logic
+		-- read output mode settings 
+		GPIO2_4: in std_logic;
+		GPIO2_6: in std_logic
 		
 --		-- debug output
 --		GPIO2_8: out std_logic;
@@ -257,19 +257,19 @@ begin
 	
 	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
-	process (CLK) 
+	process (CLK, GPIO2_4, GPIO2_6) 
 		variable hcnt : integer range 0 to 1023 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
 		
 		variable val0 : integer range 0 to 63;
 		variable val1 : integer range 0 to 63;
-		variable usehighres : std_logic; 
-		variable usescanlines : std_logic;
+		variable usehighres : boolean; 
+		variable usescanlines : boolean;
 	begin
 		-- handle jumper configuration
-		usehighres := '1';   -- not GPIO2_3; 
-		usescanlines := '1'; -- not GPIO2_5;
+		usehighres := GPIO2_4='0' or GPIO2_6='0';
+		usescanlines := GPIO2_6='0';
 	
 		if rising_edge(CLK) then
 		
@@ -282,21 +282,22 @@ begin
 					Y(5) <= '0';
 				end if;
 			else
-				-- get color from buffer
-				Y <= "1" & vramq0(14 downto 10);
-				Pb <= vramq0(9 downto 5);
-				Pr <= vramq0(4 downto 0);
 				 -- construct scanline darkening from both adjacent lines
-				if hcnt>=504 and usescanlines='1' then  
+				if hcnt>=504 and usescanlines then  
 					val0 := to_integer(unsigned(vramq0(14 downto 10)));
 					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
-					Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
+					Y <= "1" & std_logic_vector(to_unsigned((val0+val1) / 4, 5));
 					val0 := to_integer(unsigned(vramq0(9 downto 5)));
 					val1 := to_integer(unsigned(vramq1(9 downto 5)));										
-					Pb <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+					Pb <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
 					val0 := to_integer(unsigned(vramq0(4 downto 0)));
 					val1 := to_integer(unsigned(vramq1(4 downto 0)));										
-					Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+					Pr <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+				-- normal scanline color
+				else
+					Y <= "1" & vramq0(14 downto 10);
+					Pb <= vramq0(9 downto 5);
+					Pr <= vramq0(4 downto 0);
 				end if;				
 				-- two normal EDTV line syncs
 				if hcnt<37 or (hcnt>=504 and hcnt<504+37) then  
@@ -324,7 +325,7 @@ begin
 			end if;
 
 			-- if highres is not selected, fall back to plain SDTV
-			if usehighres='0' and usescanlines='0' then
+			if not usehighres then
 				Y  <= SDTV_Y;
 				Pb <= SDTV_Pb;
 				Pr <= SDTV_Pr;
