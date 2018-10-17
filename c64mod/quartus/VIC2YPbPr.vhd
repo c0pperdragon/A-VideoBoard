@@ -68,7 +68,7 @@ begin
 	variable BMM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
-	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
+--	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
 	variable spriteenable:     std_logic_vector(7 downto 0) := "00000000";
 	variable MCM:              std_logic := '0';
 	variable CSEL:             std_logic := '1';
@@ -98,16 +98,14 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
-	variable spritedma: std_logic_vector(7 downto 0) := "00000000";
+	variable expansionflipflop : std_logic_vector(7 downto 0) := "00000000";
+	variable delayedspriteenable: std_logic_vector(7 downto 0) := "00000000";
 	variable spriteactive: std_logic_vector(7 downto 0) := "00000000";
-	type T_spritedata is array (0 to 7) of std_logic_vector(23 downto 0);
+--	type T_mcbase is array(0 to 7) of integer range 0 to 63;
+--	variable mcbase : T_mcbase := (0,0,0,0,0,0,0,0);
+	type T_spritedata is array (0 to 7) of std_logic_vector(24 downto 0);
 	variable spritedata : T_spritedata;
-	type T_spriterendering is array (0 to 7) of integer range 0 to 2; 
-		-- 0: wait for x
-		-- 1: show for 1 pixel
-		-- 2: show for 2 pixel
-		-- 3: show for 3 pixel
-		-- 4: show for 4 pixel
+	type T_spriterendering is array (0 to 7) of integer range 0 to 5; 
 	variable spriterendering : T_spriterendering := (0,0,0,0,0,0,0,0);
 		
 	variable noAECrunlength : integer range 0 to 32767 := 0;
@@ -121,7 +119,7 @@ begin
 	-- temporary stuff
 	variable hcounter : integer range 0 to 511;      -- pixel in current scan line
 	variable vcounter : integer range 0 to 511 := 0; -- current scan line 
-	variable xcoordinate : integer range 0 to 511;   -- x-position in sprite coordinates
+	variable xcoordinate : integer range 0 to 1023;   -- x-position in sprite coordinates
 	variable tmp_c : std_logic_vector(3 downto 0);
 	variable tmp_isforeground : boolean;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
@@ -151,10 +149,10 @@ begin
 			if vcounter>=312 then vcounter := vcounter-312;	end if;
 			-- coordinates for sprite display and the border engine
 			xcoordinate := cycle*8 - 7 + phase/2;
-			if xcoordinate>=14*8 then
-				xcoordinate := xcoordinate-14*8;
+			if xcoordinate>=112 then
+				xcoordinate := xcoordinate-112;
 			else
-				xcoordinate := 0;
+				xcoordinate := xcoordinate+(504-112);
 			end if;
 			
 			-- generate pixel output (as soon as sync was found)	
@@ -269,9 +267,17 @@ begin
 					
 					-- overlay with sprite graphics
 					for SP in 7 downto 0 loop
-						if spriterendering(SP)/=0 and ((not tmp_isforeground) or spritepriority(SP)='0') then
-							if spritemulticolor(SP)='1' then
-								case spritedata(SP)(23 downto 22) is
+						if ((not tmp_isforeground) or spritepriority(SP)='0') 
+						and (spriterendering(SP)<4) 
+						then
+							if spritemulticolor(SP)='1' then								
+								tmp_2bit := spritedata(SP)(23 downto 22);
+								if (doublewidth(SP)='0' and spriterendering(SP) mod 2 = 1) 
+								or (doublewidth(SP)='1' and spriterendering(SP) / 2 = 1)
+								then
+									tmp_2bit := spritedata(SP)(24 downto 23);
+								end if;
+								case tmp_2bit is
 								when "00" => 
 								when "01" => tmp_c := spritemulticolor0;
 								when "10" => tmp_c := spritecolor(SP);
@@ -282,7 +288,7 @@ begin
 									tmp_c := spritecolor(SP);						
 								end if;
 							end if;
-						end if;					
+						end if;
 					end loop;
 					
 					-- overlay with border 
@@ -340,89 +346,82 @@ begin
 				if tmp_lefthit and tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
 				
-				-- handle sprite rendering trigger 
+				-- progress sprite rendering on every pixel 
 				for SP in 0 to 7 loop
-					if cycle=55 or cycle=56 then
-						if spriteenable(SP)='1' and std_logic_vector(to_unsigned(displayline,8))=spritey(SP) then
-							spritedma(SP) := '1';
+					if spriterendering(SP)<4 then
+						if spriterendering(SP) mod 2 = 1 or doublewidth(SP)='0' then
+							spritedata(SP) := spritedata(SP)(23 downto 0) & '0';
 						end if;
-					end if;	
-					if cycle=58 then
-						if spritedma(SP)='1' and std_logic_vector(to_unsigned(displayline,8))=spritey(SP) then
-							spriteactive(SP) := '1';
-							spriterendering(SP) := 0; -- set redering engine to wait for x
-						elsif spriteactive(SP) = '1' then
-							spriterendering(SP) := 0; 
+					end if;
+					case spriterendering(SP) is
+					when 0 => spriterendering(SP) := 1;
+					when 1 => spriterendering(SP) := 2;
+					when 2 => spriterendering(SP) := 3;
+					when 3 => spriterendering(SP) := 0;
+					when 4 => 
+						if xcoordinate=to_integer(unsigned(spritex(SP))) then
+							spriterendering(SP):=0;
 						end if;
-					else
-						if spriterendering(SP)=0 then
-							if xcoordinate=to_integer(unsigned(spritex(SP))) then
-								spriterendering(SP):=1;
-								if doublewidth(SP)='1' then
-									spriterendering(SP):=2;
-								end if;
-								if spritemulticolor(SP)='1' then
-									spriterendering(SP) := spriterendering(SP)*2;
-								end if;
-							end if;
-						elsif spriterendering(SP)=1 then
-							if spritemulticolor(SP)='1' then
-								spritedata(SP) := spritedata(SP)(21 downto 0) & "00";
-							else
-								spritedata(SP) := spritedata(SP)(22 downto 0) & "0";
-							end if;
-							spriterendering(SP):=1;
-							if doublewidth(SP)='1' then
-								spriterendering(SP):=2;
-							end if;
-							if spritemulticolor(SP)='1' then
-								spriterendering(SP) := spriterendering(SP)*2;
-							end if;
-						else 
-							spriterendering(SP):=spriterendering(SP)-1;
-						end if;					
-					end if;					
+					when others =>
+					end case;
 				end loop;
-
+			end if;
+			
+			-- handle cycle-depending sprite trigger
+			if phase=7 then
+				for SP in 0 to 7 loop
+					if cycle=55 then
+						delayedspriteenable(SP) := spriteenable(SP);
+					elsif cycle=56 then
+						delayedspriteenable(SP) := delayedspriteenable(SP) or spriteenable(SP);
+					elsif cycle=58 then
+						if delayedspriteenable(SP)='1' 
+						and std_logic_vector(to_unsigned(displayline mod 256,8))=spritey(SP) then
+							spriteactive(SP) := '1';
+						end if;
+						if spriteenable(SP)='0' then
+							spriteactive(SP) := '0';
+						end if;
+					end if;
+				end loop;
 			end if;
 						
 			-- data from memory
-			if phase=15 then   -- receive during a CPU-blocking cycle
+			if phase=14 then   -- receive during a CPU-blocking cycle
 				-- video matrix read
-				if AEC='0' and cycle>=15 and cycle<55 then
-					videomatrix(cycle-15) := DB;
+				if cycle>=15 and cycle<55 then
+					if AEC='0' then 
+						videomatrix(cycle-15) := DB;
+					elsif displayline=248 then
+						videomatrix(cycle-15) := "000000000000";
+					end if;
 				end if;
-				-- check if DMA was done for sprites (and turn off dma flag if no dma was detected)
+				-- sprite DMA read
 				for SP in 0 to 7 loop
 					if (SP<3 and cycle=SP*2+58) or (SP>=3 and cycle=SP*2-5) then
-						if AEC='0' and spritedma(SP)='1' then
-							spritedata(SP)(23 downto 16) := DB(7 downto 0);
+						spritedata(SP)(23 downto 16) := DB(7 downto 0);
+						spriterendering(SP) := 5;
+					elsif (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
+						spritedata(SP)(7 downto 0) := DB(7 downto 0);
+						if AEC='0' and spriteactive(SP)='1' then
+							spriterendering(SP) := 4;
 						else
-							spritedata(SP)(23 downto 16) := "00000000";
-							spritedma(SP) := '0';
-						end if;
-					end if;
-					if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
-						if AEC='0' and spritedma(SP)='1' then
-							spritedata(SP)(7 downto 0) := DB(7 downto 0);
-						else
-							spritedata(SP)(7 downto 0) := "00000000";
-							spritedma(SP) := '0';
+							spriterendering(SP) := 5;
+							spriteactive(SP) := '0';
 						end if;
 					end if;
 				end loop;
 			end if;
+			
 			if phase=7 then                -- received in first half of cycle
+				-- pixel pattern read
 				if cycle>=16 and cycle<56 then
 					pixelpattern(7 downto 0) := DB(7 downto 0);
 				end if;
+				-- sprite DMA read
 				for SP in 0 to 7 loop
 					if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
-						if spritedma(SP)='1' then
-							spritedata(SP)(15 downto 8) := DB(7 downto 0);
-						else
-							spritedata(SP)(15 downto 8) := "00000000";						
-						end if;
+						spritedata(SP)(15 downto 8) := DB(7 downto 0);
 					end if;
 				end loop;
 			end if;
@@ -458,7 +457,7 @@ begin
 	                       BMM := DB(5);
 								  DEN := DB(4);
 								  RSEL:= DB(3);
-								  YSCROLL := DB(2 downto 0);
+--								  YSCROLL := DB(2 downto 0);
 					when 21 => spriteenable := DB(7 downto 0);
 					when 22 => MCM := DB(4);
 					           CSEL := DB(3);
