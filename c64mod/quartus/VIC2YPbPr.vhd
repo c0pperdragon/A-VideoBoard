@@ -61,15 +61,15 @@ begin
   	type T_spritex is array (0 to 7) of std_logic_vector(8 downto 0);
 	variable spritex : T_spritex := 
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
-  	type T_spritey is array (0 to 7) of std_logic_vector(7 downto 0);
-	variable spritey : T_spritey := 
-	( "00000000","00000000","00000000","00000000","00000000","00000000","00000000","00000000");	
+--  	type T_spritey is array (0 to 7) of std_logic_vector(7 downto 0);
+--	variable spritey : T_spritey := 
+--	( "00000000","00000000","00000000","00000000","00000000","00000000","00000000","00000000");	
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
 --	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
-	variable spriteenable:     std_logic_vector(7 downto 0) := "00000000";
+--	variable spriteenable:     std_logic_vector(7 downto 0) := "00000000";
 	variable MCM:              std_logic := '0';
 	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
@@ -87,6 +87,14 @@ begin
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
 	
+	-- registering the inputs
+	variable in_phi0: std_logic; 
+	variable in_db: std_logic_vector(11 downto 0);
+	variable in_a:  std_logic_vector(5 downto 0);
+	variable in_rw: std_logic; 
+	variable in_cs: std_logic; 
+	variable in_aec: std_logic; 
+	
 	-- variables for synchronious operation
 	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
 	variable cycle : integer range 0 to 63 := 0;        -- cpu cycle
@@ -98,15 +106,16 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
-	variable expansionflipflop : std_logic_vector(7 downto 0) := "00000000";
-	variable delayedspriteenable: std_logic_vector(7 downto 0) := "00000000";
-	variable spriteactive: std_logic_vector(7 downto 0) := "00000000";
+--	variable expansionflipflop : std_logic_vector(7 downto 0) := "00000000";
+--	variable delayedspriteenable: std_logic_vector(7 downto 0) := "00000000";
+--	variable spriteactive: std_logic_vector(7 downto 0) := "00000000";
 --	type T_mcbase is array(0 to 7) of integer range 0 to 63;
 --	variable mcbase : T_mcbase := (0,0,0,0,0,0,0,0);
 	type T_spritedata is array (0 to 7) of std_logic_vector(24 downto 0);
 	variable spritedata : T_spritedata;
 	type T_spriterendering is array (0 to 7) of integer range 0 to 5; 
 	variable spriterendering : T_spriterendering := (0,0,0,0,0,0,0,0);
+	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 		
 	variable noAECrunlength : integer range 0 to 32767 := 0;
 	variable didinitialsync : boolean := false;
@@ -364,51 +373,48 @@ begin
 						end if;
 					when others =>
 					end case;
-				end loop;
-			end if;
-			
-			-- handle cycle-depending sprite trigger
-			if phase=7 then
-				for SP in 0 to 7 loop
-					if cycle=55 then
-						delayedspriteenable(SP) := spriteenable(SP);
-					elsif cycle=56 then
-						delayedspriteenable(SP) := delayedspriteenable(SP) or spriteenable(SP);
-					elsif cycle=58 then
-						if delayedspriteenable(SP)='1' 
-						and std_logic_vector(to_unsigned(displayline mod 256,8))=spritey(SP) then
-							spriteactive(SP) := '1';
-						end if;
-						if spriteenable(SP)='0' then
-							spriteactive(SP) := '0';
-						end if;
+					
+					if cycle=58 then
+						spriterendering(SP) := 5;
 					end if;
 				end loop;
 			end if;
+			
+--			-- handle cycle-depending sprite trigger
+--			if phase=7 then
+--				for SP in 0 to 7 loop
+--					if cycle=55 then
+--						delayedspriteenable(SP) := spriteenable(SP);
+--					elsif cycle=56 then
+--						delayedspriteenable(SP) := delayedspriteenable(SP) or spriteenable(SP);
+--					elsif cycle=58 then
+--						if delayedspriteenable(SP)='1' 
+--						and std_logic_vector(to_unsigned(displayline mod 256,8))=spritey(SP) then
+--							spriteactive(SP) := '1';
+--						end if;
+--						if spriteenable(SP)='0' then
+--							spriteactive(SP) := '0';
+--						end if;
+--					end if;
+--				end loop;
+--			end if;
 						
 			-- data from memory
 			if phase=14 then   -- receive during a CPU-blocking cycle
 				-- video matrix read
 				if cycle>=15 and cycle<55 then
-					if AEC='0' then 
-						videomatrix(cycle-15) := DB;
-					elsif displayline=248 then
+					if in_aec='0' then 
+						videomatrix(cycle-15) := in_db;
+					elsif displayline=251 then
 						videomatrix(cycle-15) := "000000000000";
 					end if;
 				end if;
 				-- sprite DMA read
 				for SP in 0 to 7 loop
 					if (SP<3 and cycle=SP*2+58) or (SP>=3 and cycle=SP*2-5) then
-						spritedata(SP)(23 downto 16) := DB(7 downto 0);
-						spriterendering(SP) := 5;
+						spritedata(SP)(23 downto 16) := in_db(7 downto 0);
 					elsif (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
-						spritedata(SP)(7 downto 0) := DB(7 downto 0);
-						if AEC='0' and spriteactive(SP)='1' then
-							spriterendering(SP) := 4;
-						else
-							spriterendering(SP) := 5;
-							spriteactive(SP) := '0';
-						end if;
+						spritedata(SP)(7 downto 0) := in_db(7 downto 0);
 					end if;
 				end loop;
 			end if;
@@ -416,71 +422,90 @@ begin
 			if phase=7 then                -- received in first half of cycle
 				-- pixel pattern read
 				if cycle>=16 and cycle<56 then
-					pixelpattern(7 downto 0) := DB(7 downto 0);
+					pixelpattern(7 downto 0) := in_db(7 downto 0);
 				end if;
 				-- sprite DMA read
 				for SP in 0 to 7 loop
 					if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
-						spritedata(SP)(15 downto 8) := DB(7 downto 0);
+						spritedata(SP)(15 downto 8) := in_db(7 downto 0);
 					end if;
 				end loop;
 			end if;
 			
+			-- detect if there was a real sprite read (when the
+			-- read address did change between individual bytes)
+			-- set rendering to ready
+			if phase=9 then
+				if in_aec='0' then -- only when having done DMA
+					if cycle=58 or cycle=60 or cycle=62 or cycle=1 
+					or cycle=3 or cycle=5 or cycle=7 or cycle=9 then
+						firstspritereadaddress := in_a(1 downto 0);
+					end if;
+					for SP in 0 to 7 loop
+						if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
+							if firstspritereadaddress /= in_a(1 downto 0) then
+								spriterendering(SP) := 4;
+							end if;
+						end if;
+					end loop;
+				end if;
+			end if;
+			
 			-- CPU writes into registers (very short time slot were address is stable)
-			if phase=10 and AEC='1' and RW='0' and CS='0' then  
-				case to_integer(unsigned(A)) is 
-					when 0  => spritex(0)(7 downto 0) := DB(7 downto 0);
-					when 1  => spritey(0)(7 downto 0) := DB(7 downto 0);
-					when 2  => spritex(1)(7 downto 0) := DB(7 downto 0);
-					when 3  => spritey(1)(7 downto 0) := DB(7 downto 0);
-					when 4  => spritex(2)(7 downto 0) := DB(7 downto 0);
-					when 5  => spritey(2)(7 downto 0) := DB(7 downto 0);
-					when 6  => spritex(3)(7 downto 0) := DB(7 downto 0);
-					when 7  => spritey(3)(7 downto 0) := DB(7 downto 0);
-					when 8  => spritex(4)(7 downto 0) := DB(7 downto 0);
-					when 9  => spritey(4)(7 downto 0) := DB(7 downto 0);
-					when 10 => spritex(5)(7 downto 0) := DB(7 downto 0);
-					when 11 => spritey(5)(7 downto 0) := DB(7 downto 0);
-					when 12 => spritex(6)(7 downto 0) := DB(7 downto 0);
-					when 13 => spritey(6)(7 downto 0) := DB(7 downto 0);
-					when 14 => spritex(7)(7 downto 0) := DB(7 downto 0);
-					when 15 => spritey(7)(7 downto 0) := DB(7 downto 0);
-					when 16 => spritex(0)(8) := DB(0);
-					           spritex(1)(8) := DB(1);
-								  spritex(2)(8) := DB(2);
-								  spritex(3)(8) := DB(3);
-								  spritex(4)(8) := DB(4);
-								  spritex(5)(8) := DB(5);
-								  spritex(6)(8) := DB(6);
-								  spritex(7)(8) := DB(7);
-					when 17 => ECM := DB(6);
-	                       BMM := DB(5);
-								  DEN := DB(4);
-								  RSEL:= DB(3);
---								  YSCROLL := DB(2 downto 0);
-					when 21 => spriteenable := DB(7 downto 0);
-					when 22 => MCM := DB(4);
-					           CSEL := DB(3);
-								  XSCROLL := DB(2 downto 0);
---					when 23 => doubleheight := DB(7 downto 0);
-					when 27 => spritepriority := DB(7 downto 0);
-					when 28 => spritemulticolor := DB(7 downto 0);
-					when 29 => doublewidth := DB(7 downto 0);
-					when 32 => bordercolor := DB(3 downto 0);
-					when 33 => backgroundcolor0 := DB(3 downto 0);
-					when 34 => backgroundcolor1 := DB(3 downto 0);
-					when 35 => backgroundcolor2 := DB(3 downto 0);
-					when 36 => backgroundcolor3 := DB(3 downto 0);
-					when 37 => spritemulticolor0 := DB(3 downto 0);
-					when 38 => spritemulticolor1 := DB(3 downto 0);
-					when 39 => spritecolor(0) := DB(3 downto 0);
-					when 40 => spritecolor(1) := DB(3 downto 0);
-					when 41 => spritecolor(2) := DB(3 downto 0);
-					when 42 => spritecolor(3) := DB(3 downto 0);
-					when 43 => spritecolor(4) := DB(3 downto 0);
-					when 44 => spritecolor(5) := DB(3 downto 0);
-					when 45 => spritecolor(6) := DB(3 downto 0);
-					when 46 => spritecolor(7) := DB(3 downto 0);
+			if phase=10 and in_aec='1' and in_rw='0' and in_cs='0' then  
+				case to_integer(unsigned(in_a)) is 
+					when 0  => spritex(0)(7 downto 0) := in_db(7 downto 0);
+--					when 1  => spritey(0)(7 downto 0) := in_db(7 downto 0);
+					when 2  => spritex(1)(7 downto 0) := in_db(7 downto 0);
+--					when 3  => spritey(1)(7 downto 0) := in_db(7 downto 0);
+					when 4  => spritex(2)(7 downto 0) := in_db(7 downto 0);
+--					when 5  => spritey(2)(7 downto 0) := in_db(7 downto 0);
+					when 6  => spritex(3)(7 downto 0) := in_db(7 downto 0);
+--					when 7  => spritey(3)(7 downto 0) := in_db(7 downto 0);
+					when 8  => spritex(4)(7 downto 0) := in_db(7 downto 0);
+--					when 9  => spritey(4)(7 downto 0) := in_db(7 downto 0);
+					when 10 => spritex(5)(7 downto 0) := in_db(7 downto 0);
+--					when 11 => spritey(5)(7 downto 0) := in_db(7 downto 0);
+					when 12 => spritex(6)(7 downto 0) := in_db(7 downto 0);
+--					when 13 => spritey(6)(7 downto 0) := in_db(7 downto 0);
+					when 14 => spritex(7)(7 downto 0) := in_db(7 downto 0);
+--					when 15 => spritey(7)(7 downto 0) := in_db(7 downto 0);
+					when 16 => spritex(0)(8) := in_db(0);
+					           spritex(1)(8) := in_db(1);
+								  spritex(2)(8) := in_db(2);
+								  spritex(3)(8) := in_db(3);
+								  spritex(4)(8) := in_db(4);
+								  spritex(5)(8) := in_db(5);
+								  spritex(6)(8) := in_db(6);
+								  spritex(7)(8) := in_db(7);
+					when 17 => ECM := in_db(6);
+	                       BMM := in_db(5);
+								  DEN := in_db(4);
+								  RSEL:= in_db(3);
+--								  YSCROLL := in_db(2 downto 0);
+--					when 21 => spriteenable := in_db(7 downto 0);
+					when 22 => MCM := in_db(4);
+					           CSEL := in_db(3);
+								  XSCROLL := in_db(2 downto 0);
+--					when 23 => doubleheight := in_db(7 downto 0);
+					when 27 => spritepriority := in_db(7 downto 0);
+					when 28 => spritemulticolor := in_db(7 downto 0);
+					when 29 => doublewidth := in_db(7 downto 0);
+					when 32 => bordercolor := in_db(3 downto 0);
+					when 33 => backgroundcolor0 := in_db(3 downto 0);
+					when 34 => backgroundcolor1 := in_db(3 downto 0);
+					when 35 => backgroundcolor2 := in_db(3 downto 0);
+					when 36 => backgroundcolor3 := in_db(3 downto 0);
+					when 37 => spritemulticolor0 := in_db(3 downto 0);
+					when 38 => spritemulticolor1 := in_db(3 downto 0);
+					when 39 => spritecolor(0) := in_db(3 downto 0);
+					when 40 => spritecolor(1) := in_db(3 downto 0);
+					when 41 => spritecolor(2) := in_db(3 downto 0);
+					when 42 => spritecolor(3) := in_db(3 downto 0);
+					when 43 => spritecolor(4) := in_db(3 downto 0);
+					when 44 => spritecolor(5) := in_db(3 downto 0);
+					when 45 => spritecolor(6) := in_db(3 downto 0);
+					when 46 => spritecolor(7) := in_db(3 downto 0);
 					when others => null;
 				end case;
 			end if;
@@ -503,11 +528,11 @@ begin
 			-- at the first AEC occurence after a specific (big) amount of 
 			-- no AEC happening, this means the C64 has started up with default screen
 			-- in this situation, we once know the horizontal and vertical beam position
-			if phase=14 and not didinitialsync then
-				if AEC='0' then
+			if phase=15 and not didinitialsync then
+				if in_aec='0' then
 					if noAECrunlength = (312-200+7)*63 + (63-40) then
 						displayline := 51;
-						cycle := 15;	
+						cycle := 16;	
 						didinitialsync := true;
 					end if;
 					noAECrunlength := 0;	
@@ -519,13 +544,19 @@ begin
 			end if;
 			
 			-- progress the phase
-			if phase>12 and PHI0='0' then
+			if phase>12 and in_phi0='0' then
 				phase:=0;
 			elsif phase<15 then
 				phase:=phase+1;
 			end if;
-				
-			
+
+			-- take input into registers
+			in_phi0 := PHI0;
+			in_db := DB;
+			in_a := A;
+			in_rw := RW; 
+			in_cs := CS; 
+			in_aec := AEC;
 		-- end of synchronous logic
 		end if;		
 		

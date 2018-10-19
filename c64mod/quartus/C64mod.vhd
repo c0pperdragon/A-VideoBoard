@@ -19,11 +19,11 @@ entity C64Mod is
 		
 		-- read output mode settings 
 		GPIO2_4: in std_logic;
-		GPIO2_6: in std_logic
+		GPIO2_6: in std_logic;
 		
---		-- debug output
---		GPIO2_8: out std_logic;
---		GPIO2_10: out std_logic
+		-- debug output
+		GPIO2_8: out std_logic;
+		GPIO2_10: out std_logic
 	);	
 end entity;
 
@@ -31,15 +31,7 @@ end entity;
 architecture immediate of C64Mod is
 	-- synchronous clock for most of the circuit
 	signal CLK     : std_logic;                     -- 15.763977 MHz
-	
-	-- high-speed clock to generate synchronous clock from. this is done
-	-- with 4 coupled signals that are 0,45,90,135 degree phase shifted to give
-	-- 8 usable edges.
-	signal CLK252A : std_logic;  -- 504.447288 Mhz
-	signal CLK252B : std_logic;
-	signal CLK252C : std_logic;
-	signal CLK252D : std_logic;
-	
+		
 	-- SDTV signals
 	signal SDTV_Y   : std_logic_vector(5 downto 0);
 	signal SDTV_Pb  : std_logic_vector(4 downto 0);
@@ -52,17 +44,17 @@ architecture immediate of C64Mod is
 	signal vramq0        : std_logic_vector (14 downto 0);
 	signal vramq1        : std_logic_vector (14 downto 0);
 	
-   component PLL252 is
-	PORT
-	(
-		inclk0 : IN STD_LOGIC ;
-		c0		: OUT STD_LOGIC ;
-		c1		: OUT STD_LOGIC ;
-		c2		: OUT STD_LOGIC ;
-		c3		: OUT STD_LOGIC 
-	);
+   component ClockMultiplier is
+	port (
+		-- reference clock
+		CLK25: in std_logic;		
+		-- C64 cpu clock
+		PHI0: in std_logic;
+		
+		-- x16 times output clock
+		CLK: out std_logic
+	);	
 	end component;
-	
 	
    component VIC2YPbPr is
 	port (
@@ -98,7 +90,7 @@ architecture immediate of C64Mod is
 	
 	
 begin		
-	subdividerpll: PLL252 port map ( CLK25, CLK252A, CLK252B, CLK252C, CLK252D );
+	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(1), CLK );
 	
 	vic: VIC2YPbPr port map (
 		SDTV_Y,
@@ -130,132 +122,7 @@ begin
 		'1',
 		vramq1
 	);
-	
-	
-	------------ create a 16x C64 clock to drive the rest of the circuit	-----------------
-	process (GPIO1, CLK252A, CLK252B, CLK252C, CLK252D)
-		-- having 8 versions of the circuit running slightly 
-		-- time-shifted
-		variable counter0 : integer range 0 to 15 := 0;
-		variable counter1 : integer range 0 to 15 := 0;
-		variable counter2 : integer range 0 to 15 := 0;
-		variable counter3 : integer range 0 to 15 := 0;
-		variable counter4 : integer range 0 to 15 := 0;
-		variable counter5 : integer range 0 to 15 := 0;
-		variable counter6 : integer range 0 to 15 := 0;
-		variable counter7 : integer range 0 to 15 := 0;
-		variable in0_clk : std_logic := '0'; 
-		variable in1_clk : std_logic := '0'; 		
-		variable in2_clk : std_logic := '0'; 		
-		variable in3_clk : std_logic := '0'; 		
-		variable in4_clk : std_logic := '0'; 
-		variable in5_clk : std_logic := '0'; 		
-		variable in6_clk : std_logic := '0'; 		
-		variable in7_clk : std_logic := '0'; 		
-		variable prev0_clk : std_logic := '0';
-		variable prev1_clk : std_logic := '0';		
-		variable prev2_clk : std_logic := '0';		
-		variable prev3_clk : std_logic := '0';	
-		variable prev4_clk : std_logic := '0';
-		variable prev5_clk : std_logic := '0';		
-		variable prev6_clk : std_logic := '0';		
-		variable prev7_clk : std_logic := '0';	
-			
-		variable bits : std_logic_vector(3 downto 0);
-		constant reset: integer := 4;
-	begin
-	
-		if rising_edge(CLK252A) then
-			if in0_clk='0' and prev0_clk='1' then 
-				counter0 := reset; 
-			else
-				counter0 := counter0+1;
-			end if;
-			prev0_clk := in0_clk;
-			in0_clk := GPIO1(1);  
-		end if;
-		if rising_edge(CLK252B) then
-			if in1_clk='0' and prev1_clk='1' then 
-				counter1 := reset; 
-			else
-				counter1 := counter1+1;
-			end if;
-			prev1_clk := in1_clk;
-			in1_clk := GPIO1(1);  
-		end if;
-		if rising_edge(CLK252C) then
-			if in2_clk='0' and prev2_clk='1' then 
-				counter2 := reset; 
-			else
-				counter2 := counter2+1;
-			end if;
-			prev2_clk := in2_clk;
-			in2_clk := GPIO1(1);  
-		end if;
-		if rising_edge(CLK252D) then
-			if in3_clk='0' and prev3_clk='1' then 
-				counter3 := reset; 
-			else
-				counter3 := counter3+1;
-			end if;
-			prev3_clk := in3_clk;
-			in3_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252A) then
-			if in4_clk='0' and prev4_clk='1' then 
-				counter4 := reset; 
-			else
-				counter4 := counter4+1;
-			end if;
-			prev4_clk := in4_clk;
-			in4_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252B) then
-			if in5_clk='0' and prev5_clk='1' then 
-				counter5 := reset; 
-			else
-				counter5 := counter5+1;
-			end if;
-			prev5_clk := in5_clk;
-			in5_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252C) then
-			if in6_clk='0' and prev6_clk='1' then 
-				counter6 := reset; 
-			else
-				counter6 := counter6+1;
-			end if;
-			prev6_clk := in6_clk;
-			in6_clk := GPIO1(1);  
-		end if;
-		if falling_edge(CLK252D) then
-			if in7_clk='0' and prev7_clk='1' then 
-				counter7 := reset; 
-			else
-				counter7 := counter7+1;
-			end if;
-			prev7_clk := in7_clk;
-			in7_clk := GPIO1(1);  
-		end if;
 		
-      -- merge clock counters asynchronously
-		bits:= std_logic_vector
-		(	   to_unsigned(counter0,4) 
-			or to_unsigned(counter1,4) 
-		   or to_unsigned(counter2,4) 
-			or to_unsigned(counter3,4)
-			or to_unsigned(counter4,4) 
-		   or to_unsigned(counter5,4) 
-			or to_unsigned(counter6,4)
-			or to_unsigned(counter7,4)
-		);
-		
-		CLK <= bits(3);
---		GPIO2_8 <= bits(3);
---		GPIO2_10 <= GPIO1(1);
-	end process;
-	
-	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
 	process (CLK, GPIO2_4, GPIO2_6) 
 		variable hcnt : integer range 0 to 1023 := 0;
@@ -266,6 +133,8 @@ begin
 		variable val1 : integer range 0 to 63;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
+
+		constant hfix : integer := 1;
 	begin
 		-- handle jumper configuration
 		usehighres := GPIO2_4='0' or GPIO2_6='0';
@@ -278,7 +147,7 @@ begin
 				Y <= "100000";
 				Pb <= "10000";
 				Pr <= "10000";
-				if hcnt<504-37 or (hcnt>=504 and hcnt<2*504-37) then 
+				if (hcnt>=hfix and hcnt<hfix+504-37) or (hcnt>=hfix+504 and hcnt<hfix+2*504-37) then 
 					Y(5) <= '0';
 				end if;
 			else
@@ -300,7 +169,7 @@ begin
 					Pr <= vramq0(4 downto 0);
 				end if;				
 				-- two normal EDTV line syncs
-				if hcnt<37 or (hcnt>=504 and hcnt<504+37) then  
+				if (hcnt>=hfix and hcnt<hfix+37) or (hcnt>=hfix+504 and hcnt<hfix+504+37) then  
 					Y(5) <= '0';
 				end if;
 				
@@ -344,6 +213,13 @@ begin
 			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-504 + ((vcnt+1) mod 2)*512, 10));
 		end if;
 		
+	end process;
+	
+	-- debug output
+	process (GPIO1)
+	begin
+		GPIO2_8  <= GPIO1(8); -- A(1)
+		GPIO2_10 <= GPIO1(1); -- PHI0
 	end process;
 	
 
