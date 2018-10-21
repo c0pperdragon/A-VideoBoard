@@ -127,10 +127,6 @@ begin
 		variable bitdelay : integer range 0 to clocksperbit := 0;
 		variable sendbytephase : integer range 0 to 31 := 0;
 		variable linelength : integer range 0 to 127 := 0;
-	
-		variable hcnt : integer range 0 to 1023 := 0;
-		variable vcnt : integer range 0 to 511 := 0;
-		variable needvsync : boolean := false;
 		
 		variable trigger : std_logic := '0';
 		variable prevtrigger : std_logic := '0';
@@ -191,31 +187,12 @@ begin
 			end if;
 			
 			-- trigger sniffing and sending at correct point in screen
-			if hcnt=0 and vcnt=0 and trigger/=prevtrigger then
-				prevtrigger := trigger;
-				
+			if trigger/=prevtrigger and (sendcounter=0 or sendcounter=ramsize) then
 				sniffcounter := 0;
 				sendcounter := 0;
 				sendbytephase := 0;
 				bitdelay := 100;
 				linelength := 0;
-			end if;
-					
-			-- progress counters and detect start of frame 
-			if SDTV_Y(5)='0' and hcnt>1000 then
-				hcnt := 0;
-				if needvsync then 
-					vcnt := 0;
-					needvsync := false;
-				elsif vcnt<511 then
-					vcnt := vcnt+1;
-				end if;
-			elsif hcnt<1023 then
-				-- a sync in the middle of a scanline: start sniffing
-				if hcnt=200 and SDTV_Y(5)='0' and vcnt>50 then
-					needvsync := true;
-				end if;
-				hcnt := hcnt+1;
 			end if;
 			
 			-- progress the phase
@@ -226,7 +203,9 @@ begin
 			end if;
 			
 			-- read trigger signal
+			prevtrigger := trigger;
 			trigger := GPIO2_6;
+
 		end if;
 
 		

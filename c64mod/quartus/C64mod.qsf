@@ -38,7 +38,7 @@
 
 set_global_assignment -name FAMILY "MAX 10"
 set_global_assignment -name DEVICE 10M02SCE144C8G
-set_global_assignment -name TOP_LEVEL_ENTITY c64mod
+set_global_assignment -name TOP_LEVEL_ENTITY C64mod
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 18.0.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "11:27:19  SEPTEMBER 21, 2018"
 set_global_assignment -name LAST_QUARTUS_VERSION "18.0.0 Lite Edition"

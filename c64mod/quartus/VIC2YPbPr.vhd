@@ -33,26 +33,45 @@ architecture immediate of VIC2YPbPr is
 begin
 	process (CLK) 
 
-	-- using the palette "Colodore", converted to YPbPr   
+	-- palette as specified by
+	-- https://en.wikipedia.org/wiki/List_of_8-bit_computer_hardware_graphics    
   	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
    constant c64palette : T_c64palette := 
-	(	 0*1024 + 16*32 + 16,  -- black
-		31*1024 + 16*32 + 16,  -- white
-		 9*1024 + 14*32 + 20,  -- red
-		22*1024 + 17*32 + 10,  -- cyan		
-		12*1024 + 19*32 + 20,  -- purple
-		16*1024 + 11*32 + 11,  -- green
-		 7*1024 + 22*32 + 16,  -- blue
-		27*1024 +  8*32 + 17,  -- yellow
-		11*1024 + 12*32 + 20,  -- orange
-		 7*1024 + 12*32 + 18,  -- brown		 
-		16*1024 + 14*32 + 21,  -- light red
-		 9*1024 + 16*32 + 16,  -- dark gray
-		15*1024 + 16*32 + 16,  -- medium gray
-		27*1024 + 11*32 + 11,  -- light green
-		15*1024 + 23*32 + 14,  -- light blue
-		22*1024 + 16*32 + 16   -- light gray		
+	(	 0 *1024 + (16+0)*32 + (16+0),  -- black
+		31 *1024 + (16+0)*32 + (16+0),  -- white
+		10 *1024 + (16-2)*32 + (16+4),  -- red
+		19 *1024 + (16+4)*32 + (16-9),  -- cyan			
+		12 *1024 + (16+4)*32 + (16+4),  -- purple
+		16 *1024 + (16-5)*32 + (16-5),  -- green
+		 8 *1024 + (16+4)*32 + (16+0),  -- blue
+		23 *1024 + (16-3)*32 + (16+0),  -- yellow
+		12 *1024 + (16-4)*32 + (16+4),  -- orange
+		 8 *1024 + (16-3)*32 + (16+2),  -- brown		 
+		16 *1024 + (16-3)*32 + (16+7),  -- light red
+		10 *1024 + (16+0)*32 + (16+0),  -- dark gray
+		15 *1024 + (16+0)*32 + (16+0),  -- medium gray
+		23 *1024 + (16-8)*32 + (16-8),  -- light green
+		15 *1024 + (16+7)*32 + (16+0),  -- light blue
+		19 *1024 + (16+0)*32 + (16+0)   -- light gray		
 	); 
+	-- the palette "Colodore", converted to YPbPr   
+--	(	 0*1024 + 16*32 + 16,  -- black
+--		31*1024 + 16*32 + 16,  -- white
+--		 9*1024 + 14*32 + 20,  -- red
+--		22*1024 + 17*32 + 10,  -- cyan		
+--		12*1024 + 19*32 + 20,  -- purple
+--		16*1024 + 11*32 + 11,  -- green
+--		 7*1024 + 22*32 + 16,  -- blue
+--		27*1024 +  8*32 + 17,  -- yellow
+--		11*1024 + 12*32 + 20,  -- orange
+--		 7*1024 + 12*32 + 18,  -- brown		 
+--		16*1024 + 14*32 + 21,  -- light red
+--		 9*1024 + 16*32 + 16,  -- dark gray
+--		15*1024 + 16*32 + 16,  -- medium gray
+--		27*1024 + 11*32 + 11,  -- light green
+--		15*1024 + 23*32 + 14,  -- light blue
+--		22*1024 + 16*32 + 16   -- light gray		
+--	); 
 	-- visible screen area
 	constant totalvisiblewidth : integer := 390;
 	constant totalvisibleheight : integer := 270;
@@ -61,19 +80,13 @@ begin
   	type T_spritex is array (0 to 7) of std_logic_vector(8 downto 0);
 	variable spritex : T_spritex := 
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
---  	type T_spritey is array (0 to 7) of std_logic_vector(7 downto 0);
---	variable spritey : T_spritey := 
---	( "00000000","00000000","00000000","00000000","00000000","00000000","00000000","00000000");	
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
---	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
---	variable spriteenable:     std_logic_vector(7 downto 0) := "00000000";
 	variable MCM:              std_logic := '0';
 	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
---	variable doubleheight:     std_logic_vector(7 downto 0) := "00000000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
@@ -106,11 +119,6 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
---	variable expansionflipflop : std_logic_vector(7 downto 0) := "00000000";
---	variable delayedspriteenable: std_logic_vector(7 downto 0) := "00000000";
---	variable spriteactive: std_logic_vector(7 downto 0) := "00000000";
---	type T_mcbase is array(0 to 7) of integer range 0 to 63;
---	variable mcbase : T_mcbase := (0,0,0,0,0,0,0,0);
 	type T_spritedata is array (0 to 7) of std_logic_vector(24 downto 0);
 	variable spritedata : T_spritedata;
 	type T_spriterendering is array (0 to 7) of integer range 0 to 5; 
@@ -380,24 +388,6 @@ begin
 				end loop;
 			end if;
 			
---			-- handle cycle-depending sprite trigger
---			if phase=7 then
---				for SP in 0 to 7 loop
---					if cycle=55 then
---						delayedspriteenable(SP) := spriteenable(SP);
---					elsif cycle=56 then
---						delayedspriteenable(SP) := delayedspriteenable(SP) or spriteenable(SP);
---					elsif cycle=58 then
---						if delayedspriteenable(SP)='1' 
---						and std_logic_vector(to_unsigned(displayline mod 256,8))=spritey(SP) then
---							spriteactive(SP) := '1';
---						end if;
---						if spriteenable(SP)='0' then
---							spriteactive(SP) := '0';
---						end if;
---					end if;
---				end loop;
---			end if;
 						
 			-- data from memory
 			if phase=14 then   -- receive during a CPU-blocking cycle
@@ -418,7 +408,6 @@ begin
 					end if;
 				end loop;
 			end if;
-			
 			if phase=7 then                -- received in first half of cycle
 				-- pixel pattern read
 				if cycle>=16 and cycle<56 then
@@ -435,6 +424,7 @@ begin
 			-- detect if there was a real sprite read (when the
 			-- read address did change between individual bytes)
 			-- set rendering to ready
+			-- (very short time slot were address is stable)
 			if phase=9 then
 				if in_aec='0' then -- only when having done DMA
 					if cycle=58 or cycle=60 or cycle=62 or cycle=1 
@@ -451,25 +441,18 @@ begin
 				end if;
 			end if;
 			
-			-- CPU writes into registers (very short time slot were address is stable)
-			if phase=10 and in_aec='1' and in_rw='0' and in_cs='0' then  
+			-- CPU writes into registers 
+			-- (very short time slot were address is stable)
+			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
 				case to_integer(unsigned(in_a)) is 
 					when 0  => spritex(0)(7 downto 0) := in_db(7 downto 0);
---					when 1  => spritey(0)(7 downto 0) := in_db(7 downto 0);
 					when 2  => spritex(1)(7 downto 0) := in_db(7 downto 0);
---					when 3  => spritey(1)(7 downto 0) := in_db(7 downto 0);
 					when 4  => spritex(2)(7 downto 0) := in_db(7 downto 0);
---					when 5  => spritey(2)(7 downto 0) := in_db(7 downto 0);
 					when 6  => spritex(3)(7 downto 0) := in_db(7 downto 0);
---					when 7  => spritey(3)(7 downto 0) := in_db(7 downto 0);
 					when 8  => spritex(4)(7 downto 0) := in_db(7 downto 0);
---					when 9  => spritey(4)(7 downto 0) := in_db(7 downto 0);
 					when 10 => spritex(5)(7 downto 0) := in_db(7 downto 0);
---					when 11 => spritey(5)(7 downto 0) := in_db(7 downto 0);
 					when 12 => spritex(6)(7 downto 0) := in_db(7 downto 0);
---					when 13 => spritey(6)(7 downto 0) := in_db(7 downto 0);
 					when 14 => spritex(7)(7 downto 0) := in_db(7 downto 0);
---					when 15 => spritey(7)(7 downto 0) := in_db(7 downto 0);
 					when 16 => spritex(0)(8) := in_db(0);
 					           spritex(1)(8) := in_db(1);
 								  spritex(2)(8) := in_db(2);
@@ -482,12 +465,9 @@ begin
 	                       BMM := in_db(5);
 								  DEN := in_db(4);
 								  RSEL:= in_db(3);
---								  YSCROLL := in_db(2 downto 0);
---					when 21 => spriteenable := in_db(7 downto 0);
 					when 22 => MCM := in_db(4);
 					           CSEL := in_db(3);
 								  XSCROLL := in_db(2 downto 0);
---					when 23 => doubleheight := in_db(7 downto 0);
 					when 27 => spritepriority := in_db(7 downto 0);
 					when 28 => spritemulticolor := in_db(7 downto 0);
 					when 29 => doublewidth := in_db(7 downto 0);
@@ -510,7 +490,7 @@ begin
 				end case;
 			end if;
 
-			-- progress counters
+			-- progress horizontal and vertical counters
 			if phase=15 then
 				if cycle<63 then
 					cycle := cycle+1;
@@ -528,11 +508,11 @@ begin
 			-- at the first AEC occurence after a specific (big) amount of 
 			-- no AEC happening, this means the C64 has started up with default screen
 			-- in this situation, we once know the horizontal and vertical beam position
-			if phase=15 and not didinitialsync then
+			if phase=12 and not didinitialsync then
 				if in_aec='0' then
 					if noAECrunlength = (312-200+7)*63 + (63-40) then
 						displayline := 51;
-						cycle := 16;	
+						cycle := 15;	
 						didinitialsync := true;
 					end if;
 					noAECrunlength := 0;	
@@ -556,7 +536,7 @@ begin
 			in_a := A;
 			in_rw := RW; 
 			in_cs := CS; 
-			in_aec := AEC;
+			in_aec := AEC;			
 		-- end of synchronous logic
 		end if;		
 		

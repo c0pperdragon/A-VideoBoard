@@ -151,17 +151,37 @@ begin
 					Y(5) <= '0';
 				end if;
 			else
-				 -- construct scanline darkening from both adjacent lines
-				if hcnt>=504 and usescanlines then  
-					val0 := to_integer(unsigned(vramq0(14 downto 10)));
-					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
-					Y <= "1" & std_logic_vector(to_unsigned((val0+val1) / 4, 5));
-					val0 := to_integer(unsigned(vramq0(9 downto 5)));
-					val1 := to_integer(unsigned(vramq1(9 downto 5)));										
-					Pb <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
-					val0 := to_integer(unsigned(vramq0(4 downto 0)));
-					val1 := to_integer(unsigned(vramq1(4 downto 0)));										
-					Pr <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+				-- use scanline effect
+				if usescanlines then
+					-- construct bright line
+					if hcnt<505 then
+						val0 := to_integer(unsigned(vramq0(14 downto 10)));
+						if val0>20 then
+							val0 := 31;
+						else
+							val0 := (val0+val0/2);
+						end if;
+						Y <= "1" & std_logic_vector(to_unsigned((val0), 5));
+						Pb <= vramq0(9 downto 5);
+						Pr <= vramq0(4 downto 0);
+					-- construct scanline darkening from both adjacent lines
+					else  
+						val0 := to_integer(unsigned(vramq0(14 downto 10)));
+						val1 := to_integer(unsigned(vramq1(14 downto 10)));
+						val0 := (val0+val1)/2;
+						if val0<=26 then
+							val0 := val0/2;
+						else
+							val0 := 27;
+						end if;
+						Y <= "1" & std_logic_vector(to_unsigned((val0), 5));
+						val0 := to_integer(unsigned(vramq0(9 downto 5)));
+						val1 := to_integer(unsigned(vramq1(9 downto 5)));										
+						Pb <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+						val0 := to_integer(unsigned(vramq0(4 downto 0)));
+						val1 := to_integer(unsigned(vramq1(4 downto 0)));										
+						Pr <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+					end if;
 				-- normal scanline color
 				else
 					Y <= "1" & vramq0(14 downto 10);

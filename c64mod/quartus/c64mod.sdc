@@ -1,10 +1,3 @@
 create_clock -period 40.00 -name clkref [get_ports {CLK25}]
-create_clock -period 63 -name clk0 [get_registers {counter0_[3]}]
-create_clock -period 63 -name clk1 [get_registers {counter1_[3]}]
-create_clock -period 63 -name clk2 [get_registers {counter2_[3]}]
-create_clock -period 63 -name clk3 [get_registers {counter3_[3]}]
-create_clock -period 63 -name clk4 [get_registers {counter4_[3]}]
-create_clock -period 63 -name clk5 [get_registers {counter5_[3]}]
-create_clock -period 63 -name clk6 [get_registers {counter6_[3]}]
-create_clock -period 63 -name clk7 [get_registers {counter7_[3]}]
 derive_pll_clocks
+
