@@ -34,27 +34,48 @@ begin
 	process (CLK) 
 
 	-- palette as specified by
-	-- https://en.wikipedia.org/wiki/List_of_8-bit_computer_hardware_graphics    
+	-- https://www.c64-wiki.de/wiki/Farbe but with darker luminance
   	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
    constant c64palette : T_c64palette := 
-	(	 0 *1024 + (16+0)*32 + (16+0),  -- black
-		31 *1024 + (16+0)*32 + (16+0),  -- white
-		10 *1024 + (16-2)*32 + (16+4),  -- red
-		19 *1024 + (16+4)*32 + (16-9),  -- cyan			
-		12 *1024 + (16+4)*32 + (16+4),  -- purple
-		16 *1024 + (16-5)*32 + (16-5),  -- green
-		 8 *1024 + (16+4)*32 + (16+0),  -- blue
-		23 *1024 + (16-3)*32 + (16+0),  -- yellow
-		12 *1024 + (16-4)*32 + (16+4),  -- orange
-		 8 *1024 + (16-3)*32 + (16+2),  -- brown		 
-		16 *1024 + (16-3)*32 + (16+7),  -- light red
-		10 *1024 + (16+0)*32 + (16+0),  -- dark gray
-		15 *1024 + (16+0)*32 + (16+0),  -- medium gray
-		23 *1024 + (16-8)*32 + (16-8),  -- light green
-		15 *1024 + (16+7)*32 + (16+0),  -- light blue
-		19 *1024 + (16+0)*32 + (16+0)   -- light gray		
+	(	 0 *1024 + 16*32 + 16,
+		31 *1024 + 16*32 + 16,
+		10 *1024 + 13*32 + 24,
+		19 *1024 + 16*32 + 11,
+		12 *1024 + 21*32 + 22,
+		16 *1024 + 12*32 + 4,
+		8  *1024 + 26*32 + 14,
+		23 *1024 + 8*32 + 17,
+		12 *1024 + 11*32 + 21,
+		8  *1024 + 11*32 + 18,
+		16 *1024 + 13*32 + 24,
+		10 *1024 + 16*32 + 16,
+		15 *1024 + 16*32 + 16,
+		23 *1024 + 8*32 + 12,
+		15 *1024 + 26*32 + 6,
+		19 *1024 + 16*32 + 16	
 	); 
-	-- the palette "Colodore", converted to YPbPr   
+--	-- palette as specified by
+--	-- https://en.wikipedia.org/wiki/List_of_8-bit_computer_hardware_graphics    
+--  	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
+--   constant c64palette : T_c64palette := 
+--	(	 0 *1024 + (16+0)*32 + (16+0),  -- black
+--		31 *1024 + (16+0)*32 + (16+0),  -- white
+--		10 *1024 + (16-2)*32 + (16+4),  -- red
+--		19 *1024 + (16+4)*32 + (16-9),  -- cyan			
+--		12 *1024 + (16+4)*32 + (16+4),  -- purple
+--		16 *1024 + (16-5)*32 + (16-5),  -- green
+--		 8 *1024 + (16+4)*32 + (16+0),  -- blue
+--		23 *1024 + (16-3)*32 + (16+0),  -- yellow
+--		12 *1024 + (16-4)*32 + (16+4),  -- orange
+--		 8 *1024 + (16-3)*32 + (16+2),  -- brown		 
+--		16 *1024 + (16-3)*32 + (16+7),  -- light red
+--		10 *1024 + (16+0)*32 + (16+0),  -- dark gray
+--		15 *1024 + (16+0)*32 + (16+0),  -- medium gray
+--		23 *1024 + (16-8)*32 + (16-8),  -- light green
+--		15 *1024 + (16+7)*32 + (16+0),  -- light blue
+--		19 *1024 + (16+0)*32 + (16+0)   -- light gray		
+--	); 
+--	-- the palette "Colodore", converted to YPbPr   
 --	(	 0*1024 + 16*32 + 16,  -- black
 --		31*1024 + 16*32 + 16,  -- white
 --		 9*1024 + 14*32 + 20,  -- red
@@ -82,23 +103,24 @@ begin
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
-	variable DEN:              std_logic := '1';
-	variable RSEL:             std_logic := '1';
+	variable DEN:              std_logic := '0'; -- '1';
+	variable RSEL:             std_logic := '0'; -- '1';
 	variable MCM:              std_logic := '0';
-	variable CSEL:             std_logic := '1';
+	variable CSEL:             std_logic := '0'; -- '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011";
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
-	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
+--	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
+	variable spritecolor: T_spritecolor := ( "0000", "0000", "0000", "0000", "0000", "0000", "0000", "0000" );
 	
 	-- registering the inputs
 	variable in_phi0: std_logic; 
@@ -125,8 +147,9 @@ begin
 	variable spriterendering : T_spriterendering := (0,0,0,0,0,0,0,0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 		
-	variable noAECrunlength : integer range 0 to 32767 := 0;
-	variable didinitialsync : boolean := false;
+	variable syncdetect_ok : boolean := false;
+	variable syncdetect_cycle : integer range 0 to 63 := 0;
+	variable ramrefreshpattern : std_logic_vector(9 downto 0) := "0000000000";
 		
 	-- registered output 
 	variable out_Y  : std_logic_vector(5 downto 0) := "000000";
@@ -173,7 +196,7 @@ begin
 			end if;
 			
 			-- generate pixel output (as soon as sync was found)	
-			if (phase mod 2) = 0 and didinitialsync then   
+			if (phase mod 2) = 0 then   
 			
 				-- output defaults to black (no csync active)
 				out_Y  := "100000";
@@ -188,7 +211,7 @@ begin
 					tmp_c := backgroundcolor0;		
 					tmp_isforeground := false;
 					
-					if cycle>=18 and cycle<58 then
+					if cycle>=18 and cycle<58 and DEN='1' then
 						tmp_hscroll := to_integer(unsigned(XSCROLL));
 						tmp_pixelindex := (cycle-17) * 8 + phase/2 - tmp_hscroll;
 
@@ -503,23 +526,38 @@ begin
 					end if;
 				end if;
 			end if;
-			
-			-- do the initial sync by checking the AES line after startup
-			-- at the first AEC occurence after a specific (big) amount of 
-			-- no AEC happening, this means the C64 has started up with default screen
-			-- in this situation, we once know the horizontal and vertical beam position
-			if phase=12 and not didinitialsync then
-				if in_aec='0' then
-					if noAECrunlength = (312-200+7)*63 + (63-40) then
-						displayline := 51;
-						cycle := 15;	
-						didinitialsync := true;
+
+			-- try to find the dram refresh pattern to sync the output 
+			if phase=1 then
+				case syncdetect_cycle is
+				when 11 => ramrefreshpattern(9 downto 8) := in_a(1 downto 0);
+				when 12 => ramrefreshpattern(7 downto 6) := in_a(1 downto 0);
+				when 13 => ramrefreshpattern(5 downto 4) := in_a(1 downto 0);
+				when 14 => ramrefreshpattern(3 downto 2) := in_a(1 downto 0);
+				when 15 => ramrefreshpattern(1 downto 0) := in_a(1 downto 0);
+				when 16 => 
+					if ramrefreshpattern = "1110010011" 
+					or ramrefreshpattern = "1001001110"
+					or ramrefreshpattern = "0100111001"
+					or ramrefreshpattern = "0011100100"
+					then
+						syncdetect_ok := true;  -- have detected the refresh pattern
+					elsif syncdetect_ok then
+						syncdetect_ok := false; -- not detected for 1. time 
+						-- detect the top of the frame anomaly (when in sync)
+						if ramrefreshpattern = "1111111111" then
+							displayline := 311;
+							cycle := 16;								
+						end if;
+					else 
+						syncdetect_cycle := 17;  -- two missdetecions: search for sync
 					end if;
-					noAECrunlength := 0;	
+				when others =>
+				end case;
+				if syncdetect_cycle<63 then 
+					syncdetect_cycle := syncdetect_cycle+1;
 				else
-					if noAECrunlength<32767 then
-						noAECrunlength := noAECrunlength+1;
-					end if;
+					syncdetect_cycle := 1;
 				end if;
 			end if;
 			

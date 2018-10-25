@@ -124,17 +124,32 @@ begin
 	);
 		
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
-	process (CLK, GPIO2_4, GPIO2_6) 
+	process (CLK, GPIO2_4, GPIO2_6, SDTV_Y, SDTV_Pb, SDTV_Pr) 
 		variable hcnt : integer range 0 to 1023 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
 		
-		variable val0 : integer range 0 to 63;
-		variable val1 : integer range 0 to 63;
+		variable val0 : integer range 0 to 31;
+		variable val1 : integer range 0 to 31;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
 
 		constant hfix : integer := 1;
+		
+		variable EDTV_Y   : std_logic_vector(5 downto 0);
+		variable EDTV_Pb  : std_logic_vector(4 downto 0);
+		variable EDTV_Pr  : std_logic_vector(4 downto 0);
+		
+		type T_lumadjustment is array (0 to 31) of integer range 0 to 31;
+		constant scanlineboost : T_lumadjustment := 
+		(	 0,  1,  2, 4,  5,  6,  8,  9,  10, 11, 13, 14, 15, 17, 18, 20, 
+			21, 22, 23, 24, 25, 26, 27, 28, 28, 29, 29, 30, 30, 31, 31, 31
+		);	
+		constant scanlinedarken : T_lumadjustment := 
+		(	 0,  1,  2, 3,  3,  4,  4,  5,  5,  6,   6,  7,  8,  9,  9, 10, 
+			10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22, 23, 25, 26, 27
+		);			
+
 	begin
 		-- handle jumper configuration
 		usehighres := GPIO2_4='0' or GPIO2_6='0';
@@ -144,11 +159,11 @@ begin
 		
 			-- generate EDTV output signal (with syncs and all)
 			if vcnt=0 or (vcnt=1 and hcnt<504) then	  -- 3 EDTV lines with sync	
-				Y <= "100000";
-				Pb <= "10000";
-				Pr <= "10000";
+				EDTV_Y := "100000";
+				EDTV_Pb := "10000";
+				EDTV_Pr := "10000";
 				if (hcnt>=hfix and hcnt<hfix+504-37) or (hcnt>=hfix+504 and hcnt<hfix+2*504-37) then 
-					Y(5) <= '0';
+					EDTV_Y(5) := '0';
 				end if;
 			else
 				-- use scanline effect
@@ -156,44 +171,34 @@ begin
 					-- construct bright line
 					if hcnt<505 then
 						val0 := to_integer(unsigned(vramq0(14 downto 10)));
-						if val0>20 then
-							val0 := 31;
-						else
-							val0 := (val0+val0/2);
-						end if;
-						Y <= "1" & std_logic_vector(to_unsigned((val0), 5));
-						Pb <= vramq0(9 downto 5);
-						Pr <= vramq0(4 downto 0);
+						val0 := scanlineboost(val0);
+						EDTV_Y := "1" & std_logic_vector(to_unsigned((val0), 5));
+						EDTV_Pb := vramq0(9 downto 5);
+						EDTV_Pr := vramq0(4 downto 0);
 					-- construct scanline darkening from both adjacent lines
 					else  
 						val0 := to_integer(unsigned(vramq0(14 downto 10)));
 						val1 := to_integer(unsigned(vramq1(14 downto 10)));
-						val0 := (val0+val1)/2;
-						if val0<=26 then
-							val0 := val0/2;
-						else
-							val0 := 27;
-						end if;
-						Y <= "1" & std_logic_vector(to_unsigned((val0), 5));
+						val0 := scanlinedarken((val0+val1)/2);
+						EDTV_Y := "1" & std_logic_vector(to_unsigned((val0), 5));
 						val0 := to_integer(unsigned(vramq0(9 downto 5)));
 						val1 := to_integer(unsigned(vramq1(9 downto 5)));										
-						Pb <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+						EDTV_Pb := std_logic_vector(to_unsigned((val0+val1) / 2, 5));
 						val0 := to_integer(unsigned(vramq0(4 downto 0)));
 						val1 := to_integer(unsigned(vramq1(4 downto 0)));										
-						Pr <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+						EDTV_Pr := std_logic_vector(to_unsigned((val0+val1) / 2, 5));
 					end if;
 				-- normal scanline color
 				else
-					Y <= "1" & vramq0(14 downto 10);
-					Pb <= vramq0(9 downto 5);
-					Pr <= vramq0(4 downto 0);
+					EDTV_Y := "1" & vramq0(14 downto 10);
+					EDTV_Pb := vramq0(9 downto 5);
+					EDTV_Pr := vramq0(4 downto 0);
 				end if;				
 				-- two normal EDTV line syncs
 				if (hcnt>=hfix and hcnt<hfix+37) or (hcnt>=hfix+504 and hcnt<hfix+504+37) then  
-					Y(5) <= '0';
+					EDTV_Y(5) := '0';
 				end if;
-				
-				-- Y <= "100000";
+
 			end if;
 			
 			-- progress counters and detect sync
@@ -215,12 +220,16 @@ begin
 
 			-- if highres is not selected, fall back to plain SDTV
 			if not usehighres then
-				Y  <= SDTV_Y;
-				Pb <= SDTV_Pb;
-				Pr <= SDTV_Pr;
+				EDTV_Y  := SDTV_Y;
+				EDTV_Pb := SDTV_Pb;
+				EDTV_Pr := SDTV_Pr;
 			end if;
 			
 		end if;
+
+		Y  <= EDTV_Y;
+		Pb <= EDTV_Pb;
+		Pr <= EDTV_Pr;
 		
 		-- compute VideoRAM write position (write in buffer one line ahead)
 		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 + ((vcnt+1) mod 2)*512, 10));

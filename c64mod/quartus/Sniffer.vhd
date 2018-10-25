@@ -173,18 +173,24 @@ begin
 			sramdata <= "00";
 			sramwraddress <= "0000000000000000";
 			sramwren <= '0';		
-			if phase=10 and sniffcounter<ramsize then
-				if GPIO1(3)='0' then -- AEC active
-					sramdata <= "00";
-				elsif GPIO1(5)='0' and GPIO1(6)='0' then  -- RW='0' and CS='0'
-					sramdata <= "10";
-				else
-					sramdata <= "01";
-				end if;
+			if phase=1 and sniffcounter<ramsize then
+				sramdata <= GPIO1(8 downto 7);			
 				sramwraddress <= std_logic_vector(to_unsigned(sniffcounter,16));
 				sramwren <= '1';
-				sniffcounter := sniffcounter+1;
+				sniffcounter := sniffcounter+1;			
 			end if;
+--			if phase=10 and sniffcounter<ramsize then
+--				if GPIO1(3)='0' then -- AEC active
+--					sramdata <= "00";
+--				elsif GPIO1(5)='0' and GPIO1(6)='0' then  -- RW='0' and CS='0'
+--					sramdata <= "10";
+--				else
+--					sramdata <= "01";
+--				end if;
+--				sramwraddress <= std_logic_vector(to_unsigned(sniffcounter,16));
+--				sramwren <= '1';
+--				sniffcounter := sniffcounter+1;
+--			end if;
 			
 			-- trigger sniffing and sending at correct point in screen
 			if trigger/=prevtrigger and (sendcounter=0 or sendcounter=ramsize) then
