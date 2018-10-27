@@ -101,16 +101,6 @@ set_location_assignment PIN_40 -to GPIO2_4
 set_location_assignment PIN_41 -to GPIO2_3
 set_location_assignment PIN_39 -to GPIO2_5
 set_location_assignment PIN_33 -to GPIO2_6
-set_global_assignment -name VHDL_FILE Sniffer.vhd
-set_global_assignment -name VHDL_FILE ClockMultiplier.vhd
-set_global_assignment -name SDC_FILE c64mod.sdc
-set_global_assignment -name VHDL_FILE VIC2YPbPr.vhd
-set_global_assignment -name VHDL_FILE C64mod.vhd
-set_global_assignment -name QIP_FILE PLL252.qip
-set_global_assignment -name QIP_FILE VideoRAM.qip
-set_global_assignment -name CDF_FILE Run.cdf
-set_global_assignment -name CDF_FILE Prog.cdf
-set_global_assignment -name QIP_FILE SniffRAM.qip
 set_instance_assignment -name IO_STANDARD "3.3 V SCHMITT TRIGGER" -to CLK25
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[20]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[19]
@@ -165,4 +155,14 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_6
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name VHDL_FILE VIC2Emulation.vhd
+set_global_assignment -name VHDL_FILE Sniffer.vhd
+set_global_assignment -name VHDL_FILE ClockMultiplier.vhd
+set_global_assignment -name SDC_FILE c64mod.sdc
+set_global_assignment -name VHDL_FILE C64mod.vhd
+set_global_assignment -name QIP_FILE PLL252.qip
+set_global_assignment -name QIP_FILE VideoRAM.qip
+set_global_assignment -name CDF_FILE Run.cdf
+set_global_assignment -name CDF_FILE Prog.cdf
+set_global_assignment -name QIP_FILE SniffRAM.qip
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

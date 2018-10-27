@@ -7,14 +7,13 @@ use ieee.std_logic_1164.all;
 -- behaviour of the VIC to finally create a YPbPr signal.
 -- Output is generated at every falling edge of the CLK
 
-entity VIC2YPbPr is	
+entity VIC2Emulation is	
 	port (
-		-- standard definition YPbPr output
-		SDTV_Y:  out std_logic_vector(5 downto 0);	
-		SDTV_Pb: out std_logic_vector(4 downto 0); 
-		SDTV_Pr: out std_logic_vector(4 downto 0); 
+		-- standard definition color output
+		COLOR: out std_logic_vector(3 downto 0);
+		CSYNC: out std_logic;
 		
-		-- synchronous clock and phase of the c64 clock cylce
+		-- synchronous clock of 16 times the c64 clock cycle
 		CLK         : in std_logic;
 		
 		-- Connections to the real GTIAs pins 
@@ -23,76 +22,15 @@ entity VIC2YPbPr is
 		A           : in std_logic_vector(5 downto 0);
 		RW          : in std_logic; 
 		CS          : in std_logic; 
-		AEC         : in std_logic; 
-		BA          : in std_logic
+		AEC         : in std_logic
 	);	
 end entity;
 
 
-architecture immediate of VIC2YPbPr is
+architecture immediate of VIC2Emulation is
 begin
 	process (CLK) 
 
-	-- palette as specified by
-	-- https://www.c64-wiki.de/wiki/Farbe but with darker luminance
-  	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
-   constant c64palette : T_c64palette := 
-	(	 0 *1024 + 16*32 + 16,
-		31 *1024 + 16*32 + 16,
-		10 *1024 + 13*32 + 24,
-		19 *1024 + 16*32 + 11,
-		12 *1024 + 21*32 + 22,
-		16 *1024 + 12*32 + 4,
-		8  *1024 + 26*32 + 14,
-		23 *1024 + 8*32 + 17,
-		12 *1024 + 11*32 + 21,
-		8  *1024 + 11*32 + 18,
-		16 *1024 + 13*32 + 24,
-		10 *1024 + 16*32 + 16,
-		15 *1024 + 16*32 + 16,
-		23 *1024 + 8*32 + 12,
-		15 *1024 + 26*32 + 6,
-		19 *1024 + 16*32 + 16	
-	); 
---	-- palette as specified by
---	-- https://en.wikipedia.org/wiki/List_of_8-bit_computer_hardware_graphics    
---  	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
---   constant c64palette : T_c64palette := 
---	(	 0 *1024 + (16+0)*32 + (16+0),  -- black
---		31 *1024 + (16+0)*32 + (16+0),  -- white
---		10 *1024 + (16-2)*32 + (16+4),  -- red
---		19 *1024 + (16+4)*32 + (16-9),  -- cyan			
---		12 *1024 + (16+4)*32 + (16+4),  -- purple
---		16 *1024 + (16-5)*32 + (16-5),  -- green
---		 8 *1024 + (16+4)*32 + (16+0),  -- blue
---		23 *1024 + (16-3)*32 + (16+0),  -- yellow
---		12 *1024 + (16-4)*32 + (16+4),  -- orange
---		 8 *1024 + (16-3)*32 + (16+2),  -- brown		 
---		16 *1024 + (16-3)*32 + (16+7),  -- light red
---		10 *1024 + (16+0)*32 + (16+0),  -- dark gray
---		15 *1024 + (16+0)*32 + (16+0),  -- medium gray
---		23 *1024 + (16-8)*32 + (16-8),  -- light green
---		15 *1024 + (16+7)*32 + (16+0),  -- light blue
---		19 *1024 + (16+0)*32 + (16+0)   -- light gray		
---	); 
---	-- the palette "Colodore", converted to YPbPr   
---	(	 0*1024 + 16*32 + 16,  -- black
---		31*1024 + 16*32 + 16,  -- white
---		 9*1024 + 14*32 + 20,  -- red
---		22*1024 + 17*32 + 10,  -- cyan		
---		12*1024 + 19*32 + 20,  -- purple
---		16*1024 + 11*32 + 11,  -- green
---		 7*1024 + 22*32 + 16,  -- blue
---		27*1024 +  8*32 + 17,  -- yellow
---		11*1024 + 12*32 + 20,  -- orange
---		 7*1024 + 12*32 + 18,  -- brown		 
---		16*1024 + 14*32 + 21,  -- light red
---		 9*1024 + 16*32 + 16,  -- dark gray
---		15*1024 + 16*32 + 16,  -- medium gray
---		27*1024 + 11*32 + 11,  -- light green
---		15*1024 + 23*32 + 14,  -- light blue
---		22*1024 + 16*32 + 16   -- light gray		
---	); 
 	-- visible screen area
 	constant totalvisiblewidth : integer := 390;
 	constant totalvisibleheight : integer := 270;
@@ -103,7 +41,7 @@ begin
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
-	variable DEN:              std_logic := '0'; -- '1';
+	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '0'; -- '1';
 	variable MCM:              std_logic := '0';
 	variable CSEL:             std_logic := '0'; -- '1';
@@ -140,6 +78,7 @@ begin
 	variable pixelpattern : std_logic_vector(27 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
+	variable videomatrixage : integer range 0 to 8 := 8;
 	
 	type T_spritedata is array (0 to 7) of std_logic_vector(24 downto 0);
 	variable spritedata : T_spritedata;
@@ -152,9 +91,8 @@ begin
 	variable ramrefreshpattern : std_logic_vector(9 downto 0) := "0000000000";
 		
 	-- registered output 
-	variable out_Y  : std_logic_vector(5 downto 0) := "000000";
-	variable out_Pb : std_logic_vector(4 downto 0) := "10000";
-	variable out_Pr : std_logic_vector(4 downto 0) := "10000";
+	variable out_color  : std_logic_vector(3 downto 0) := "0000";
+	variable out_csync : std_logic := '0';
 
 	-- temporary stuff
 	variable hcounter : integer range 0 to 511;      -- pixel in current scan line
@@ -199,9 +137,8 @@ begin
 			if (phase mod 2) = 0 then   
 			
 				-- output defaults to black (no csync active)
-				out_Y  := "100000";
-				out_Pb := "10000";
-				out_Pr := "10000";
+				out_color  := "0000";
+				out_csync := '1';
 	
 				-- area where any color is shown (including border)
 				if hcounter>=92 and hcounter<92+totalvisiblewidth 
@@ -216,7 +153,7 @@ begin
 						tmp_pixelindex := (cycle-17) * 8 + phase/2 - tmp_hscroll;
 
 						-- access the correct video matrix cell
-						if tmp_pixelindex>=8 then
+						if tmp_pixelindex>=8 and videomatrixage<8 then
 							tmp_vm := videomatrix((tmp_pixelindex-8)/8);
 						else
 							tmp_vm := "000000000000";
@@ -337,25 +274,21 @@ begin
 					end if;
 					
 					-- generate the YPbPr signal using a fixed palette
-					tmp_ypbpr := std_logic_vector(to_unsigned
-					( c64palette(to_integer(unsigned(tmp_c))),15 ));
-					out_Y := '1' & tmp_ypbpr(14 downto 10);
-					out_Pb := tmp_ypbpr(9 downto 5);
-					out_Pr := tmp_ypbpr(4 downto 0);
+					out_color := tmp_c;
 	
 				-- generate csync for PAL 288p signal
 				elsif (vcounter=0) and (hcounter<37 or (hcounter>=252 and hcounter<252+18)) then                    -- normal sync, short sync
-					out_Y := "000000";
+					out_csync := '0';
 				elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
-					out_Y := "000000";
+					out_csync := '0';
 				elsif (vcounter=3 or vcounter=4) and (hcounter<252-18 or (hcounter>=252 and hcounter<504-18)) then  -- vsyncs
-					out_Y := "000000";
+					out_csync := '0';
 				elsif (vcounter=5) and (hcounter<252-18 or (hcounter>=252 and hcounter<252+18)) then                -- one vsync, one short sync
-					out_Y := "000000";
+					out_csync := '0';
 				elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
-					out_Y := "000000";
+					out_csync := '0';
 				elsif (vcounter>=8) and (hcounter<37) then                                                          -- normal syncs
-					out_Y := "000000";
+					out_csync := '0';
 				end if;			
 			end if;
 			
@@ -418,8 +351,7 @@ begin
 				if cycle>=15 and cycle<55 then
 					if in_aec='0' then 
 						videomatrix(cycle-15) := in_db;
-					elsif displayline=251 then
-						videomatrix(cycle-15) := "000000000000";
+						videomatrixage := 0;
 					end if;
 				end if;
 				-- sprite DMA read
@@ -524,6 +456,9 @@ begin
 					else
 						displayline := 0;
 					end if;
+					if videomatrixage<8 then 
+						videomatrixage := videomatrixage+1;
+					end if;
 				end if;
 			end if;
 
@@ -579,9 +514,8 @@ begin
 		end if;		
 		
 		-------------------- output signals ---------------------		
-		SDTV_Y <= out_y;
-		SDTV_Pb <= out_pb;
-		SDTV_Pr <= out_pr;				
+		COLOR <= out_color;
+		CSYNC <= out_csync;
 	end process;
 	
 end immediate;

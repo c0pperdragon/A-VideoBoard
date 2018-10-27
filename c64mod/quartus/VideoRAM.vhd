@@ -43,21 +43,21 @@ ENTITY VideoRAM IS
 	PORT
 	(
 		clock		: IN STD_LOGIC  := '1';
-		data		: IN STD_LOGIC_VECTOR (14 DOWNTO 0);
+		data		: IN STD_LOGIC_VECTOR (3 DOWNTO 0);
 		rdaddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
 		wraddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
 		wren		: IN STD_LOGIC  := '0';
-		q		: OUT STD_LOGIC_VECTOR (14 DOWNTO 0)
+		q		: OUT STD_LOGIC_VECTOR (3 DOWNTO 0)
 	);
 END VideoRAM;
 
 
 ARCHITECTURE SYN OF videoram IS
 
-	SIGNAL sub_wire0	: STD_LOGIC_VECTOR (14 DOWNTO 0);
+	SIGNAL sub_wire0	: STD_LOGIC_VECTOR (3 DOWNTO 0);
 
 BEGIN
-	q    <= sub_wire0(14 DOWNTO 0);
+	q    <= sub_wire0(3 DOWNTO 0);
 
 	altsyncram_component : altsyncram
 	GENERIC MAP (
@@ -77,8 +77,8 @@ BEGIN
 		read_during_write_mode_mixed_ports => "DONT_CARE",
 		widthad_a => 10,
 		widthad_b => 10,
-		width_a => 15,
-		width_b => 15,
+		width_a => 4,
+		width_b => 4,
 		width_byteena_a => 1
 	)
 	PORT MAP (
@@ -127,7 +127,7 @@ END SYN;
 -- Retrieval info: PRIVATE: JTAG_ENABLED NUMERIC "0"
 -- Retrieval info: PRIVATE: JTAG_ID STRING "NONE"
 -- Retrieval info: PRIVATE: MAXIMUM_DEPTH NUMERIC "0"
--- Retrieval info: PRIVATE: MEMSIZE NUMERIC "15360"
+-- Retrieval info: PRIVATE: MEMSIZE NUMERIC "4096"
 -- Retrieval info: PRIVATE: MEM_IN_BITS NUMERIC "0"
 -- Retrieval info: PRIVATE: MIFfilename STRING ""
 -- Retrieval info: PRIVATE: OPERATION_MODE NUMERIC "2"
@@ -147,10 +147,10 @@ END SYN;
 -- Retrieval info: PRIVATE: USE_DIFF_CLKEN NUMERIC "0"
 -- Retrieval info: PRIVATE: UseDPRAM NUMERIC "1"
 -- Retrieval info: PRIVATE: VarWidth NUMERIC "0"
--- Retrieval info: PRIVATE: WIDTH_READ_A NUMERIC "15"
--- Retrieval info: PRIVATE: WIDTH_READ_B NUMERIC "15"
--- Retrieval info: PRIVATE: WIDTH_WRITE_A NUMERIC "15"
--- Retrieval info: PRIVATE: WIDTH_WRITE_B NUMERIC "15"
+-- Retrieval info: PRIVATE: WIDTH_READ_A NUMERIC "4"
+-- Retrieval info: PRIVATE: WIDTH_READ_B NUMERIC "4"
+-- Retrieval info: PRIVATE: WIDTH_WRITE_A NUMERIC "4"
+-- Retrieval info: PRIVATE: WIDTH_WRITE_B NUMERIC "4"
 -- Retrieval info: PRIVATE: WRADDR_ACLR_B NUMERIC "0"
 -- Retrieval info: PRIVATE: WRADDR_REG_B NUMERIC "0"
 -- Retrieval info: PRIVATE: WRCTRL_ACLR_B NUMERIC "0"
@@ -173,21 +173,21 @@ END SYN;
 -- Retrieval info: CONSTANT: READ_DURING_WRITE_MODE_MIXED_PORTS STRING "DONT_CARE"
 -- Retrieval info: CONSTANT: WIDTHAD_A NUMERIC "10"
 -- Retrieval info: CONSTANT: WIDTHAD_B NUMERIC "10"
--- Retrieval info: CONSTANT: WIDTH_A NUMERIC "15"
--- Retrieval info: CONSTANT: WIDTH_B NUMERIC "15"
+-- Retrieval info: CONSTANT: WIDTH_A NUMERIC "4"
+-- Retrieval info: CONSTANT: WIDTH_B NUMERIC "4"
 -- Retrieval info: CONSTANT: WIDTH_BYTEENA_A NUMERIC "1"
 -- Retrieval info: USED_PORT: clock 0 0 0 0 INPUT VCC "clock"
--- Retrieval info: USED_PORT: data 0 0 15 0 INPUT NODEFVAL "data[14..0]"
--- Retrieval info: USED_PORT: q 0 0 15 0 OUTPUT NODEFVAL "q[14..0]"
+-- Retrieval info: USED_PORT: data 0 0 4 0 INPUT NODEFVAL "data[3..0]"
+-- Retrieval info: USED_PORT: q 0 0 4 0 OUTPUT NODEFVAL "q[3..0]"
 -- Retrieval info: USED_PORT: rdaddress 0 0 10 0 INPUT NODEFVAL "rdaddress[9..0]"
 -- Retrieval info: USED_PORT: wraddress 0 0 10 0 INPUT NODEFVAL "wraddress[9..0]"
 -- Retrieval info: USED_PORT: wren 0 0 0 0 INPUT GND "wren"
 -- Retrieval info: CONNECT: @address_a 0 0 10 0 wraddress 0 0 10 0
 -- Retrieval info: CONNECT: @address_b 0 0 10 0 rdaddress 0 0 10 0
 -- Retrieval info: CONNECT: @clock0 0 0 0 0 clock 0 0 0 0
--- Retrieval info: CONNECT: @data_a 0 0 15 0 data 0 0 15 0
+-- Retrieval info: CONNECT: @data_a 0 0 4 0 data 0 0 4 0
 -- Retrieval info: CONNECT: @wren_a 0 0 0 0 wren 0 0 0 0
--- Retrieval info: CONNECT: q 0 0 15 0 @q_b 0 0 15 0
+-- Retrieval info: CONNECT: q 0 0 4 0 @q_b 0 0 4 0
 -- Retrieval info: GEN_FILE: TYPE_NORMAL VideoRAM.vhd TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL VideoRAM.inc FALSE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL VideoRAM.cmp TRUE
