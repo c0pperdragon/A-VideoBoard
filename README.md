@@ -17,6 +17,7 @@ on top of the A-Video board. Any such interface board can probably be implemente
 simple single-sided wide-pitch PCB that can be even home-etched with some experience.
 
 Currently I have built applications of the A-Video board for 
+* [Commodore 64](/c64mod)
 * [Atari 8 bit machines](/atarimod)
 * [ZX Spectrum](/zxspectrummod)
 
