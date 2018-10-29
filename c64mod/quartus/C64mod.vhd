@@ -19,11 +19,11 @@ entity C64Mod is
 		
 		-- read output mode settings 
 		GPIO2_4: in std_logic;
-		GPIO2_6: in std_logic;
+		GPIO2_6: in std_logic
 		
-		-- debug output
-		GPIO2_8: out std_logic;
-		GPIO2_10: out std_logic
+--		-- debug output
+--		GPIO2_8: out std_logic;
+--		GPIO2_10: out std_logic
 	);	
 end entity;
 
@@ -87,18 +87,22 @@ architecture immediate of C64Mod is
 	
 	
 begin		
-	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(1), CLK );
+	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), CLK );
 	
 	vic: VIC2Emulation port map (
 		COLOR,
 		CSYNC,
 		CLK,
-		GPIO1(1),                                 -- PHI0
-		GPIO1(12 downto 9) & GPIO1(20 downto 13), -- DB
-	   GPIO1(12 downto 7),                       -- A
-		GPIO1(5),                                 -- RW 
-		GPIO1(6),                                 -- CS 
-		GPIO1(3)                                  -- AEC
+		GPIO1(20),                                   -- PHI0		
+		GPIO1(9 downto 9) & GPIO1(10) & GPIO1(11) & GPIO1(12)   
+		& GPIO1(1) & GPIO1(2) & GPIO1(3) & GPIO1(4)
+		& GPIO1(5) & GPIO1(6) & GPIO1(7) & GPIO1(8), -- DB		
+	   GPIO1(9 downto 9) & GPIO1(10) & GPIO1(11)  & GPIO1(12)
+		& GPIO1(13) & GPIO1(14),                     -- A
+		GPIO1(16),                                   -- RW 
+		GPIO1(15),                                   -- CS 
+		GPIO1(18)                                    -- AEC
+		
 	);	
 
 	vram0: VideoRAM port map (
@@ -303,14 +307,7 @@ begin
 		end if;
 		
 	end process;
-	
-	-- debug output
-	process (GPIO1)
-	begin
-		GPIO2_8  <= GPIO1(8); -- A(1)
-		GPIO2_10 <= GPIO1(1); -- PHI0
-	end process;
-	
+		
 
 end immediate;
 
