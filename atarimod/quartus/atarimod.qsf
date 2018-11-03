@@ -42,7 +42,7 @@ set_global_assignment -name DEVICE 10M02SCE144C8G
 set_global_assignment -name TOP_LEVEL_ENTITY AtariMod
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.0.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "22:46:18  FEBRUARY 07, 2018"
-set_global_assignment -name LAST_QUARTUS_VERSION 16.0.0
+set_global_assignment -name LAST_QUARTUS_VERSION "18.0.0 Lite Edition"
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 256
 set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (VHDL)"
@@ -50,9 +50,6 @@ set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
 set_global_assignment -name EDA_OUTPUT_DATA_FORMAT VHDL -section_id eda_simulation
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
-set_global_assignment -name VHDL_FILE GTIA2YPbPr.vhd
-set_global_assignment -name VHDL_FILE AtariMod.vhd
-set_global_assignment -name SDC_FILE atarimod.sdc
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name FLOW_ENABLE_POWER_ANALYZER ON
@@ -98,7 +95,7 @@ set_location_assignment PIN_69 -to Pr[1]
 set_location_assignment PIN_70 -to Pr[0]
 
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[20]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[19]
+set_instance_assignment -name IO_STANDARD "3.3 V SCHMITT TRIGGER" -to GPIO1[19]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[18]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[17]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[16]
@@ -115,7 +112,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[6]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[5]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[4]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[3]
-set_instance_assignment -name IO_STANDARD "3.3 V SCHMITT TRIGGER" -to GPIO1[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO1[1]
 
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Pb[4]
@@ -136,20 +133,8 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[3]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[2]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to Y[0]
-set_global_assignment -name CDF_FILE Run.cdf
-set_location_assignment PIN_41 -to TEST[3]
-set_location_assignment PIN_40 -to TEST[2]
-set_location_assignment PIN_39 -to TEST[1]
-set_location_assignment PIN_33 -to TEST[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TEST[0]
-set_global_assignment -name CDF_FILE Prog.cdf
 set_location_assignment PIN_25 -to CLK25
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to CLK25
-set_global_assignment -name QIP_FILE VideoRAM.qip
-set_global_assignment -name QIP_FILE PLL227.qip
 set_location_assignment PIN_27 -to GPIO2_10
 set_location_assignment PIN_28 -to GPIO2_9
 set_location_assignment PIN_31 -to GPIO2_8
@@ -158,4 +143,18 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_9
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_10
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_8
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_9
+set_global_assignment -name VHDL_FILE ClockMultiplier.vhd
+set_global_assignment -name VHDL_FILE GTIA2YPbPr.vhd
+set_global_assignment -name VHDL_FILE AtariMod.vhd
+set_global_assignment -name SDC_FILE atarimod.sdc
+set_global_assignment -name CDF_FILE Run.cdf
+set_global_assignment -name CDF_FILE Prog.cdf
+set_global_assignment -name QIP_FILE VideoRAM.qip
+set_global_assignment -name QIP_FILE PLL228.qip
+set_location_assignment PIN_40 -to GPIO2_4
+set_location_assignment PIN_33 -to GPIO2_6
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_4
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_6
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_4
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_6
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

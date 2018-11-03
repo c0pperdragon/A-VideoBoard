@@ -14,11 +14,11 @@ entity GTIA2YPbPr is
 		SDTV_Pb: out std_logic_vector(4 downto 0); 
 		SDTV_Pr: out std_logic_vector(4 downto 0); 
 		
-		-- synchronous clock and phase of the atari clock cylce
+		-- synchronous clock
 		CLK         : in std_logic;
-		PHASE       : in std_logic_vector(1 downto 0); 
 		
 		-- Connections to the real GTIAs pins 
+		F0O         : in std_logic;
 		A           : in std_logic_vector(4 downto 0);
 		D           : in std_logic_vector(7 downto 0);
 		AN          : in std_logic_vector(2 downto 0);
@@ -31,7 +31,7 @@ end entity;
 
 architecture immediate of GTIA2YPbPr is
 begin
-	process (CLK,PHASE) 
+	process (CLK) 
 
   	type T_ataripalette is array (0 to 255) of integer range 0 to 32767;
    constant ataripalette : T_ataripalette := (
@@ -52,7 +52,7 @@ begin
         16#09f2#,16#11d2#,16#19b2#,16#1d92#,16#2572#,16#2d53#,16#3533#,16#3913#,16#40f3#,16#48d3#,16#4cb3#,16#5493#,16#5c93#,16#5c93#,16#6493#,16#6c93#,
         16#09f3#,16#11d3#,16#19b3#,16#2194#,16#2574#,16#2d54#,16#3534#,16#3d14#,16#40f5#,16#48d5#,16#50d5#,16#58d5#,16#5cd5#,16#60d5#,16#64d4#,16#6cd3#
     );	
-	
+
 	-- visible screen area
 	constant topedge    : integer := 45;
 	constant bottomedge : integer := 285;
@@ -91,7 +91,17 @@ begin
 	variable VDELAY : std_logic_vector (7 downto 0) := "00000000";
 	variable GRACTL : std_logic_vector (2 downto 0) := "000";
 
+	-- registered inputs
+	variable in_f0o         : std_logic;
+	variable	in_a           : std_logic_vector(4 downto 0);
+	variable in_d	         : std_logic_vector(7 downto 0);
+	variable in_an          : std_logic_vector(2 downto 0);
+	variable in_rw          : std_logic;
+	variable in_cs          : std_logic;
+	variable in_halt        : std_logic;
+
 	-- variables for synchronious operation
+	variable phase : integer range 0 to 3 := 0;
 	variable hcounter : integer range 0 to 227 := 0;
 	variable vcounter : integer range 0 to 511 := 0;
 	variable highres : std_logic := '0';
@@ -156,15 +166,15 @@ begin
 
 	begin
 		--------------------- logic for antic input -------------------
-		if rising_edge(CLK) and PHASE="10" then
+		if rising_edge(CLK) and PHASE=2 then
 			-- default color lines to show no color at all (only black)
 			overridelum := "00";
 			tmp_colorlines := "000000000";
 						
 			-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
 			if (hcounter mod 2) = 1 then
-				tmp_4bitvalue := command(1 downto 0) & AN(1 downto 0);
-				if PRIOR(7 downto 6)="10" and command(2)='1' and AN(2)='0' and tmp_4bitvalue/="0000" then  -- background color command in 9-color mode
+				tmp_4bitvalue := command(1 downto 0) & in_an(1 downto 0);
+				if PRIOR(7 downto 6)="10" and command(2)='1' and in_an(2)='0' and tmp_4bitvalue/="0000" then  -- background color command in 9-color mode
 					tmp_4bitvalue := "1000";
 				end if;
 			else 
@@ -447,19 +457,19 @@ begin
 			
 			----- receive next antic command ----
 			prevcommand := command;
-			command := AN;
+			command := in_an;
 		end if;
 		
 		
 		------------ select output color for both halves of the atari clock ---------
-		if rising_edge(CLK) and (PHASE="11" or PHASE="01") then
+		if rising_edge(CLK) and (PHASE=3 or PHASE=1) then
 			if csync='0' then
 				out_y := "000000";
 				out_pb := "10000";
 				out_pr := "10000";
 			else			
 				tmp_color := color;
-				if (PHASE="01" and overridelum(0)='1') or (PHASE="11" and overridelum(1)='1')  then
+				if (PHASE=1 and overridelum(0)='1') or (PHASE=3 and overridelum(1)='1')  then
 					tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
 				end if;				
 				tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
@@ -472,48 +482,48 @@ begin
 		
 		
 		--------------------- logic for the cpu/data bus -------------------			
-		if rising_edge(CLK) and PHASE="00" then
+		if rising_edge(CLK) and PHASE=0 then
 			----- let CPU write to the registers (at second clock where rw is asserted) --
-			if (CS='0') and (RW='0') and (prevrw='0') then
-				case A is
-					when "00000" => HPOSP0 := D;
-					when "00001" => HPOSP1 := D;
-					when "00010" => HPOSP2 := D;
-					when "00011" => HPOSP3 := D;
-					when "00100" => HPOSM0 := D;
-					when "00101" => HPOSM1 := D;
-					when "00110" => HPOSM2 := D;
-					when "00111" => HPOSM3 := D;				
-					when "01000" => SIZEP0 := D(1 downto 0);
-					when "01001" => SIZEP1 := D(1 downto 0);
-					when "01010" => SIZEP2 := D(1 downto 0);
-					when "01011" => SIZEP3 := D(1 downto 0);
-					when "01100" => SIZEM  := D;
-					when "01101" => GRAFP0 := D;
-					when "01110" => GRAFP1 := D;
-					when "01111" => GRAFP2 := D;
-					when "10000" => GRAFP3 := D;
-					when "10001" => GRAFM  := D;					
-					when "10010" => COLPM0 := D(7 downto 1);
-					when "10011" => COLPM1 := D(7 downto 1);
-					when "10100" => COLPM2 := D(7 downto 1);
-					when "10101" => COLPM3 := D(7 downto 1);
-					when "10110" => COLPF0 := D(7 downto 1);
-					when "10111" => COLPF1 := D(7 downto 1);
-					when "11000" => COLPF2 := D(7 downto 1);
-					when "11001" => COLPF3 := D(7 downto 1);
-					when "11010" => COLBK  := D(7 downto 1);
-					when "11011" => PRIOR  := D;
-					when "11100" => VDELAY := D;
-					when "11101" => GRACTL := D(2 downto 0);
+			if (in_CS='0') and (in_RW='0') and (prevrw='0') then
+				case in_A is
+					when "00000" => HPOSP0 := in_D;
+					when "00001" => HPOSP1 := in_D;
+					when "00010" => HPOSP2 := in_D;
+					when "00011" => HPOSP3 := in_D;
+					when "00100" => HPOSM0 := in_D;
+					when "00101" => HPOSM1 := in_D;
+					when "00110" => HPOSM2 := in_D;
+					when "00111" => HPOSM3 := in_D;				
+					when "01000" => SIZEP0 := in_D(1 downto 0);
+					when "01001" => SIZEP1 := in_D(1 downto 0);
+					when "01010" => SIZEP2 := in_D(1 downto 0);
+					when "01011" => SIZEP3 := in_D(1 downto 0);
+					when "01100" => SIZEM  := in_D;
+					when "01101" => GRAFP0 := in_D;
+					when "01110" => GRAFP1 := in_D;
+					when "01111" => GRAFP2 := in_D;
+					when "10000" => GRAFP3 := in_D;
+					when "10001" => GRAFM  := in_D;					
+					when "10010" => COLPM0 := in_D(7 downto 1);
+					when "10011" => COLPM1 := in_D(7 downto 1);
+					when "10100" => COLPM2 := in_D(7 downto 1);
+					when "10101" => COLPM3 := in_D(7 downto 1);
+					when "10110" => COLPF0 := in_D(7 downto 1);
+					when "10111" => COLPF1 := in_D(7 downto 1);
+					when "11000" => COLPF2 := in_D(7 downto 1);
+					when "11001" => COLPF3 := in_D(7 downto 1);
+					when "11010" => COLBK  := in_D(7 downto 1);
+					when "11011" => PRIOR  := in_D;
+					when "11100" => VDELAY := in_D;
+					when "11101" => GRACTL := in_D(2 downto 0);
 					when "11110" => 
 					when "11111" => 
 				end case;
 			end if;	
-			prevrw := RW; 
+			prevrw := in_RW; 
 		end if;
 		
-		if rising_edge(CLK) and PHASE="00" then
+		if rising_edge(CLK) and PHASE=0 then
 			if prevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
 				tmp_odd := (vcounter mod 2) = 0;
 			
@@ -578,9 +588,26 @@ begin
 				end if;
 			end if;
 			
-			prevhalt := HALT;
+			prevhalt := in_HALT;
 		end if;		
 		
+		--- progress clock phase counter
+		if rising_edge(CLK) then
+			if phase>=2 and in_f0o='0' then
+				phase := 0;
+			elsif phase<3 then
+				phase := phase+1;
+			end if;
+			
+			-- take inputs in registers
+			in_f0o := F0O;
+			in_a := A;
+			in_d := D;
+			in_an := AN;
+			in_rw := RW;
+			in_cs := CS;
+			in_halt := HALT;
+		end if;
 		
 		-------------------- output signals ---------------------		
 		SDTV_Y <= out_y;

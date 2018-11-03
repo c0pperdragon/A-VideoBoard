@@ -17,10 +17,9 @@ entity AtariMod is
 		-- sniffing GTIA pins comming inverted to the GPIO1
 		GPIO1: in std_logic_vector(20 downto 1);	
 		
-		-- read jumper settings (and provide a GND for jumpers)
-		GPIO2_10: out std_logic;
-		GPIO2_9: in std_logic;
-		GPIO2_8: in std_logic
+		-- read jumper settings
+		GPIO2_4: in std_logic;
+		GPIO2_6: in std_logic
 	);	
 end entity;
 
@@ -28,13 +27,6 @@ end entity;
 architecture immediate of AtariMod is
 	-- synchronous clock for most of the circuit
 	signal CLK     : std_logic;   
-	signal PHASE   : std_logic_vector(1 downto 0);
-	
-	-- high-speed clock to generate synchronous clock from. this is done
-	-- with two coupled signals that are 90 degree phase shifted to give
-	-- 4 usable edges with at total frequency of 3,546895 x 64 x 4 Mhz	
-	signal CLK227A  : std_logic;
-	signal CLK227B : std_logic;
 	
 	-- SDTV signals
 	signal SDTV_Y   : std_logic_vector(5 downto 0);
@@ -48,16 +40,6 @@ architecture immediate of AtariMod is
 	signal vramq0        : std_logic_vector (14 downto 0);
 	signal vramq1        : std_logic_vector (14 downto 0);
 	
-   component PLL227 is
-	PORT
-	(
-		inclk0		: IN STD_LOGIC  := '0';
-		c0		      : OUT STD_LOGIC; 
-		c1		      : OUT STD_LOGIC 
-	);
-	end component;
-	
-	
    component GTIA2YPbPr is
 	port (
 		-- standard definition YPbPr output
@@ -65,11 +47,11 @@ architecture immediate of AtariMod is
 		SDTV_Pb: out std_logic_vector(4 downto 0); 
 		SDTV_Pr: out std_logic_vector(4 downto 0); 
 		
-		-- synchronous clock and phase of the atari clock cylce
+		-- synchronous clock
 		CLK         : in std_logic;
-		PHASE       : in std_logic_vector(1 downto 0); 
 		
 		-- Connections to the real GTIAs pins 
+		F0O         : in std_logic;
 		A           : in std_logic_vector(4 downto 0);
 		D           : in std_logic_vector(7 downto 0);
 		AN          : in std_logic_vector(2 downto 0);
@@ -90,16 +72,23 @@ architecture immediate of AtariMod is
 	);
 	end component;
 	
+	component ClockMultiplier is
+	port (
+		CLK25: in std_logic;		
+		F0O: in std_logic;
+		CLK: out std_logic
+	);	
+	end component;
 	
 begin		
-	subdividerpll: PLL227 port map ( CLK25, CLK227A, CLK227B );
+	multi: ClockMultiplier port map ( CLK25, not GPIO1(19), CLK );
 	
 	gtia: GTIA2YPbPr port map (
 		SDTV_Y,
 		SDTV_Pb,
 		SDTV_Pr,
 		CLK,
-		PHASE,
+		NOT GPIO1(19),         -- F0O
 		NOT (
 		GPIO1(6 downto 6)      -- A4
 		& GPIO1(4)             -- A3
@@ -142,76 +131,8 @@ begin
 	);
 	
 	
-	------------ create a 4x atari clock to drive the rest of the circuit	-----------------
-	process (GPIO1, CLK227A, CLK227B)
-		variable counter0 : integer range 0 to 63 := 0;
-		variable in0_invclk : std_logic := '0'; -- inverted atari clock
-		variable counter1 : integer range 0 to 63 := 0;
-		variable in1_invclk : std_logic := '0'; -- inverted atari clock		
-		variable counter2 : integer range 0 to 63 := 0;
-		variable in2_invclk : std_logic := '0'; -- inverted atari clock		
-		variable counter3 : integer range 0 to 63 := 0;
-		variable in3_invclk : std_logic := '0'; -- inverted atari clock		
-		
-		variable out_phase : std_logic_vector(1 downto 0);
-
-		variable bits : std_logic_vector(5 downto 0);
-	begin
-		-- Sample the atari clock on the falling and on the rising edge
-		-- of the coupled clocks. This should add only 1.2ns of jitter.
-		if rising_edge(CLK227A) then
-			-- compute the atari clock phase (with huge setup-time)
-			bits := std_logic_vector(to_unsigned(counter0+6,6));
-			out_phase := bits(5 downto 4);
-			
-			if (counter0/8) /= 0 then
-				counter0 := counter0+1;
-			elsif in0_invclk='0' then
-				counter0 := 8;
-			end if;						
-			in0_invclk := GPIO1(19);
-		end if;
-		if rising_edge(CLK227B) then
-			if (counter1/8) /= 0 then
-				counter1 := counter1+1;
-			elsif in1_invclk='0' then
-				counter1 := 8;
-			end if;						
-			in1_invclk := GPIO1(19);
-		end if;
-		if falling_edge(CLK227A) then
-			if (counter2/8) /= 0 then
-				counter2 := counter2+1;
-			elsif in2_invclk='0' then
-				counter2 := 8;
-			end if;						
-			in2_invclk := GPIO1(19);
-		end if;
-		if falling_edge(CLK227B) then
-			if (counter3/8) /= 0 then
-				counter3 := counter3+1;
-			elsif in3_invclk='0' then
-				counter3 := 8;
-			end if;						
-			in3_invclk := GPIO1(19);
-		end if;
-		
-      -- merge clock counters asynchronously
-		bits:= std_logic_vector
-		(	   to_unsigned(counter0,6) or to_unsigned(counter1,6) 
-		   or to_unsigned(counter2,6) or to_unsigned(counter3,6)
-		);
-		CLK <= bits(3);
-		PHASE <= out_phase;
-
---		TEST(0) <= not GPIO1(19);	-- true atari clock
---		TEST(1) <= bits(3);
---		TEST(3 downto 2) <= out_phase;     
-	end process;
-	
-	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
-	process (CLK,GPIO2_8,GPIO2_9) 
+	process (CLK,GPIO2_4,GPIO2_6) 
 		variable hcnt : integer range 0 to 1023 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable shortsyncs : integer range 0 to 3 := 0;
@@ -222,9 +143,8 @@ begin
 		variable usenoscanlines : std_logic;
 	begin
 		-- handle jumper configuration
-		GPIO2_10 <= '0';    -- provide GND ond pin 10
-		uselowres := not GPIO2_8;
-		usenoscanlines := not GPIO2_9;
+		uselowres := GPIO2_4 and GPIO2_6;
+		usenoscanlines := GPIO2_6;
 	
 		if rising_edge(CLK) then
 		
