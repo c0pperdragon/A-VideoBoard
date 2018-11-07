@@ -99,6 +99,7 @@ begin
 	variable in_rw          : std_logic;
 	variable in_cs          : std_logic;
 	variable in_halt        : std_logic;
+	variable in2_an : std_logic_vector(2 downto 0);
 
 	-- variables for synchronious operation
 	variable phase : integer range 0 to 3 := 0;
@@ -165,434 +166,434 @@ begin
 		end needpixelstep;			
 
 	begin
-		--------------------- logic for antic input -------------------
-		if rising_edge(CLK) and PHASE=2 then
-			-- default color lines to show no color at all (only black)
-			overridelum := "00";
-			tmp_colorlines := "000000000";
-						
-			-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
-			if (hcounter mod 2) = 1 then
-				tmp_4bitvalue := command(1 downto 0) & in_an(1 downto 0);
-				if PRIOR(7 downto 6)="10" and command(2)='1' and in_an(2)='0' and tmp_4bitvalue/="0000" then  -- background color command in 9-color mode
-					tmp_4bitvalue := "1000";
-				end if;
-			else 
-				tmp_4bitvalue := prevcommand(1 downto 0) & command(1 downto 0);
-				if PRIOR(7 downto 6)="10" and prevcommand(2)='1' and command(2)='0' and tmp_4bitvalue/="0000" then -- background color command in 9-color mode
-					tmp_4bitvalue := "1000";
-				end if;
-			end if;
-			
-			
-			-- chose proper background color for special color interpretation modes
-			case PRIOR(7 downto 6) is
-			when "00" =>    -- standard background color
-				tmp_bgcolor := COLBK & "0";
-			when "01"  =>   -- single hue, 16 luminances
-				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4);
-				tmp_bgcolor(3 downto 0) := (COLBK(3 downto 1) & '0') or tmp_4bitvalue;
-			when "10" =>   -- indexed color look up 
-				tmp_bgcolor := COLBK & "0";
-			when "11" =>   -- 16 hues, single luminance
-				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
-				tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
-			end case;
-
-			----- process previously read antic command ---
-			if command(2) = '1' then	 -- playfield command
-				-- interpret bits according to gtia mode				
-				case PRIOR(7 downto 6) is
-				when "00" =>   -- 4-color playfield or 1.5-color highres
-					if highres='0' then
-						tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
-					else
-						tmp_colorlines(6) := '1';
-						overridelum := command(1 downto 0);				
+		if rising_edge(CLK) then
+		
+			--------------------- logic for antic input -------------------
+			if PHASE=2 then
+				-- default color lines to show no color at all (only black)
+				overridelum := "00";
+				tmp_colorlines := "000000000";
+							
+				-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
+				if (hcounter mod 2) = 1 then
+					tmp_4bitvalue := command(1 downto 0) & in_an(1 downto 0);
+					if PRIOR(7 downto 6)="10" and command(2)='1' and in_an(2)='0' and tmp_4bitvalue/="0000" then  -- background color command in 9-color mode
+						tmp_4bitvalue := "1000";
 					end if;
-				when "01"  =>   -- single hue, 16 luminances, imposed on background
-					tmp_colorlines(8) := '1';
-				when "10" =>   -- indexed color look up 
-					case tmp_4bitvalue is
-					when "0000" => tmp_colorlines(0) := '1';
-					when "0001" => tmp_colorlines(1) := '1';
-					when "0010" => tmp_colorlines(2) := '1';
-					when "0011" => tmp_colorlines(3) := '1';
-					when "0100" => tmp_colorlines(4) := '1';
-					when "0101" => tmp_colorlines(5) := '1';
-					when "0110" => tmp_colorlines(6) := '1';
-					when "0111" => tmp_colorlines(7) := '1';
-					when "1000" => tmp_colorlines(8) := '1';
-					when "1001" => tmp_colorlines(8) := '1';
-					when "1010" => tmp_colorlines(8) := '1';
-					when "1011" => tmp_colorlines(8) := '1';
-					when "1100" => tmp_colorlines(4) := '1';
-					when "1101" => tmp_colorlines(5) := '1';
-					when "1110" => tmp_colorlines(6) := '1';
-					when "1111" => tmp_colorlines(7) := '1';
-					end case;
-				when "11"  =>   -- 16 hues, single luminance, imposed on background
-					tmp_colorlines(8) := '1';
-				end case;
-			elsif command(1) = '1' then  -- blank command (setting/clearing highres)
-				highres := command(0);
-			elsif  command(0) = '1' then  -- vsync command
-			   -- has no effect here, will influence pixel counter 
-			else                          -- background color
-				if PRIOR(7 downto 6)="10" then 
-					case tmp_4bitvalue is
-					when "0000" => tmp_colorlines(0) := '1';
-					when "0001" => tmp_colorlines(1) := '1';
-					when "0010" => tmp_colorlines(2) := '1';
-					when "0011" => tmp_colorlines(3) := '1';
-					when "0100" => tmp_colorlines(4) := '1';
-					when "0101" => tmp_colorlines(5) := '1';
-					when "0110" => tmp_colorlines(6) := '1';
-					when "0111" => tmp_colorlines(7) := '1';
-					when "1000" => tmp_colorlines(8) := '1';
-					when "1001" => tmp_colorlines(8) := '1';
-					when "1010" => tmp_colorlines(8) := '1';
-					when "1011" => tmp_colorlines(8) := '1';
-					when "1100" => tmp_colorlines(4) := '1';
-					when "1101" => tmp_colorlines(5) := '1';
-					when "1110" => tmp_colorlines(6) := '1';
-					when "1111" => tmp_colorlines(7) := '1';
-					end case;
-				else
-					tmp_colorlines(8) := '1';					
-				end if;
-			end if;
-
-	      -- determine which part of players and missiles are visible
-			if ticker_p0<8 and  GRAFP0(7-ticker_p0)='1' then
-				tmp_colorlines(0) := '1';
-			end if;
-			if ticker_p1<8 and GRAFP1(7-ticker_p1)='1' then
-				tmp_colorlines(1) := '1';
-			end if;
-			if ticker_p2<8 and GRAFP2(7-ticker_p2)='1' then
-				tmp_colorlines(2) := '1';
-			end if;
-			if ticker_p3<8 and GRAFP3(7-ticker_p3)='1' then
-				tmp_colorlines(3) := '1';
-			end if;
-			if ticker_m0<2 and GRAFM(0 + (1-ticker_m0))='1' then
-			   if PRIOR(4)='1' then
-					tmp_colorlines(7) := '1';
 				else 
+					tmp_4bitvalue := prevcommand(1 downto 0) & command(1 downto 0);
+					if PRIOR(7 downto 6)="10" and prevcommand(2)='1' and command(2)='0' and tmp_4bitvalue/="0000" then -- background color command in 9-color mode
+						tmp_4bitvalue := "1000";
+					end if;
+				end if;
+				
+				
+				-- chose proper background color for special color interpretation modes
+				case PRIOR(7 downto 6) is
+				when "00" =>    -- standard background color
+					tmp_bgcolor := COLBK & "0";
+				when "01"  =>   -- single hue, 16 luminances
+					tmp_bgcolor(7 downto 4) := COLBK(7 downto 4);
+					tmp_bgcolor(3 downto 0) := (COLBK(3 downto 1) & '0') or tmp_4bitvalue;
+				when "10" =>   -- indexed color look up 
+					tmp_bgcolor := COLBK & "0";
+				when "11" =>   -- 16 hues, single luminance
+					tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
+					tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
+				end case;
+	
+				----- process previously read antic command ---
+				if command(2) = '1' then	 -- playfield command
+					-- interpret bits according to gtia mode				
+					case PRIOR(7 downto 6) is
+					when "00" =>   -- 4-color playfield or 1.5-color highres
+						if highres='0' then
+							tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
+						else
+							tmp_colorlines(6) := '1';
+							overridelum := command(1 downto 0);				
+						end if;
+					when "01"  =>   -- single hue, 16 luminances, imposed on background
+						tmp_colorlines(8) := '1';
+					when "10" =>   -- indexed color look up 
+						case tmp_4bitvalue is
+						when "0000" => tmp_colorlines(0) := '1';
+						when "0001" => tmp_colorlines(1) := '1';
+						when "0010" => tmp_colorlines(2) := '1';
+						when "0011" => tmp_colorlines(3) := '1';
+						when "0100" => tmp_colorlines(4) := '1';
+						when "0101" => tmp_colorlines(5) := '1';
+						when "0110" => tmp_colorlines(6) := '1';
+						when "0111" => tmp_colorlines(7) := '1';
+						when "1000" => tmp_colorlines(8) := '1';
+						when "1001" => tmp_colorlines(8) := '1';
+						when "1010" => tmp_colorlines(8) := '1';
+						when "1011" => tmp_colorlines(8) := '1';
+						when "1100" => tmp_colorlines(4) := '1';
+						when "1101" => tmp_colorlines(5) := '1';
+						when "1110" => tmp_colorlines(6) := '1';
+						when "1111" => tmp_colorlines(7) := '1';
+						end case;
+					when "11"  =>   -- 16 hues, single luminance, imposed on background
+						tmp_colorlines(8) := '1';
+					end case;
+				elsif command(1) = '1' then  -- blank command (setting/clearing highres)
+					highres := command(0);
+				elsif  command(0) = '1' then  -- vsync command
+					-- has no effect here, will influence pixel counter 
+				else                          -- background color
+					if PRIOR(7 downto 6)="10" then 
+						case tmp_4bitvalue is
+						when "0000" => tmp_colorlines(0) := '1';
+						when "0001" => tmp_colorlines(1) := '1';
+						when "0010" => tmp_colorlines(2) := '1';
+						when "0011" => tmp_colorlines(3) := '1';
+						when "0100" => tmp_colorlines(4) := '1';
+						when "0101" => tmp_colorlines(5) := '1';
+						when "0110" => tmp_colorlines(6) := '1';
+						when "0111" => tmp_colorlines(7) := '1';
+						when "1000" => tmp_colorlines(8) := '1';
+						when "1001" => tmp_colorlines(8) := '1';
+						when "1010" => tmp_colorlines(8) := '1';
+						when "1011" => tmp_colorlines(8) := '1';
+						when "1100" => tmp_colorlines(4) := '1';
+						when "1101" => tmp_colorlines(5) := '1';
+						when "1110" => tmp_colorlines(6) := '1';
+						when "1111" => tmp_colorlines(7) := '1';
+						end case;
+					else
+						tmp_colorlines(8) := '1';					
+					end if;
+				end if;
+	
+				-- determine which part of players and missiles are visible
+				if ticker_p0<8 and  GRAFP0(7-ticker_p0)='1' then
 					tmp_colorlines(0) := '1';
 				end if;
-			end if;
-			if ticker_m1<2 and GRAFM(2 + (1-ticker_m1))='1' then
-			   if PRIOR(4)='1' then
-					tmp_colorlines(7) := '1';
-				else 
+				if ticker_p1<8 and GRAFP1(7-ticker_p1)='1' then
 					tmp_colorlines(1) := '1';
 				end if;
-			end if;
-			if ticker_m2<2 and GRAFM(4 + (1-ticker_m2))='1' then
-			   if PRIOR(4)='1' then
-					tmp_colorlines(7) := '1';
-				else 
+				if ticker_p2<8 and GRAFP2(7-ticker_p2)='1' then
 					tmp_colorlines(2) := '1';
 				end if;
-			end if;
-			if ticker_m3<2 and GRAFM(6 + (1-ticker_m3))='1' then
-			   if PRIOR(4)='1' then
-					tmp_colorlines(7) := '1';
-				else 
+				if ticker_p3<8 and GRAFP3(7-ticker_p3)='1' then
 					tmp_colorlines(3) := '1';
 				end if;
-			end if;
-				
-		   -- trigger start of display of players and missiles ---			
-			if hcounter=to_integer(unsigned(HPOSP0)) then 
-				ticker_p0 := 0;
-			elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0)) then 
-				ticker_p0 := ticker_p0 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSP1)) then 
-				ticker_p1 := 0;
-			elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0)) then 
-				ticker_p1 := ticker_p1 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSP2)) then 
-				ticker_p2 := 0;
-			elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0)) then 
-				ticker_p2 := ticker_p2 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSP3)) then 
-				ticker_p3 := 0;
-			elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0)) then 
-				ticker_p3 := ticker_p3 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSM0)) then 
-				ticker_m0 := 0;
-			elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0)) then 
-				ticker_m0 := ticker_m0 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSM1)) then 
-				ticker_m1 := 0;
-			elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2)) then 
-				ticker_m1 := ticker_m1 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSM2)) then 
-				ticker_m2 := 0;
-			elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4)) then 
-				ticker_m2 := ticker_m2 + 1;
-			end if;
-			if hcounter=to_integer(unsigned(HPOSM3)) then 
-				ticker_m3 := 0;
-			elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6)) then 
-				ticker_m3 := ticker_m3 + 1;
-			end if;
-			
-					
-		   -- apply priorities by suppressing specific color lines
-
-			-- everything else cancels background immediately
-			if tmp_colorlines(7 downto 0) /= "00000000" then
-				tmp_colorlines(8) := '0';
-			end if;
-			
-			-- apply cancelation according to priority bits (works in parallel)
-			tmp_colorlines_res0 := tmp_colorlines;
-			if PRIOR(0)='1' then 
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(3 downto 2) := "00"; end if;
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
-				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
-				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(7 downto 6) := "00"; end if;
-			end if;
-			tmp_colorlines_res1 := tmp_colorlines;
-			if PRIOR(1)='1' then 
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(5 downto 4) := "00"; end if;
-				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
-			end if;
-			tmp_colorlines_res2 := tmp_colorlines;
-			if PRIOR(2)='1' then 
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
-				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
-				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
-				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
-			end if;
-			tmp_colorlines_res3 := tmp_colorlines;
-			if PRIOR(3)='1' then 
-				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res3(3 downto 2) := "00"; end if;
-				if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
-				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(1 downto 0) := "00"; end if;
-				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
-			end if; 			
-			tmp_colorlines := tmp_colorlines_res0 and tmp_colorlines_res1 and tmp_colorlines_res2 and tmp_colorlines_res3;
-			
-			-- apply final cancelation to the "surviving" color lines
-			if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
-			if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(7 downto 6) := "00"; end if;
-			if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
-			if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines(5 downto 4) := "00"; end if;
-			-- only one playfield color will be shown 
-			if tmp_colorlines(7)/='0' then tmp_colorlines(6) := '0'; end if;
-			if PRIOR(5)='0' then  -- no multicolor players allowed
-				if tmp_colorlines(0)/='0' then tmp_colorlines(1) := '0'; end if;
-				if tmp_colorlines(2)/='0' then tmp_colorlines(3) := '0'; end if;
-			end if;
-			
-			-- simulate the 'wired or' that mixes together all bits of 
-			-- all still selected color lines
-			color := "00000000";
-			-- constrain color generation to screen boundaries
-			if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
-				if tmp_colorlines(0)='1' then	color := color or (COLPM0 & "0"); end if;
-				if tmp_colorlines(1)='1' then	color := color or (COLPM1 & "0"); end if;
-				if tmp_colorlines(2)='1' then	color := color or (COLPM2 & "0"); end if;
-				if tmp_colorlines(3)='1' then color := color or (COLPM3 & "0"); end if;
-				if tmp_colorlines(4)='1' then	color := color or (COLPF0 & "0"); end if;
-				if tmp_colorlines(5)='1' then	color := color or (COLPF1 & "0"); end if;
-				if tmp_colorlines(6)='1' then	color := color or (COLPF2 & "0"); end if;
-				if tmp_colorlines(7)='1' then	color := color or (COLPF3 & "0"); end if;
-				if tmp_colorlines(8)='1' then	color := color or tmp_bgcolor;    end if;
-			else
-				overridelum := "00";
-			end if ;
-			
-			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly alligned) 	
-			if hcounter>0 then
-				tmp_x := hcounter - 1;
-				tmp_y := vcounter + 4;
-			else
-				tmp_x := 227;
-				tmp_y := vcounter + 4 - 1;
-			end if;
-			if tmp_y>=312 then
-				tmp_y := tmp_y-312;
-			end if;
-			if (tmp_y=0 or tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- short syncs
-				csync := '0';
-			elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then          -- vsyncs
-				csync := '0';
-			elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                      -- one vsync, one short sync
-				csync := '0';
-			elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then                -- short syncs
-				csync := '0';
-			elsif (tmp_y>=8) and (tmp_x<16) then                                                         -- normal line syncs
-				csync := '0';
-			else
-				csync := '1';
-			end if;
-			
-			----- count horizontal and vertical pixels (vsync according to command)
-			if command="001" and vcounter>128 then 
-				hcounter := 2;               -- because of this tweak, there will be 2 pixels in the 312th row 
-				vcounter := 0;               -- (but because the lines start with sync all the same, it makes no difference)
- 			else 
-				if hcounter<227 then
-					hcounter := hcounter+1;
-				else 
-					hcounter := 0;
-					if vcounter< 511 then 
-						vcounter := vcounter+1;
-					end if;
-				end if;			
-			end if;
-			
-			----- receive next antic command ----
-			prevcommand := command;
-			command := in_an;
-		end if;
-		
-		
-		------------ select output color for both halves of the atari clock ---------
-		if rising_edge(CLK) and (PHASE=3 or PHASE=1) then
-			if csync='0' then
-				out_y := "000000";
-				out_pb := "10000";
-				out_pr := "10000";
-			else			
-				tmp_color := color;
-				if (PHASE=1 and overridelum(0)='1') or (PHASE=3 and overridelum(1)='1')  then
-					tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-				end if;				
-				tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
-				out_y(5) := '1';
-				out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
-				out_pb := tmp_ypbpr(9 downto 5);
-				out_pr := tmp_ypbpr(4 downto 0);
-			end if;
-		end if;		
-		
-		
-		--------------------- logic for the cpu/data bus -------------------			
-		if rising_edge(CLK) and PHASE=0 then
-			----- let CPU write to the registers (at second clock where rw is asserted) --
-			if (in_CS='0') and (in_RW='0') and (prevrw='0') then
-				case in_A is
-					when "00000" => HPOSP0 := in_D;
-					when "00001" => HPOSP1 := in_D;
-					when "00010" => HPOSP2 := in_D;
-					when "00011" => HPOSP3 := in_D;
-					when "00100" => HPOSM0 := in_D;
-					when "00101" => HPOSM1 := in_D;
-					when "00110" => HPOSM2 := in_D;
-					when "00111" => HPOSM3 := in_D;				
-					when "01000" => SIZEP0 := in_D(1 downto 0);
-					when "01001" => SIZEP1 := in_D(1 downto 0);
-					when "01010" => SIZEP2 := in_D(1 downto 0);
-					when "01011" => SIZEP3 := in_D(1 downto 0);
-					when "01100" => SIZEM  := in_D;
-					when "01101" => GRAFP0 := in_D;
-					when "01110" => GRAFP1 := in_D;
-					when "01111" => GRAFP2 := in_D;
-					when "10000" => GRAFP3 := in_D;
-					when "10001" => GRAFM  := in_D;					
-					when "10010" => COLPM0 := in_D(7 downto 1);
-					when "10011" => COLPM1 := in_D(7 downto 1);
-					when "10100" => COLPM2 := in_D(7 downto 1);
-					when "10101" => COLPM3 := in_D(7 downto 1);
-					when "10110" => COLPF0 := in_D(7 downto 1);
-					when "10111" => COLPF1 := in_D(7 downto 1);
-					when "11000" => COLPF2 := in_D(7 downto 1);
-					when "11001" => COLPF3 := in_D(7 downto 1);
-					when "11010" => COLBK  := in_D(7 downto 1);
-					when "11011" => PRIOR  := in_D;
-					when "11100" => VDELAY := in_D;
-					when "11101" => GRACTL := in_D(2 downto 0);
-					when "11110" => 
-					when "11111" => 
-				end case;
-			end if;	
-			prevrw := in_RW; 
-		end if;
-		
-		if rising_edge(CLK) and PHASE=0 then
-			if prevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
-				tmp_odd := (vcounter mod 2) = 0;
-			
-				-- transfer dma player/missile data into registers
-				if GRACTL(0)='1' and hcounter=3 then
-					if VDELAY(0)='0' or tmp_odd then
-						GRAFM(1 downto 0) := D(1 downto 0);
-					else
-						GRAFM(1 downto 0) := GRAFM_DELAYED(1 downto 0);
-						GRAFM_DELAYED(1 downto 0) := D(1 downto 0);
-					end if;
-					if VDELAY(1)='0' or tmp_odd then
-						GRAFM(3 downto 2) := D(3 downto 2);
-					else
-						GRAFM(3 downto 2) := GRAFM_DELAYED(3 downto 2);
-						GRAFM_DELAYED(3 downto 2) := D(3 downto 2);
-					end if;
-					if VDELAY(2)='0' or tmp_odd then
-						GRAFM(5 downto 4) := D(5 downto 4);
-					else
-						GRAFM(5 downto 4) := GRAFM_DELAYED(5 downto 4);
-						GRAFM_DELAYED(5 downto 4) := D(5 downto 4);
-					end if;
-					if VDELAY(3)='0' or tmp_odd then
-						GRAFM(7 downto 6) := D(7 downto 6);
-					else
-						GRAFM(7 downto 6) := GRAFM_DELAYED(7 downto 6);
-						GRAFM_DELAYED(7 downto 6) := D(7 downto 6);
-					end if;
-				end if;				
-				if GRACTL(1)='1' and hcounter=7 then
-					if VDELAY(4)='0' or tmp_odd then
-						GRAFP0 := D;
-					else  
-						GRAFP0 := GRAFP0_DELAYED;
-						GRAFP0_DELAYED := D;
-					end if;
-				end if;
-				if GRACTL(1)='1' and hcounter=9 then
-					if VDELAY(5)='0' or tmp_odd then 
-						GRAFP1 := D;
-					else  
-						GRAFP1 := GRAFP1_DELAYED;
-						GRAFP1_DELAYED := D;
-					end if;
-				end if;
-				if GRACTL(1)='1' and hcounter=11 then
-					if VDELAY(6)='0' or tmp_odd then
-						GRAFP2 := D;
+				if ticker_m0<2 and GRAFM(0 + (1-ticker_m0))='1' then
+					if PRIOR(4)='1' then
+						tmp_colorlines(7) := '1';
 					else 
-						GRAFP2 := GRAFP2_DELAYED;
-						GRAFP2_DELAYED := D;
+						tmp_colorlines(0) := '1';
 					end if;
 				end if;
-				if GRACTL(1)='1' and hcounter=13 then
-					if VDELAY(7)='0' or tmp_odd then 
-						GRAFP3 := D;
-					else
-						GRAFP3 := GRAFP3_DELAYED;
-						GRAFP3_DELAYED := D;
+				if ticker_m1<2 and GRAFM(2 + (1-ticker_m1))='1' then
+					if PRIOR(4)='1' then
+						tmp_colorlines(7) := '1';
+					else 
+						tmp_colorlines(1) := '1';
 					end if;
 				end if;
+				if ticker_m2<2 and GRAFM(4 + (1-ticker_m2))='1' then
+					if PRIOR(4)='1' then
+						tmp_colorlines(7) := '1';
+					else 
+						tmp_colorlines(2) := '1';
+					end if;
+				end if;
+				if ticker_m3<2 and GRAFM(6 + (1-ticker_m3))='1' then
+					if PRIOR(4)='1' then
+						tmp_colorlines(7) := '1';
+					else 
+						tmp_colorlines(3) := '1';
+					end if;
+				end if;
+					
+				-- trigger start of display of players and missiles ---			
+				if hcounter=to_integer(unsigned(HPOSP0)) then 
+					ticker_p0 := 0;
+				elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0)) then 
+					ticker_p0 := ticker_p0 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP1)) then 
+					ticker_p1 := 0;
+				elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0)) then 
+					ticker_p1 := ticker_p1 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP2)) then 
+					ticker_p2 := 0;
+				elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0)) then 
+					ticker_p2 := ticker_p2 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP3)) then 
+					ticker_p3 := 0;
+				elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0)) then 
+					ticker_p3 := ticker_p3 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM0)) then 
+					ticker_m0 := 0;
+				elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0)) then 
+					ticker_m0 := ticker_m0 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM1)) then 
+					ticker_m1 := 0;
+				elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2)) then 
+					ticker_m1 := ticker_m1 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM2)) then 
+					ticker_m2 := 0;
+				elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4)) then 
+					ticker_m2 := ticker_m2 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM3)) then 
+					ticker_m3 := 0;
+				elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6)) then 
+					ticker_m3 := ticker_m3 + 1;
+				end if;
+				
+						
+				-- apply priorities by suppressing specific color lines
+	
+				-- everything else cancels background immediately
+				if tmp_colorlines(7 downto 0) /= "00000000" then
+					tmp_colorlines(8) := '0';
+				end if;
+				
+				-- apply cancelation according to priority bits (works in parallel)
+				tmp_colorlines_res0 := tmp_colorlines;
+				if PRIOR(0)='1' then 
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(3 downto 2) := "00"; end if;
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
+					if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(5 downto 4) := "00"; end if;
+					if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res0(7 downto 6) := "00"; end if;
+				end if;
+				tmp_colorlines_res1 := tmp_colorlines;
+				if PRIOR(1)='1' then 
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res1(5 downto 4) := "00"; end if;
+					if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res1(3 downto 2) := "00"; end if;
+				end if;
+				tmp_colorlines_res2 := tmp_colorlines;
+				if PRIOR(2)='1' then 
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
+					if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
+					if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(1 downto 0) := "00"; end if;
+					if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines_res2(3 downto 2) := "00"; end if;
+				end if;
+				tmp_colorlines_res3 := tmp_colorlines;
+				if PRIOR(3)='1' then 
+					if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines_res3(3 downto 2) := "00"; end if;
+					if tmp_colorlines(3 downto 2)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
+					if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(1 downto 0) := "00"; end if;
+					if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines_res3(7 downto 6) := "00"; end if;
+				end if; 			
+				tmp_colorlines := tmp_colorlines_res0 and tmp_colorlines_res1 and tmp_colorlines_res2 and tmp_colorlines_res3;
+				
+				-- apply final cancelation to the "surviving" color lines
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
+				if tmp_colorlines(1 downto 0)/="00" then tmp_colorlines(7 downto 6) := "00"; end if;
+				if tmp_colorlines(5 downto 4)/="00" then tmp_colorlines(3 downto 2) := "00"; end if;
+				if tmp_colorlines(7 downto 6)/="00" then tmp_colorlines(5 downto 4) := "00"; end if;
+				-- only one playfield color will be shown 
+				if tmp_colorlines(7)/='0' then tmp_colorlines(6) := '0'; end if;
+				if PRIOR(5)='0' then  -- no multicolor players allowed
+					if tmp_colorlines(0)/='0' then tmp_colorlines(1) := '0'; end if;
+					if tmp_colorlines(2)/='0' then tmp_colorlines(3) := '0'; end if;
+				end if;
+				
+				-- simulate the 'wired or' that mixes together all bits of 
+				-- all still selected color lines
+				color := "00000000";
+				-- constrain color generation to screen boundaries
+				if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
+					if tmp_colorlines(0)='1' then	color := color or (COLPM0 & "0"); end if;
+					if tmp_colorlines(1)='1' then	color := color or (COLPM1 & "0"); end if;
+					if tmp_colorlines(2)='1' then	color := color or (COLPM2 & "0"); end if;
+					if tmp_colorlines(3)='1' then color := color or (COLPM3 & "0"); end if;
+					if tmp_colorlines(4)='1' then	color := color or (COLPF0 & "0"); end if;
+					if tmp_colorlines(5)='1' then	color := color or (COLPF1 & "0"); end if;
+					if tmp_colorlines(6)='1' then	color := color or (COLPF2 & "0"); end if;
+					if tmp_colorlines(7)='1' then	color := color or (COLPF3 & "0"); end if;
+					if tmp_colorlines(8)='1' then	color := color or tmp_bgcolor;    end if;
+				else
+					overridelum := "00";
+				end if ;
+				
+				-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly alligned) 	
+				if hcounter>0 then
+					tmp_x := hcounter - 1;
+					tmp_y := vcounter + 4;
+				else
+					tmp_x := 227;
+					tmp_y := vcounter + 4 - 1;
+				end if;
+				if tmp_y>=312 then
+					tmp_y := tmp_y-312;
+				end if;
+				if (tmp_y=0 or tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- short syncs
+					csync := '0';
+				elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then          -- vsyncs
+					csync := '0';
+				elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                      -- one vsync, one short sync
+					csync := '0';
+				elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then                -- short syncs
+					csync := '0';
+				elsif (tmp_y>=8) and (tmp_x<16) then                                                         -- normal line syncs
+					csync := '0';
+				else
+					csync := '1';
+				end if;
+				
+				----- count horizontal and vertical pixels (vsync according to command)
+				if command="001" and vcounter>128 then 
+					hcounter := 2;               -- because of this tweak, there will be 2 pixels in the 312th row 
+					vcounter := 0;               -- (but because the lines start with sync all the same, it makes no difference)
+				else 
+					if hcounter<227 then
+						hcounter := hcounter+1;
+					else 
+						hcounter := 0;
+						if vcounter< 511 then 
+							vcounter := vcounter+1;
+						end if;
+					end if;			
+				end if;
+				
+				----- receive next antic command ----
+				prevcommand := command;
+				command := in_an;
 			end if;
 			
-			prevhalt := in_HALT;
-		end if;		
+			
+			------------ select output color for both halves of the atari clock ---------
+			if (PHASE=3 or PHASE=1) then
+				if csync='0' then
+					out_y := "000000";
+					out_pb := "10000";
+					out_pr := "10000";
+				else			
+					tmp_color := color;
+					if (PHASE=1 and overridelum(0)='1') or (PHASE=3 and overridelum(1)='1')  then
+						tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
+					end if;				
+					tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
+					out_y(5) := '1';
+					out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
+					out_pb := tmp_ypbpr(9 downto 5);
+					out_pr := tmp_ypbpr(4 downto 0);
+				end if;
+			end if;		
+			
+			
+			--------------------- logic for the cpu/data bus -------------------			
+			if PHASE=0 then
+				----- let CPU write to the registers (at second clock where rw is asserted) --
+				if (in_CS='0') and (in_RW='0') and (prevrw='0') then
+					case in_A is
+						when "00000" => HPOSP0 := in_D;
+						when "00001" => HPOSP1 := in_D;
+						when "00010" => HPOSP2 := in_D;
+						when "00011" => HPOSP3 := in_D;
+						when "00100" => HPOSM0 := in_D;
+						when "00101" => HPOSM1 := in_D;
+						when "00110" => HPOSM2 := in_D;
+						when "00111" => HPOSM3 := in_D;				
+						when "01000" => SIZEP0 := in_D(1 downto 0);
+						when "01001" => SIZEP1 := in_D(1 downto 0);
+						when "01010" => SIZEP2 := in_D(1 downto 0);
+						when "01011" => SIZEP3 := in_D(1 downto 0);
+						when "01100" => SIZEM  := in_D;
+						when "01101" => GRAFP0 := in_D;
+						when "01110" => GRAFP1 := in_D;
+						when "01111" => GRAFP2 := in_D;
+						when "10000" => GRAFP3 := in_D;
+						when "10001" => GRAFM  := in_D;					
+						when "10010" => COLPM0 := in_D(7 downto 1);
+						when "10011" => COLPM1 := in_D(7 downto 1);
+						when "10100" => COLPM2 := in_D(7 downto 1);
+						when "10101" => COLPM3 := in_D(7 downto 1);
+						when "10110" => COLPF0 := in_D(7 downto 1);
+						when "10111" => COLPF1 := in_D(7 downto 1);
+						when "11000" => COLPF2 := in_D(7 downto 1);
+						when "11001" => COLPF3 := in_D(7 downto 1);
+						when "11010" => COLBK  := in_D(7 downto 1);
+						when "11011" => PRIOR  := in_D;
+						when "11100" => VDELAY := in_D;
+						when "11101" => GRACTL := in_D(2 downto 0);
+						when "11110" => 
+						when "11111" => 
+					end case;
+				end if;	
+				prevrw := in_RW; 
+
+
+				if prevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
+					tmp_odd := (vcounter mod 2) = 0;
+				
+					-- transfer dma player/missile data into registers
+					if GRACTL(0)='1' and hcounter=3 then
+						if VDELAY(0)='0' or tmp_odd then
+							GRAFM(1 downto 0) := in_D(1 downto 0);
+						else
+							GRAFM(1 downto 0) := GRAFM_DELAYED(1 downto 0);
+							GRAFM_DELAYED(1 downto 0) := in_D(1 downto 0);
+						end if;
+						if VDELAY(1)='0' or tmp_odd then
+							GRAFM(3 downto 2) := in_D(3 downto 2);
+						else
+							GRAFM(3 downto 2) := GRAFM_DELAYED(3 downto 2);
+							GRAFM_DELAYED(3 downto 2) := in_D(3 downto 2);
+						end if;
+						if VDELAY(2)='0' or tmp_odd then
+							GRAFM(5 downto 4) := in_D(5 downto 4);
+						else
+							GRAFM(5 downto 4) := GRAFM_DELAYED(5 downto 4);
+							GRAFM_DELAYED(5 downto 4) := in_D(5 downto 4);
+						end if;
+						if VDELAY(3)='0' or tmp_odd then
+							GRAFM(7 downto 6) := in_D(7 downto 6);
+						else
+							GRAFM(7 downto 6) := GRAFM_DELAYED(7 downto 6);
+							GRAFM_DELAYED(7 downto 6) := in_D(7 downto 6);
+						end if;
+					end if;				
+					if GRACTL(1)='1' and hcounter=7 then
+						if VDELAY(4)='0' or tmp_odd then
+							GRAFP0 := in_D;
+						else  
+							GRAFP0 := GRAFP0_DELAYED;
+							GRAFP0_DELAYED := in_D;
+						end if;
+					end if;
+					if GRACTL(1)='1' and hcounter=9 then
+						if VDELAY(5)='0' or tmp_odd then 
+							GRAFP1 := in_D;
+						else  
+							GRAFP1 := GRAFP1_DELAYED;
+							GRAFP1_DELAYED := in_D;
+						end if;
+					end if;
+					if GRACTL(1)='1' and hcounter=11 then
+						if VDELAY(6)='0' or tmp_odd then
+							GRAFP2 := in_D;
+						else 
+							GRAFP2 := GRAFP2_DELAYED;
+							GRAFP2_DELAYED := in_D;
+						end if;
+					end if;
+					if GRACTL(1)='1' and hcounter=13 then
+						if VDELAY(7)='0' or tmp_odd then 
+							GRAFP3 := in_D;
+						else
+							GRAFP3 := GRAFP3_DELAYED;
+							GRAFP3_DELAYED := in_D;
+						end if;
+					end if;
+				end if;
+				 
+				prevhalt := in_HALT;
+			end if;		
 		
-		--- progress clock phase counter
-		if rising_edge(CLK) then
+			--- progress clock phase counter
 			if phase>=2 and in_f0o='0' then
 				phase := 0;
 			elsif phase<3 then
@@ -603,7 +604,8 @@ begin
 			in_f0o := F0O;
 			in_a := A;
 			in_d := D;
-			in_an := AN;
+			in_an := in2_an;
+			in2_an := AN;
 			in_rw := RW;
 			in_cs := CS;
 			in_halt := HALT;
