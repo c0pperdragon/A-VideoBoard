@@ -313,11 +313,13 @@ begin
 					tmp_bottomhit := displayline=251;
 				end if;
 				if tmp_righthit then mainborderflipflop:='1'; end if;
-				if tmp_bottomhit and cycle=63 then verticalborderflipflop:='1'; end if;
-				if tmp_tophit and cycle=63 and DEN='1' then verticalborderflipflop:='0'; end if;
-				if tmp_lefthit and tmp_bottomhit then verticalborderflipflop:='1'; end if;
-				if tmp_lefthit and tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
+--				if tmp_bottomhit and cycle=63 then verticalborderflipflop:='1'; end if;
+--				if tmp_tophit and cycle=63 and DEN='1' then verticalborderflipflop:='0'; end if;
+--				if tmp_lefthit and tmp_bottomhit then verticalborderflipflop:='1'; end if;
+--				if tmp_lefthit and tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
+				if tmp_bottomhit then verticalborderflipflop:='1'; end if;
+				if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				
 				-- progress sprite rendering on every pixel 
 				for SP in 0 to 7 loop
