@@ -19,6 +19,7 @@ entity C64Mod is
 		
 		-- read output mode settings 
 		GPIO2_4: in std_logic;
+		GPIO2_5: in std_logic;
 		GPIO2_6: in std_logic
 		
 --		-- debug output
@@ -212,8 +213,8 @@ begin
 
 	begin
 		-- handle jumper configuration
-		usehighres := GPIO2_4='0' or GPIO2_6='0';
-		usescanlines := GPIO2_6='0';
+		usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
+		usescanlines := GPIO2_5='0' or GPIO2_6='0';
 	
 		if rising_edge(CLK) then
 		

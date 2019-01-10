@@ -2749,7 +2749,7 @@ U 1 1 5CE223C3
 P 3350 5300
 F 0 "JPLUM1" V 3304 5398 50  0000 L CNN
 F 1 "Jumper_2_Open" V 3395 5398 50  0000 L CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 3350 5300 50  0001 C CNN
+F 2 "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" H 3350 5300 50  0001 C CNN
 F 3 "~" H 3350 5300 50  0001 C CNN
 	1    3350 5300
 	0    1    1    0   

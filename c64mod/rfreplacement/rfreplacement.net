@@ -1,7 +1,7 @@
 (export (version D)
   (design
     (source C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\c64mod\rfreplacement\rfreplacement.sch)
-    (date "21.12.2018 22:13:15")
+    (date "23.12.2018 20:42:03")
     (tool "Eeschema (5.0.0)")
     (sheet (number 1) (name /) (tstamps /)
       (title_block
@@ -594,7 +594,7 @@
       (tstamp 5C733B25))
     (comp (ref JPLUM1)
       (value Jumper_2_Open)
-      (footprint Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical)
+      (footprint Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm)
       (datasheet ~)
       (libsource (lib Jumper) (part Jumper_2_Open) (description "Jumper, 2-pole, open"))
       (sheetpath (names /) (tstamps /))
