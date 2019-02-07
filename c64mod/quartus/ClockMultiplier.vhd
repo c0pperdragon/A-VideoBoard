@@ -10,6 +10,9 @@ entity ClockMultiplier is
 		CLK25: in std_logic;		
 		-- C64 cpu clock
 		PHI0: in std_logic;
+		-- 0: use input frequency for NTSC
+		-- 1: use input frequency for PAL
+		PAL: in std_logic;
 		
 		-- x16 times output clock
 		CLK: out std_logic
@@ -21,12 +24,22 @@ architecture immediate of ClockMultiplier is
 	-- high-speed clock to generate synchronous clock from. this is done
 	-- with 4 coupled signals that are 0,45,90,135 degree phase shifted to give
 	-- 8 usable edges.
-	signal CLK252A : std_logic;  
-	signal CLK252B : std_logic;
-	signal CLK252C : std_logic;
-	signal CLK252D : std_logic;
-	
+	signal CLKA : std_logic;  
+	signal CLKB : std_logic;
+	signal CLKC : std_logic;
+	signal CLKD : std_logic;
+
    component PLL252 is
+	PORT
+	(
+		inclk0 : IN STD_LOGIC ;
+		c0		: OUT STD_LOGIC ;
+		c1		: OUT STD_LOGIC ;
+		c2		: OUT STD_LOGIC ;
+		c3		: OUT STD_LOGIC 
+	);
+	end component;
+   component PLL262 is
 	PORT
 	(
 		inclk0 : IN STD_LOGIC ;
@@ -38,9 +51,11 @@ architecture immediate of ClockMultiplier is
 	end component;
 		
 begin		
-	subdividerpll: PLL252 port map ( CLK25, CLK252A, CLK252B, CLK252C, CLK252D );
-		
-	process (PHI0, CLK252A, CLK252B, CLK252C, CLK252D)
+	subdividerpll: PLL252 port map ( CLK25, CLKA, CLKB, CLKC, CLKD );   -- use with PAL
+--	subdividerpll: PLL252 port map ( CLK25, CLKA, CLKB, CLKC, CLKD );   -- use with NTSC
+	
+	-- generate the 16 times CPU clock
+	process (PHI0, CLKA, CLKB, CLKC, CLKD)
 		-- having 8 versions of the circuit running slightly 
 		-- time-shifted
 		variable counter0 : integer range 0 to 15 := 0;
@@ -72,7 +87,7 @@ begin
 		constant reset: integer := 4;
 	begin
 	
-		if rising_edge(CLK252A) then
+		if rising_edge(CLKA) then
 			if in0_clk='0' and prev0_clk='1' then 
 				counter0 := reset; 
 			else
@@ -81,7 +96,7 @@ begin
 			prev0_clk := in0_clk;
 			in0_clk := PHI0;  
 		end if;
-		if rising_edge(CLK252B) then
+		if rising_edge(CLKB) then
 			if in1_clk='0' and prev1_clk='1' then 
 				counter1 := reset; 
 			else
@@ -90,7 +105,7 @@ begin
 			prev1_clk := in1_clk;
 			in1_clk := PHI0;  
 		end if;
-		if rising_edge(CLK252C) then
+		if rising_edge(CLKC) then
 			if in2_clk='0' and prev2_clk='1' then 
 				counter2 := reset; 
 			else
@@ -99,7 +114,7 @@ begin
 			prev2_clk := in2_clk;
 			in2_clk := PHI0;  
 		end if;
-		if rising_edge(CLK252D) then
+		if rising_edge(CLKD) then
 			if in3_clk='0' and prev3_clk='1' then 
 				counter3 := reset; 
 			else
@@ -108,7 +123,7 @@ begin
 			prev3_clk := in3_clk;
 			in3_clk := PHI0;  
 		end if;
-		if falling_edge(CLK252A) then
+		if falling_edge(CLKA) then
 			if in4_clk='0' and prev4_clk='1' then 
 				counter4 := reset; 
 			else
@@ -117,7 +132,7 @@ begin
 			prev4_clk := in4_clk;
 			in4_clk := PHI0;  
 		end if;
-		if falling_edge(CLK252B) then
+		if falling_edge(CLKB) then
 			if in5_clk='0' and prev5_clk='1' then 
 				counter5 := reset; 
 			else
@@ -126,7 +141,7 @@ begin
 			prev5_clk := in5_clk;
 			in5_clk := PHI0;  
 		end if;
-		if falling_edge(CLK252C) then
+		if falling_edge(CLKC) then
 			if in6_clk='0' and prev6_clk='1' then 
 				counter6 := reset; 
 			else
@@ -135,7 +150,7 @@ begin
 			prev6_clk := in6_clk;
 			in6_clk := PHI0;  
 		end if;
-		if falling_edge(CLK252D) then
+		if falling_edge(CLKD) then
 			if in7_clk='0' and prev7_clk='1' then 
 				counter7 := reset; 
 			else
@@ -159,6 +174,6 @@ begin
 		
 		CLK <= bits(3);
 	end process;
-	
+
 end immediate;
 

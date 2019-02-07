@@ -22,7 +22,10 @@ entity VIC2Emulation is
 		A           : in std_logic_vector(5 downto 0);
 		RW          : in std_logic; 
 		CS          : in std_logic; 
-		AEC         : in std_logic
+		AEC         : in std_logic;
+		
+		-- selector to choose PAL(=1) or NTSC(=0) variant
+		PAL         : in std_logic
 	);	
 end entity;
 
@@ -30,10 +33,6 @@ end entity;
 architecture immediate of VIC2Emulation is
 begin
 	process (CLK) 
-
-	-- visible screen area
-	constant totalvisiblewidth : integer := 390;
-	constant totalvisibleheight : integer := 270;
 	
 	-- registers of the VIC and their default values
   	type T_spritex is array (0 to 7) of std_logic_vector(8 downto 0);
@@ -42,19 +41,19 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
-	variable RSEL:             std_logic := '0'; -- '1';
+	variable RSEL:             std_logic := '1';
 	variable MCM:              std_logic := '0';
-	variable CSEL:             std_logic := '0'; -- '1';
+	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "1110";
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011";
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100";
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 --	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
@@ -70,7 +69,7 @@ begin
 	
 	-- variables for synchronious operation
 	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
-	variable cycle : integer range 0 to 63 := 0;        -- cpu cycle
+	variable cycle : integer range 0 to 127 := 0;       -- cpu cycle in line (cycle 0: sprite 0 DMA access)
 	variable displayline: integer range 0 to 511 := 0;  -- VIC-II line numbering
 
 	type T_videomatrix is array (0 to 39) of std_logic_vector(11 downto 0);
@@ -98,7 +97,7 @@ begin
 	variable hcounter : integer range 0 to 511;      -- pixel in current scan line
 	variable vcounter : integer range 0 to 511 := 0; -- current scan line 
 	variable xcoordinate : integer range 0 to 1023;   -- x-position in sprite coordinates
-	variable tmp_c : std_logic_vector(3 downto 0);
+--	variable tmp_c : std_logic_vector(3 downto 0);
 	variable tmp_isforeground : boolean;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_vm : std_logic_vector(11 downto 0);
@@ -115,181 +114,183 @@ begin
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then
-			-- convert from C64 cycle/lines  to  hcounter,vcounter for generating syncs and such 
-			vcounter := displayline+18;
-			hcounter := (cycle-1)*8 + phase/2;
-			if hcounter>=8 then
-				hcounter:=hcounter-8;
-			else
-				hcounter:=hcounter+504-8;
-				vcounter:=vcounter-1;
-			end if;
-			if vcounter>=312 then vcounter := vcounter-312;	end if;
 			-- coordinates for sprite display and the border engine
-			xcoordinate := cycle*8 - 7 + phase/2;
-			if xcoordinate>=112 then
-				xcoordinate := xcoordinate-112;
+			xcoordinate := cycle*8 + phase/2;
+			if xcoordinate>=159 then
+				xcoordinate := xcoordinate-159;
 			else
-				xcoordinate := xcoordinate+(504-112);
+				xcoordinate := xcoordinate+(504-159);
 			end if;
 			
-			-- generate pixel output (as soon as sync was found)	
+			-- generate pixel output
 			if (phase mod 2) = 0 then   
 			
-				-- output defaults to black (no csync active)
-				out_color  := "0000";
+				-- output defaults to background (no csync active)
 				out_csync := '1';
+				out_color := backgroundcolor0;
+				tmp_isforeground := false;
 	
-				-- area where any color is shown (including border)
-				if hcounter>=92 and hcounter<92+totalvisiblewidth 
-				and vcounter>=34 and vcounter<34+totalvisibleheight then
-				
-					-- main screen area color processing
-					tmp_c := backgroundcolor0;		
-					tmp_isforeground := false;
-					
-					if cycle>=18 and cycle<58 and DEN='1' then
-						tmp_hscroll := to_integer(unsigned(XSCROLL));
-						tmp_pixelindex := (cycle-17) * 8 + phase/2 - tmp_hscroll;
+				-- main screen area color processing
+				if cycle>=23 and DEN='1' then
+					tmp_hscroll := to_integer(unsigned(XSCROLL));
+					tmp_pixelindex := (cycle-22) * 8 + phase/2 - tmp_hscroll;
 
-						-- access the correct video matrix cell
-						if tmp_pixelindex>=8 and videomatrixage<8 then
-							tmp_vm := videomatrix((tmp_pixelindex-8)/8);
+					-- access the correct video matrix cell
+					if tmp_pixelindex>=8 and videomatrixage<8 then
+						tmp_vm := videomatrix((tmp_pixelindex-8)/8);
+					else
+						tmp_vm := "000000000000";
+					end if;
+					
+					-- extract relevant bit or 2 bits from bitmap data
+					tmp_bit := pixelpattern(19 + tmp_hscroll);
+					tmp_2bit(1) := pixelpattern(19 + tmp_hscroll + tmp_pixelindex mod 2);
+					tmp_2bit(0) := pixelpattern(18 + tmp_hscroll + tmp_pixelindex mod 2);
+					
+					-- set color depending on graphics/text mode
+					tmp_3bit(2) := ECM;
+					tmp_3bit(1) := BMM;
+					tmp_3bit(0) := MCM;
+					case tmp_3bit is  
+					when "000" =>   -- standard text mode
+						if tmp_bit='1' then
+							out_color := tmp_vm(11 downto 8);
+							tmp_isforeground := true;
+						end if;
+					when "001" =>   -- multicolor text mode
+						if tmp_vm(11)='0' then
+							if tmp_bit='1' then
+								out_color := "0" & tmp_vm(10 downto 8);
+								tmp_isforeground := true;
+							end if;
 						else
-							tmp_vm := "000000000000";
-						end if;
-						
-						-- extract relevant bit or 2 bits from bitmap data
-						tmp_bit := pixelpattern(19 + tmp_hscroll);
-						tmp_2bit(1) := pixelpattern(19 + tmp_hscroll + tmp_pixelindex mod 2);
-						tmp_2bit(0) := pixelpattern(18 + tmp_hscroll + tmp_pixelindex mod 2);
-						
-						-- set color depending on graphics/text mode
-						tmp_3bit(2) := ECM;
-						tmp_3bit(1) := BMM;
-						tmp_3bit(0) := MCM;
-						case tmp_3bit is  
-						when "000" =>   -- standard text mode
-							if tmp_bit='1' then
-								tmp_c := tmp_vm(11 downto 8);
-								tmp_isforeground := true;
-							end if;
-						when "001" =>   -- multicolor text mode
-							if tmp_vm(11)='0' then
-								if tmp_bit='1' then
-									tmp_c := "0" & tmp_vm(10 downto 8);
-									tmp_isforeground := true;
-								end if;
-							else
-								case tmp_2bit is
-								when "00" => tmp_c := backgroundcolor0;
-								when "01" => tmp_c := backgroundcolor1;
-								when "10" => tmp_c := backgroundcolor2;
-								             tmp_isforeground := true;
-								when "11" => tmp_c := "0" & tmp_vm(10 downto 8);
-								             tmp_isforeground := true;
-								end case;
-							end if;
-						when "010" =>  -- standard bitmap mode
-							if tmp_bit='0' then
-								tmp_c := tmp_vm(3 downto 0);
-							else
-								tmp_c := tmp_vm(7 downto 4);
-								tmp_isforeground := true;
-							end if;
-						when "011" =>  -- multicolor bitmap mode
 							case tmp_2bit is
-							when "00" => tmp_c := backgroundcolor0;
-							when "01" => tmp_c := tmp_vm(7 downto 4);
-							when "10" => tmp_c := tmp_vm(3 downto 0);
+							when "00" => out_color := backgroundcolor0;
+							when "01" => out_color := backgroundcolor1;
+							when "10" => out_color := backgroundcolor2;
 											 tmp_isforeground := true;
-							when "11" => tmp_c := tmp_vm(11 downto 8);
-							             tmp_isforeground := true;
+							when "11" => out_color := "0" & tmp_vm(10 downto 8);
+											 tmp_isforeground := true;
 							end case;
-						when "100" =>  -- ECM text mode
+						end if;
+					when "010" =>  -- standard bitmap mode
+						if tmp_bit='0' then
+							out_color := tmp_vm(3 downto 0);
+						else
+							out_color := tmp_vm(7 downto 4);
+							tmp_isforeground := true;
+						end if;
+					when "011" =>  -- multicolor bitmap mode
+						case tmp_2bit is
+						when "00" => out_color := backgroundcolor0;
+						when "01" => out_color := tmp_vm(7 downto 4);
+						when "10" => out_color := tmp_vm(3 downto 0);
+										 tmp_isforeground := true;
+						when "11" => out_color := tmp_vm(11 downto 8);
+										 tmp_isforeground := true;
+						end case;
+					when "100" =>  -- ECM text mode
+						if tmp_bit='1' then
+							out_color := tmp_vm(11 downto 8);
+							tmp_isforeground := true;
+						else
+							case tmp_vm(7 downto 6) is
+							when "00" => out_color := backgroundcolor0;
+							when "01" => out_color := backgroundcolor1;
+							when "10" => out_color := backgroundcolor2;
+							when "11" => out_color := backgroundcolor3;
+							end case;								
+						end if;
+					when "101" =>  -- Invalid text mode
+						out_color := "0000";
+						if tmp_vm(11)='0' then
 							if tmp_bit='1' then
-								tmp_c := tmp_vm(11 downto 8);
-								tmp_isforeground := true;
-							else
-								case tmp_vm(7 downto 6) is
-								when "00" => tmp_c := backgroundcolor0;
-								when "01" => tmp_c := backgroundcolor1;
-								when "10" => tmp_c := backgroundcolor2;
-								when "11" => tmp_c := backgroundcolor3;
-								end case;								
-							end if;
-						when "101" =>  -- Invalid text mode
-							tmp_c := "0000";
-							if tmp_vm(11)='0' then
-								if tmp_bit='1' then
-									tmp_isforeground := true;
-								end if;
-							else
-								if tmp_2bit="10" or tmp_2bit="11" then	
-									tmp_isforeground := true;
-								end if;
-							end if;							
-						when "110" =>  -- Invalid bitmap mode 1
-							tmp_c := "0000";
-							if tmp_bit='1' then
 								tmp_isforeground := true;
 							end if;
-						when "111" =>  -- Invalid bitmap mode 2
-							tmp_c := "0000";
-							if tmp_2bit="10" or tmp_2bit="11" then
+						else
+							if tmp_2bit="10" or tmp_2bit="11" then	
 								tmp_isforeground := true;
 							end if;
-						end case;						
-					end if;
-					
-					-- overlay with sprite graphics
-					for SP in 7 downto 0 loop
-						if ((not tmp_isforeground) or spritepriority(SP)='0') 
-						and (spriterendering(SP)<4) 
-						then
-							if spritemulticolor(SP)='1' then								
-								tmp_2bit := spritedata(SP)(23 downto 22);
-								if (doublewidth(SP)='0' and spriterendering(SP) mod 2 = 1) 
-								or (doublewidth(SP)='1' and spriterendering(SP) / 2 = 1)
-								then
-									tmp_2bit := spritedata(SP)(24 downto 23);
-								end if;
-								case tmp_2bit is
-								when "00" => 
-								when "01" => tmp_c := spritemulticolor0;
-								when "10" => tmp_c := spritecolor(SP);
-								when "11" => tmp_c := spritemulticolor1;
-								end case;
-							else
-								if spritedata(SP)(23)='1' then
-									tmp_c := spritecolor(SP);						
-								end if;
+						end if;							
+					when "110" =>  -- Invalid bitmap mode 1
+						out_color := "0000";
+						if tmp_bit='1' then
+							tmp_isforeground := true;
+						end if;
+					when "111" =>  -- Invalid bitmap mode 2
+						out_color := "0000";
+						if tmp_2bit="10" or tmp_2bit="11" then
+							tmp_isforeground := true;
+						end if;
+					end case;						
+				end if;
+				
+				-- overlay with sprite graphics
+				for SP in 7 downto 0 loop
+					if ((not tmp_isforeground) or spritepriority(SP)='0') 
+					and (spriterendering(SP)<4) 
+					then
+						if spritemulticolor(SP)='1' then								
+							tmp_2bit := spritedata(SP)(23 downto 22);
+							if (doublewidth(SP)='0' and spriterendering(SP) mod 2 = 1) 
+							or (doublewidth(SP)='1' and spriterendering(SP) / 2 = 1)
+							then
+								tmp_2bit := spritedata(SP)(24 downto 23);
+							end if;
+							case tmp_2bit is
+							when "00" => 
+							when "01" => out_color := spritemulticolor0;
+							when "10" => out_color := spritecolor(SP);
+							when "11" => out_color := spritemulticolor1;
+							end case;
+						else
+							if spritedata(SP)(23)='1' then
+								out_color := spritecolor(SP);						
 							end if;
 						end if;
-					end loop;
-					
-					-- overlay with border 
-					if mainborderflipflop='1' then
-						tmp_c := bordercolor;
 					end if;
+				end loop;
+				
+				-- overlay with border 
+				if mainborderflipflop='1' then
+					out_color := bordercolor;
+				end if;
 					
-					-- generate the YPbPr signal using a fixed palette
-					out_color := tmp_c;
+				-- override with blankings and sync signals 
+				vcounter := displayline + 18;
+				hcounter := cycle*8 + (phase/2);
+				if hcounter>=56 then
+					hcounter:=hcounter-56;
+				else
+					if PAL='1' then
+						hcounter:=hcounter+(504-56);
+					else
+						hcounter:=hcounter+(520-56);
+					end if;
+					vcounter:=vcounter-1;
+				end if;
+				if vcounter>=312 then vcounter := vcounter-312;	end if;
+					
+				if hcounter<92 or hcounter>=92+403 or vcounter<28 
+				then
+					out_color := "0000";
 	
-				-- generate csync for PAL 288p signal
-				elsif (vcounter=0) and (hcounter<37 or (hcounter>=252 and hcounter<252+18)) then                    -- normal sync, short sync
-					out_csync := '0';
-				elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
-					out_csync := '0';
-				elsif (vcounter=3 or vcounter=4) and (hcounter<252-18 or (hcounter>=252 and hcounter<504-18)) then  -- vsyncs
-					out_csync := '0';
-				elsif (vcounter=5) and (hcounter<252-18 or (hcounter>=252 and hcounter<252+18)) then                -- one vsync, one short sync
-					out_csync := '0';
-				elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- short syncs
-					out_csync := '0';
-				elsif (vcounter>=8) and (hcounter<37) then                                                          -- normal syncs
-					out_csync := '0';
-				end if;			
+					-- generate csync for PAL 288p signal
+					if (vcounter=0) and (hcounter<37 or (hcounter>=252 and hcounter<252+18)) then                       -- normal sync, short sync
+						out_csync := '0';
+					elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- 2x 2 short syncs
+						out_csync := '0';
+					elsif (vcounter=3 or vcounter=4) and (hcounter<252-18 or (hcounter>=252 and hcounter<504-18)) then  -- 2x 2 vsyncs
+						out_csync := '0';
+					elsif (vcounter=5) and (hcounter<252-18 or (hcounter>=252 and hcounter<252+18)) then                -- one vsync, one short sync
+						out_csync := '0';
+					elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- 2x 2 short syncs
+						out_csync := '0';
+					elsif (vcounter>=8) and (hcounter<37) then                                                          -- normal syncs
+						out_csync := '0';
+					end if;		
+				end if;
+				
 			end if;
 			
 			-- per-pixel modifications of internal registers and flags
@@ -314,10 +315,6 @@ begin
 				end if;
 				if tmp_righthit then mainborderflipflop:='1'; end if;
 				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
---				if tmp_bottomhit and cycle=63 then verticalborderflipflop:='1'; end if;
---				if tmp_tophit and cycle=63 and DEN='1' then verticalborderflipflop:='0'; end if;
---				if tmp_lefthit and tmp_bottomhit then verticalborderflipflop:='1'; end if;
---				if tmp_lefthit and tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				if tmp_bottomhit then verticalborderflipflop:='1'; end if;
 				if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				
@@ -340,7 +337,7 @@ begin
 					when others =>
 					end case;
 					
-					if cycle=58 then
+					if cycle=0 then
 						spriterendering(SP) := 5;
 					end if;
 				end loop;
@@ -350,29 +347,29 @@ begin
 			-- data from memory
 			if phase=14 then   -- receive during a CPU-blocking cycle
 				-- video matrix read
-				if cycle>=15 and cycle<55 then
+				if cycle>=20 and cycle<60 then
 					if in_aec='0' then 
-						videomatrix(cycle-15) := in_db;
+						videomatrix(cycle-20) := in_db;
 						videomatrixage := 0;
 					end if;
 				end if;
 				-- sprite DMA read
 				for SP in 0 to 7 loop
-					if (SP<3 and cycle=SP*2+58) or (SP>=3 and cycle=SP*2-5) then
+					if cycle=SP*2 then
 						spritedata(SP)(23 downto 16) := in_db(7 downto 0);
-					elsif (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
+					elsif cycle=SP*2+1 then
 						spritedata(SP)(7 downto 0) := in_db(7 downto 0);
 					end if;
 				end loop;
 			end if;
 			if phase=7 then                -- received in first half of cycle
 				-- pixel pattern read
-				if cycle>=16 and cycle<56 then
+				if cycle>=21 and cycle<61 then
 					pixelpattern(7 downto 0) := in_db(7 downto 0);
 				end if;
 				-- sprite DMA read
 				for SP in 0 to 7 loop
-					if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
+					if cycle=SP*2+1 then
 						spritedata(SP)(15 downto 8) := in_db(7 downto 0);
 					end if;
 				end loop;
@@ -384,12 +381,12 @@ begin
 			-- (very short time slot were address is stable)
 			if phase=9 then
 				if in_aec='0' then -- only when having done DMA
-					if cycle=58 or cycle=60 or cycle=62 or cycle=1 
-					or cycle=3 or cycle=5 or cycle=7 or cycle=9 then
+					if cycle=0 or cycle=2 or cycle=4 or cycle=6 
+					or cycle=8 or cycle=10 or cycle=12 or cycle=14 then
 						firstspritereadaddress := in_a(1 downto 0);
 					end if;
 					for SP in 0 to 7 loop
-						if (SP<3 and cycle=SP*2+59) or (SP>=3 and cycle=SP*2-4) then
+						if cycle=1+SP*2 then
 							if firstspritereadaddress /= in_a(1 downto 0) then
 								spriterendering(SP) := 4;
 							end if;
@@ -449,18 +446,22 @@ begin
 
 			-- progress horizontal and vertical counters
 			if phase=15 then
-				if cycle<63 then
-					cycle := cycle+1;
-				else
-					cycle := 1;
-					if displayline < 311 then
-						displayline := displayline+1;
-					else
+				if (cycle=62 and PAL='1') or cycle=64 then
+					cycle := 0;
+					if displayline=30 and PAL='0' then
+						displayline := 30+1+25;				-- for NTSC skip lines of border
+					elsif displayline=280 and PAL='0' then
+						displayline := 280+1+24;          -- for NTSC skip lines of border
+					elsif displayline=311 then
 						displayline := 0;
+					else
+						displayline := displayline+1;
 					end if;
 					if videomatrixage<8 then 
 						videomatrixage := videomatrixage+1;
 					end if;
+				else
+					cycle := cycle+1;
 				end if;
 			end if;
 
@@ -484,7 +485,7 @@ begin
 						-- detect the top of the frame anomaly (when in sync)
 						if ramrefreshpattern = "1111111111" then
 							displayline := 311;
-							cycle := 16;								
+							cycle := 21;								
 						end if;
 					else 
 						syncdetect_cycle := 17;  -- two missdetecions: search for sync

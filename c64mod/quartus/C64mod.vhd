@@ -71,7 +71,10 @@ architecture immediate of C64Mod is
 		A           : in std_logic_vector(5 downto 0);
 		RW          : in std_logic; 
 		CS          : in std_logic; 
-		AEC         : in std_logic
+		AEC         : in std_logic;
+		
+		-- selector to choose PAL(=1) or NTSC(=0) variant
+		PAL         : in std_logic
 	);	
 	end component;
 
@@ -102,8 +105,9 @@ begin
 		& GPIO1(13) & GPIO1(14),                     -- A
 		GPIO1(16),                                   -- RW 
 		GPIO1(15),                                   -- CS 
-		GPIO1(18)                                    -- AEC
-		
+		GPIO1(18),                                   -- AEC
+		'1' -- PAL
+--		'0' -- NTSC
 	);	
 
 	vram0: VideoRAM port map (
@@ -124,7 +128,7 @@ begin
 	);
 		
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
-	process (CLK, GPIO2_4, GPIO2_6) 
+	process (CLK, GPIO2_4, GPIO2_5, GPIO2_6) 
 		variable hcnt : integer range 0 to 1023 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
