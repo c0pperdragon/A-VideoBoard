@@ -1,0 +1,25 @@
+
+
+C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus/PLL262.vhd
+
+Feb 11 09PM:26:34>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+PLL262.v
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?
+
+C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus/PLL262.vhd
+
+Feb 11 09PM:57:12>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+PLL262.v
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?

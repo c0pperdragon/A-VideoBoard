@@ -2,11 +2,17 @@
 <!DOCTYPE pinplan>
 <pinplan intended_family="MAX 10" variation_name="PLL262" megafunction_name="ALTPLL" specifies="all_ports">
 <global>
+<pin name="configupdate" direction="input" scope="external"  />
 <pin name="inclk0" direction="input" scope="external" source="clock"  />
+<pin name="scanclk" direction="input" scope="external" source="clock"  />
+<pin name="scanclkena" direction="input" scope="external"  />
+<pin name="scandata" direction="input" scope="external"  />
 <pin name="c0" direction="output" scope="external" source="clock"  />
 <pin name="c1" direction="output" scope="external" source="clock"  />
 <pin name="c2" direction="output" scope="external" source="clock"  />
 <pin name="c3" direction="output" scope="external" source="clock"  />
+<pin name="scandataout" direction="output" scope="external"  />
+<pin name="scandone" direction="output" scope="external"  />
 
 </global>
 </pinplan>

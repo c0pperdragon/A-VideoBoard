@@ -31,8 +31,9 @@ end entity;
 
 architecture immediate of C64Mod is
 	-- synchronous clock for most of the circuit
-	signal CLK     : std_logic;                     -- 15.763977 MHz
-		
+	signal PAL     : std_logic;         -- 0=NTSC, 1=PAL (detected by frequency)
+	signal CLK     : std_logic;         -- 16 times CPU clock
+	
 	-- SDTV signals
 	signal COLOR   : std_logic_vector(3 downto 0);
 	signal CSYNC   : std_logic;
@@ -106,8 +107,7 @@ begin
 		GPIO1(16),                                   -- RW 
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
-		'1' -- PAL
---		'0' -- NTSC
+      PAL
 	);	
 
 	vram0: VideoRAM port map (
@@ -126,10 +126,37 @@ begin
 		'1',
 		vramq1
 	);
+	
+	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
+	process (CLK25, GPIO1)
+		variable in_phi0 : std_logic_vector(3 downto 0);
+		variable out_pal : std_logic := '1';
+		variable countcpu : integer range 0 to 2000 := 0;
+		variable countclk25 : integer range 0 to 25000 := 0;
+	begin
+		if rising_edge(CLK25) then
+			if in_phi0="0011" then
+				countcpu := countcpu+1;
+			end if;
+			if countclk25/=24999 then
+				countclk25 := countclk25+1;
+			else
+				if countcpu<1004 then
+					out_pal := '1';
+				else 
+					out_pal := '0';
+				end if;
+				countclk25 := 0;			
+				countcpu := 0;
+			end if;
+			in_phi0 := in_phi0(2 downto 0) & GPIO1(20);
+		end if;
+		PAL <= out_pal;
+	end process;
 		
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
 	process (CLK, GPIO2_4, GPIO2_5, GPIO2_6) 
-		variable hcnt : integer range 0 to 1023 := 0;
+		variable hcnt : integer range 0 to 2047 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
 		
@@ -139,72 +166,35 @@ begin
 		variable val1 : integer range 0 to 31;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
+		variable lpixel : integer range 0 to 1023;
 
 		constant hfix : integer := 1;
 		
 		variable EDTV_YPbPr : std_logic_vector(14 downto 0);
 		variable EDTV_CSYNC : std_logic;
 		
-	-- palette as specified by
-	-- https://www.c64-wiki.de/wiki/Farbe but with darker luminance
-  	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
-   constant c64palette : T_c64palette := 
-	(	 0 *1024 + 16*32 + 16,
-		31 *1024 + 16*32 + 16,
-		10 *1024 + 13*32 + 24,
-		19 *1024 + 16*32 + 11,
-		12 *1024 + 21*32 + 22,
-		16 *1024 + 12*32 + 4,
-		8  *1024 + 26*32 + 14,
-		23 *1024 + 8*32 + 17,
-		12 *1024 + 11*32 + 21,
-		8  *1024 + 11*32 + 18,
-		16 *1024 + 13*32 + 24,
-		10 *1024 + 16*32 + 16,
-		15 *1024 + 16*32 + 16,
-		23 *1024 + 8*32 + 12,
-		15 *1024 + 26*32 + 6,
-		19 *1024 + 16*32 + 16	
-	); 
---	-- palette as specified by
---	-- https://en.wikipedia.org/wiki/List_of_8-bit_computer_hardware_graphics    
---  	type T_c64palette is array (0 to 15) of integer range 0 to 32767;
---   constant c64palette : T_c64palette := 
---	(	 0 *1024 + (16+0)*32 + (16+0),  -- black
---		31 *1024 + (16+0)*32 + (16+0),  -- white
---		10 *1024 + (16-2)*32 + (16+4),  -- red
---		19 *1024 + (16+4)*32 + (16-9),  -- cyan			
---		12 *1024 + (16+4)*32 + (16+4),  -- purple
---		16 *1024 + (16-5)*32 + (16-5),  -- green
---		 8 *1024 + (16+4)*32 + (16+0),  -- blue
---		23 *1024 + (16-3)*32 + (16+0),  -- yellow
---		12 *1024 + (16-4)*32 + (16+4),  -- orange
---		 8 *1024 + (16-3)*32 + (16+2),  -- brown		 
---		16 *1024 + (16-3)*32 + (16+7),  -- light red
---		10 *1024 + (16+0)*32 + (16+0),  -- dark gray
---		15 *1024 + (16+0)*32 + (16+0),  -- medium gray
---		23 *1024 + (16-8)*32 + (16-8),  -- light green
---		15 *1024 + (16+7)*32 + (16+0),  -- light blue
---		19 *1024 + (16+0)*32 + (16+0)   -- light gray		
---	); 
---	-- the palette "Colodore", converted to YPbPr   
---	(	 0*1024 + 16*32 + 16,  -- black
---		31*1024 + 16*32 + 16,  -- white
---		 9*1024 + 14*32 + 20,  -- red
---		22*1024 + 17*32 + 10,  -- cyan		
---		12*1024 + 19*32 + 20,  -- purple
---		16*1024 + 11*32 + 11,  -- green
---		 7*1024 + 22*32 + 16,  -- blue
---		27*1024 +  8*32 + 17,  -- yellow
---		11*1024 + 12*32 + 20,  -- orange
---		 7*1024 + 12*32 + 18,  -- brown		 
---		16*1024 + 14*32 + 21,  -- light red
---		 9*1024 + 16*32 + 16,  -- dark gray
---		15*1024 + 16*32 + 16,  -- medium gray
---		27*1024 + 11*32 + 11,  -- light green
---		15*1024 + 23*32 + 14,  -- light blue
---		22*1024 + 16*32 + 16   -- light gray		
---	); 
+		-- palette as specified by
+		-- https://www.c64-wiki.de/wiki/Farbe but with darker luminance
+		type T_c64palette is array (0 to 15) of integer range 0 to 32767;
+		constant c64palette : T_c64palette := 
+		(	 0 *1024 + 16*32 + 16,
+			31 *1024 + 16*32 + 16,
+			10 *1024 + 13*32 + 24,
+			19 *1024 + 16*32 + 11,
+			12 *1024 + 21*32 + 22,
+			16 *1024 + 12*32 + 4,
+			8  *1024 + 26*32 + 14,
+			23 *1024 + 8*32 + 17,
+			12 *1024 + 11*32 + 21,
+			8  *1024 + 11*32 + 18,
+			16 *1024 + 13*32 + 24,
+			10 *1024 + 16*32 + 16,
+			15 *1024 + 16*32 + 16,
+			23 *1024 + 8*32 + 12,
+			15 *1024 + 26*32 + 6,
+			19 *1024 + 16*32 + 16	
+		); 
+
 		type T_lumadjustment is array (0 to 31) of integer range 0 to 31;
 		constant scanlineboost : T_lumadjustment := 
 		(	 0,  1,  2, 4,  5,  6,  8,  9,  10, 11, 13, 14, 15, 17, 18, 20, 
@@ -219,6 +209,10 @@ begin
 		-- handle jumper configuration
 		usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
 		usescanlines := GPIO2_5='0' or GPIO2_6='0';
+		lpixel := 504;
+		if PAL='0' then
+			lpixel := 520;
+		end if;
 	
 		if rising_edge(CLK) then
 		
@@ -226,15 +220,15 @@ begin
 			EDTV_CSYNC := '1';
 			
 			-- generate EDTV output signal (with syncs and all)
-			if vcnt=0 or (vcnt=1 and hcnt<504) then	  -- 3 EDTV lines with vsync	
-				if (hcnt>=hfix and hcnt<hfix+504-37) or (hcnt>=hfix+504 and hcnt<hfix+2*504-37) then 
+			if vcnt=0 or (vcnt=1 and hcnt<lpixel) then	  -- 3 EDTV lines with vsync	
+				if (hcnt>=hfix and hcnt<hfix+lpixel-37) or (hcnt>=hfix+lpixel and hcnt<hfix+2*lpixel-37) then 
 					EDTV_CSYNC := '0';
 				end if;
 			else
 				-- use scanline effect
 				if usescanlines then
 					-- construct bright line
-					if hcnt<505 then
+					if hcnt<lpixel then
 						col0 := to_integer(unsigned(vramq0));
 						val0 := c64palette(col0) / 1024;
 						val0 := scanlineboost(val0);
@@ -264,7 +258,7 @@ begin
 					EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(col0),15));
 				end if;				
 				-- two normal EDTV line syncs
-				if (hcnt>=hfix and hcnt<hfix+37) or (hcnt>=hfix+504 and hcnt<hfix+504+37) then  
+				if (hcnt>=hfix and hcnt<hfix+37) or (hcnt>=hfix+lpixel and hcnt<hfix+lpixel+37) then  
 					EDTV_CSYNC := '0';
 				end if;
 
@@ -279,7 +273,7 @@ begin
 				elsif vcnt<511 then
 					vcnt := vcnt+1;
 				end if;
-			elsif hcnt<1023 then
+			elsif hcnt<2047 then
 				-- a sync in the middle of a scanline: starts the vsync sequence
 				if hcnt=200 and CSYNC='0' and vcnt>50 then
 					needvsync := true;
@@ -303,12 +297,12 @@ begin
 		-- compute VideoRAM write position (write in buffer one line ahead)
 		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 + ((vcnt+1) mod 2)*512, 10));
 		-- compute VideoRAM read positions to fetch two adjacent lines
-		if hcnt<504 then
+		if hcnt<lpixel then
 			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt + (vcnt mod 2)*512, 10));
 			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt + ((vcnt+1) mod 2)*512, 10));
 		else
-			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt-504 + (vcnt mod 2)*512, 10));
-			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-504 + ((vcnt+1) mod 2)*512, 10));
+			vramrdaddress0 <= std_logic_vector(to_unsigned(hcnt-lpixel + (vcnt mod 2)*512, 10));
+			vramrdaddress1 <= std_logic_vector(to_unsigned(hcnt-lpixel + ((vcnt+1) mod 2)*512, 10));
 		end if;
 		
 	end process;

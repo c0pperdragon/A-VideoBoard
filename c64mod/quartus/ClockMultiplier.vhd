@@ -21,6 +21,10 @@ end entity;
 
 
 architecture immediate of ClockMultiplier is
+   -- re-configuration inputs into the PLL
+	signal CONFIGUPDATE : std_logic;
+	signal SCANCLKENA : std_logic;
+	signal SCANDATA: std_logic;
 	-- high-speed clock to generate synchronous clock from. this is done
 	-- with 4 coupled signals that are 0,45,90,135 degree phase shifted to give
 	-- 8 usable edges.
@@ -32,27 +36,50 @@ architecture immediate of ClockMultiplier is
    component PLL252 is
 	PORT
 	(
-		inclk0 : IN STD_LOGIC ;
+		configupdate		: IN STD_LOGIC  := '0';
+		inclk0		: IN STD_LOGIC  := '0';
+		scanclk		: IN STD_LOGIC  := '1';
+		scanclkena		: IN STD_LOGIC  := '0';
+		scandata		: IN STD_LOGIC  := '0';
 		c0		: OUT STD_LOGIC ;
 		c1		: OUT STD_LOGIC ;
 		c2		: OUT STD_LOGIC ;
-		c3		: OUT STD_LOGIC 
+		c3		: OUT STD_LOGIC ;
+		scandataout		: OUT STD_LOGIC ;
+		scandone		: OUT STD_LOGIC 
 	);
 	end component;
    component PLL262 is
 	PORT
 	(
-		inclk0 : IN STD_LOGIC ;
+		configupdate		: IN STD_LOGIC  := '0';
+		inclk0		: IN STD_LOGIC  := '0';
+		scanclk		: IN STD_LOGIC  := '1';
+		scanclkena		: IN STD_LOGIC  := '0';
+		scandata		: IN STD_LOGIC  := '0';
 		c0		: OUT STD_LOGIC ;
 		c1		: OUT STD_LOGIC ;
 		c2		: OUT STD_LOGIC ;
-		c3		: OUT STD_LOGIC 
+		c3		: OUT STD_LOGIC ;
+		scandataout		: OUT STD_LOGIC ;
+		scandone		: OUT STD_LOGIC 
 	);
 	end component;
 		
 begin		
-	subdividerpll: PLL252 port map ( CLK25, CLKA, CLKB, CLKC, CLKD );   -- use with PAL
---	subdividerpll: PLL252 port map ( CLK25, CLKA, CLKB, CLKC, CLKD );   -- use with NTSC
+	subdividerpll: PLL252 port map ( CONFIGUPDATE, CLK25, CLK25, SCANCLKENA, SCANDATA, CLKA, CLKB, CLKC, CLKD, open,open );   -- use with PAL
+--	subdividerpll: PLL262 port map ( CONFIGUPDATE, CLK25, CLK25, SCANCLKENA, SCANDATA, CLKA, CLKB, CLKC, CLKD, open,open );   -- use with NTSC
+
+--	process (CLKA)
+--	variable counter : integer range 0 to 15 := 0;
+--	variable bits : std_logic_vector(3 downto 0);
+--	begin
+--		if rising_edge(CLKA) then
+--			counter := counter+1;
+--		end if;
+--		bits:= std_logic_vector	( to_unsigned(counter,4) );
+--		CLK <= bits(3);
+--	end process;
 	
 	-- generate the 16 times CPU clock
 	process (PHI0, CLKA, CLKB, CLKC, CLKD)
@@ -175,5 +202,67 @@ begin
 		CLK <= bits(3);
 	end process;
 
+	
+	-- watch the PAL / NTSC selector and reprogramm PLL if necessary
+	process (CLK25)
+	type config_t is array (0 to 143) of std_logic;
+	constant CONFIG262 : config_t :=  
+	(	'0','0','0','0','1','1','0','0','0','0',
+		'0','0','0','0','0','0','0','1','1','0',
+		'0','0','0','0','0','0','0','0','0','0',
+		'0','0','0','0','0','0','0','0','0','0',
+		'0','1','0','1','1','1','0','0','0','0',
+		'1','0','1','0','0','0','0','0','0','0',
+		'0','0','1','0','0','0','0','0','0','0',
+		'0','1','0','0','0','0','0','0','0','0',
+		'1','0','0','0','0','0','0','0','0','1',
+		'0','0','0','0','0','0','0','0','1','0',
+		'0','0','0','0','0','0','0','1','0','0',
+		'0','0','0','0','0','0','1','0','0','0',
+		'0','0','0','0','0','1','1','0','0','0',
+		'0','0','0','0','0','0','0','0','0','0',
+		'0','0','0','0' 
+	);
+	variable checkdelay:integer range 0 to 1023 := 0;
+	variable programcounter:integer range 0 to 255 := 0;
+	variable out_configupdate : std_logic := '0';
+	variable out_scanclkena : std_logic := '0';
+	variable out_scandata : std_logic := '0';
+	begin
+		if rising_edge(CLK25) then
+			out_scanclkena := '0';
+			out_scandata := '0';
+			out_configupdate := '0';
+
+			-- for safety: short delay after power-up before checking
+			if checkdelay/=1023 then
+				checkdelay := checkdelay+1;
+				
+			-- when re-programming has not started, keep a watch on the 
+			-- PAL mode signal and start programming if NTSC
+			elsif programcounter=0 then
+				if PAL='0' then
+					out_scanclkena := '1';
+					out_scandata := CONFIG262(143);
+					programcounter := 1;
+				end if;			
+			elsif programcounter<=143 then
+				out_scanclkena := '1';
+				out_scandata := CONFIG262(143-programcounter);
+				programcounter := programcounter+1;				
+			elsif programcounter<150 then
+				programcounter := programcounter+1;				
+			elsif programcounter=150 then
+				out_configupdate := '1';
+				programcounter := programcounter+1;				
+			end if;
+		end if;
+		
+		CONFIGUPDATE <= out_configupdate;
+		SCANCLKENA <= out_scanclkena;
+		SCANDATA <= out_scandata;
+	end process;
+	
+	
 end immediate;
 

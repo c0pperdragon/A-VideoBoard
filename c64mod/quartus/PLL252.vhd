@@ -42,11 +42,17 @@ USE altera_mf.all;
 ENTITY PLL252 IS
 	PORT
 	(
+		configupdate		: IN STD_LOGIC  := '0';
 		inclk0		: IN STD_LOGIC  := '0';
+		scanclk		: IN STD_LOGIC  := '1';
+		scanclkena		: IN STD_LOGIC  := '0';
+		scandata		: IN STD_LOGIC  := '0';
 		c0		: OUT STD_LOGIC ;
 		c1		: OUT STD_LOGIC ;
 		c2		: OUT STD_LOGIC ;
-		c3		: OUT STD_LOGIC 
+		c3		: OUT STD_LOGIC ;
+		scandataout		: OUT STD_LOGIC ;
+		scandone		: OUT STD_LOGIC 
 	);
 END PLL252;
 
@@ -62,6 +68,8 @@ ARCHITECTURE SYN OF pll252 IS
 	SIGNAL sub_wire5	: STD_LOGIC ;
 	SIGNAL sub_wire6	: STD_LOGIC ;
 	SIGNAL sub_wire7	: STD_LOGIC ;
+	SIGNAL sub_wire8	: STD_LOGIC ;
+	SIGNAL sub_wire9	: STD_LOGIC ;
 
 
 
@@ -132,11 +140,18 @@ ARCHITECTURE SYN OF pll252 IS
 		port_extclk1		: STRING;
 		port_extclk2		: STRING;
 		port_extclk3		: STRING;
-		width_clock		: NATURAL
+		width_clock		: NATURAL;
+		scan_chain_mif_file		: STRING
 	);
 	PORT (
+			configupdate	: IN STD_LOGIC ;
 			inclk	: IN STD_LOGIC_VECTOR (1 DOWNTO 0);
-			clk	: OUT STD_LOGIC_VECTOR (4 DOWNTO 0)
+			scanclk	: IN STD_LOGIC ;
+			scanclkena	: IN STD_LOGIC ;
+			scandata	: IN STD_LOGIC ;
+			clk	: OUT STD_LOGIC_VECTOR (4 DOWNTO 0);
+			scandataout	: OUT STD_LOGIC ;
+			scandone	: OUT STD_LOGIC 
 	);
 	END COMPONENT;
 
@@ -153,26 +168,28 @@ BEGIN
 	c1    <= sub_wire5;
 	c2    <= sub_wire6;
 	c3    <= sub_wire7;
+	scandataout    <= sub_wire8;
+	scandone    <= sub_wire9;
 
 	altpll_component : altpll
 	GENERIC MAP (
 		bandwidth_type => "AUTO",
-		clk0_divide_by => 50000,
+		clk0_divide_by => 25,
 		clk0_duty_cycle => 50,
-		clk0_multiply_by => 504447,
+		clk0_multiply_by => 252,
 		clk0_phase_shift => "0",
-		clk1_divide_by => 50000,
+		clk1_divide_by => 25,
 		clk1_duty_cycle => 50,
-		clk1_multiply_by => 504447,
+		clk1_multiply_by => 252,
 		clk1_phase_shift => "496",
-		clk2_divide_by => 50000,
+		clk2_divide_by => 25,
 		clk2_duty_cycle => 50,
-		clk2_multiply_by => 504447,
-		clk2_phase_shift => "991",
-		clk3_divide_by => 50000,
+		clk2_multiply_by => 252,
+		clk2_phase_shift => "992",
+		clk3_divide_by => 25,
 		clk3_duty_cycle => 50,
-		clk3_multiply_by => 504447,
-		clk3_phase_shift => "1487",
+		clk3_multiply_by => 252,
+		clk3_phase_shift => "1488",
 		compensate_clock => "CLK0",
 		inclk0_input_frequency => 40000,
 		intended_device_family => "MAX 10",
@@ -186,7 +203,7 @@ BEGIN
 		port_clkbad1 => "PORT_UNUSED",
 		port_clkloss => "PORT_UNUSED",
 		port_clkswitch => "PORT_UNUSED",
-		port_configupdate => "PORT_UNUSED",
+		port_configupdate => "PORT_USED",
 		port_fbin => "PORT_UNUSED",
 		port_inclk0 => "PORT_USED",
 		port_inclk1 => "PORT_UNUSED",
@@ -198,11 +215,11 @@ BEGIN
 		port_phaseupdown => "PORT_UNUSED",
 		port_pllena => "PORT_UNUSED",
 		port_scanaclr => "PORT_UNUSED",
-		port_scanclk => "PORT_UNUSED",
-		port_scanclkena => "PORT_UNUSED",
-		port_scandata => "PORT_UNUSED",
-		port_scandataout => "PORT_UNUSED",
-		port_scandone => "PORT_UNUSED",
+		port_scanclk => "PORT_USED",
+		port_scanclkena => "PORT_USED",
+		port_scandata => "PORT_USED",
+		port_scandataout => "PORT_USED",
+		port_scandone => "PORT_USED",
 		port_scanread => "PORT_UNUSED",
 		port_scanwrite => "PORT_UNUSED",
 		port_clk0 => "PORT_USED",
@@ -221,11 +238,18 @@ BEGIN
 		port_extclk1 => "PORT_UNUSED",
 		port_extclk2 => "PORT_UNUSED",
 		port_extclk3 => "PORT_UNUSED",
-		width_clock => 5
+		width_clock => 5,
+		scan_chain_mif_file => "PLL252.mif"
 	)
 	PORT MAP (
+		configupdate => configupdate,
 		inclk => sub_wire1,
-		clk => sub_wire3
+		scanclk => scanclk,
+		scanclkena => scanclkena,
+		scandata => scandata,
+		clk => sub_wire3,
+		scandataout => sub_wire8,
+		scandone => sub_wire9
 	);
 
 
@@ -259,10 +283,10 @@ END SYN;
 -- Retrieval info: PRIVATE: DUTY_CYCLE1 STRING "50.00000000"
 -- Retrieval info: PRIVATE: DUTY_CYCLE2 STRING "50.00000000"
 -- Retrieval info: PRIVATE: DUTY_CYCLE3 STRING "50.00000000"
--- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE0 STRING "252.223495"
--- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE1 STRING "252.223495"
--- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE2 STRING "252.223495"
--- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE3 STRING "252.223495"
+-- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE0 STRING "252.000000"
+-- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE1 STRING "252.000000"
+-- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE2 STRING "252.000000"
+-- Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE3 STRING "252.000000"
 -- Retrieval info: PRIVATE: EXPLICIT_SWITCHOVER_COUNTER STRING "0"
 -- Retrieval info: PRIVATE: EXT_FEEDBACK_RADIO STRING "0"
 -- Retrieval info: PRIVATE: GLOCKED_COUNTER_EDIT_CHANGED STRING "1"
@@ -296,10 +320,10 @@ END SYN;
 -- Retrieval info: PRIVATE: MULT_FACTOR2 NUMERIC "1"
 -- Retrieval info: PRIVATE: MULT_FACTOR3 NUMERIC "1"
 -- Retrieval info: PRIVATE: NORMAL_MODE_RADIO STRING "1"
--- Retrieval info: PRIVATE: OUTPUT_FREQ0 STRING "252.22350000"
--- Retrieval info: PRIVATE: OUTPUT_FREQ1 STRING "252.22350000"
--- Retrieval info: PRIVATE: OUTPUT_FREQ2 STRING "252.22350000"
--- Retrieval info: PRIVATE: OUTPUT_FREQ3 STRING "252.22350000"
+-- Retrieval info: PRIVATE: OUTPUT_FREQ0 STRING "252.00000000"
+-- Retrieval info: PRIVATE: OUTPUT_FREQ1 STRING "252.00000000"
+-- Retrieval info: PRIVATE: OUTPUT_FREQ2 STRING "252.00000000"
+-- Retrieval info: PRIVATE: OUTPUT_FREQ3 STRING "252.00000000"
 -- Retrieval info: PRIVATE: OUTPUT_FREQ_MODE0 STRING "1"
 -- Retrieval info: PRIVATE: OUTPUT_FREQ_MODE1 STRING "1"
 -- Retrieval info: PRIVATE: OUTPUT_FREQ_MODE2 STRING "1"
@@ -330,7 +354,7 @@ END SYN;
 -- Retrieval info: PRIVATE: PLL_TARGET_HARCOPY_CHECK NUMERIC "0"
 -- Retrieval info: PRIVATE: PRIMARY_CLK_COMBO STRING "inclk0"
 -- Retrieval info: PRIVATE: RECONFIG_FILE STRING "PLL252.mif"
--- Retrieval info: PRIVATE: SACN_INPUTS_CHECK STRING "0"
+-- Retrieval info: PRIVATE: SACN_INPUTS_CHECK STRING "1"
 -- Retrieval info: PRIVATE: SCAN_FEATURE_ENABLED STRING "1"
 -- Retrieval info: PRIVATE: SELF_RESET_LOCK_LOSS STRING "0"
 -- Retrieval info: PRIVATE: SHORT_SCAN_RADIO STRING "0"
@@ -360,22 +384,22 @@ END SYN;
 -- Retrieval info: PRIVATE: ZERO_DELAY_RADIO STRING "0"
 -- Retrieval info: LIBRARY: altera_mf altera_mf.altera_mf_components.all
 -- Retrieval info: CONSTANT: BANDWIDTH_TYPE STRING "AUTO"
--- Retrieval info: CONSTANT: CLK0_DIVIDE_BY NUMERIC "50000"
+-- Retrieval info: CONSTANT: CLK0_DIVIDE_BY NUMERIC "25"
 -- Retrieval info: CONSTANT: CLK0_DUTY_CYCLE NUMERIC "50"
--- Retrieval info: CONSTANT: CLK0_MULTIPLY_BY NUMERIC "504447"
+-- Retrieval info: CONSTANT: CLK0_MULTIPLY_BY NUMERIC "252"
 -- Retrieval info: CONSTANT: CLK0_PHASE_SHIFT STRING "0"
--- Retrieval info: CONSTANT: CLK1_DIVIDE_BY NUMERIC "50000"
+-- Retrieval info: CONSTANT: CLK1_DIVIDE_BY NUMERIC "25"
 -- Retrieval info: CONSTANT: CLK1_DUTY_CYCLE NUMERIC "50"
--- Retrieval info: CONSTANT: CLK1_MULTIPLY_BY NUMERIC "504447"
+-- Retrieval info: CONSTANT: CLK1_MULTIPLY_BY NUMERIC "252"
 -- Retrieval info: CONSTANT: CLK1_PHASE_SHIFT STRING "496"
--- Retrieval info: CONSTANT: CLK2_DIVIDE_BY NUMERIC "50000"
+-- Retrieval info: CONSTANT: CLK2_DIVIDE_BY NUMERIC "25"
 -- Retrieval info: CONSTANT: CLK2_DUTY_CYCLE NUMERIC "50"
--- Retrieval info: CONSTANT: CLK2_MULTIPLY_BY NUMERIC "504447"
--- Retrieval info: CONSTANT: CLK2_PHASE_SHIFT STRING "991"
--- Retrieval info: CONSTANT: CLK3_DIVIDE_BY NUMERIC "50000"
+-- Retrieval info: CONSTANT: CLK2_MULTIPLY_BY NUMERIC "252"
+-- Retrieval info: CONSTANT: CLK2_PHASE_SHIFT STRING "992"
+-- Retrieval info: CONSTANT: CLK3_DIVIDE_BY NUMERIC "25"
 -- Retrieval info: CONSTANT: CLK3_DUTY_CYCLE NUMERIC "50"
--- Retrieval info: CONSTANT: CLK3_MULTIPLY_BY NUMERIC "504447"
--- Retrieval info: CONSTANT: CLK3_PHASE_SHIFT STRING "1487"
+-- Retrieval info: CONSTANT: CLK3_MULTIPLY_BY NUMERIC "252"
+-- Retrieval info: CONSTANT: CLK3_PHASE_SHIFT STRING "1488"
 -- Retrieval info: CONSTANT: COMPENSATE_CLOCK STRING "CLK0"
 -- Retrieval info: CONSTANT: INCLK0_INPUT_FREQUENCY NUMERIC "40000"
 -- Retrieval info: CONSTANT: INTENDED_DEVICE_FAMILY STRING "MAX 10"
@@ -388,7 +412,7 @@ END SYN;
 -- Retrieval info: CONSTANT: PORT_CLKBAD1 STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_CLKLOSS STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_CLKSWITCH STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_CONFIGUPDATE STRING "PORT_UNUSED"
+-- Retrieval info: CONSTANT: PORT_CONFIGUPDATE STRING "PORT_USED"
 -- Retrieval info: CONSTANT: PORT_FBIN STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_INCLK0 STRING "PORT_USED"
 -- Retrieval info: CONSTANT: PORT_INCLK1 STRING "PORT_UNUSED"
@@ -400,11 +424,11 @@ END SYN;
 -- Retrieval info: CONSTANT: PORT_PHASEUPDOWN STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_PLLENA STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_SCANACLR STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_SCANCLK STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_SCANCLKENA STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_SCANDATA STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_SCANDATAOUT STRING "PORT_UNUSED"
--- Retrieval info: CONSTANT: PORT_SCANDONE STRING "PORT_UNUSED"
+-- Retrieval info: CONSTANT: PORT_SCANCLK STRING "PORT_USED"
+-- Retrieval info: CONSTANT: PORT_SCANCLKENA STRING "PORT_USED"
+-- Retrieval info: CONSTANT: PORT_SCANDATA STRING "PORT_USED"
+-- Retrieval info: CONSTANT: PORT_SCANDATAOUT STRING "PORT_USED"
+-- Retrieval info: CONSTANT: PORT_SCANDONE STRING "PORT_USED"
 -- Retrieval info: CONSTANT: PORT_SCANREAD STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_SCANWRITE STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_clk0 STRING "PORT_USED"
@@ -424,24 +448,38 @@ END SYN;
 -- Retrieval info: CONSTANT: PORT_extclk2 STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: PORT_extclk3 STRING "PORT_UNUSED"
 -- Retrieval info: CONSTANT: WIDTH_CLOCK NUMERIC "5"
+-- Retrieval info: CONSTANT: scan_chain_mif_file STRING "PLL252.mif"
 -- Retrieval info: USED_PORT: @clk 0 0 5 0 OUTPUT_CLK_EXT VCC "@clk[4..0]"
 -- Retrieval info: USED_PORT: @inclk 0 0 2 0 INPUT_CLK_EXT VCC "@inclk[1..0]"
 -- Retrieval info: USED_PORT: c0 0 0 0 0 OUTPUT_CLK_EXT VCC "c0"
 -- Retrieval info: USED_PORT: c1 0 0 0 0 OUTPUT_CLK_EXT VCC "c1"
 -- Retrieval info: USED_PORT: c2 0 0 0 0 OUTPUT_CLK_EXT VCC "c2"
 -- Retrieval info: USED_PORT: c3 0 0 0 0 OUTPUT_CLK_EXT VCC "c3"
+-- Retrieval info: USED_PORT: configupdate 0 0 0 0 INPUT GND "configupdate"
 -- Retrieval info: USED_PORT: inclk0 0 0 0 0 INPUT_CLK_EXT GND "inclk0"
+-- Retrieval info: USED_PORT: scanclk 0 0 0 0 INPUT_CLK_EXT VCC "scanclk"
+-- Retrieval info: USED_PORT: scanclkena 0 0 0 0 INPUT GND "scanclkena"
+-- Retrieval info: USED_PORT: scandata 0 0 0 0 INPUT GND "scandata"
+-- Retrieval info: USED_PORT: scandataout 0 0 0 0 OUTPUT VCC "scandataout"
+-- Retrieval info: USED_PORT: scandone 0 0 0 0 OUTPUT VCC "scandone"
+-- Retrieval info: CONNECT: @configupdate 0 0 0 0 configupdate 0 0 0 0
 -- Retrieval info: CONNECT: @inclk 0 0 1 1 GND 0 0 0 0
 -- Retrieval info: CONNECT: @inclk 0 0 1 0 inclk0 0 0 0 0
+-- Retrieval info: CONNECT: @scanclk 0 0 0 0 scanclk 0 0 0 0
+-- Retrieval info: CONNECT: @scanclkena 0 0 0 0 scanclkena 0 0 0 0
+-- Retrieval info: CONNECT: @scandata 0 0 0 0 scandata 0 0 0 0
 -- Retrieval info: CONNECT: c0 0 0 0 0 @clk 0 0 1 0
 -- Retrieval info: CONNECT: c1 0 0 0 0 @clk 0 0 1 1
 -- Retrieval info: CONNECT: c2 0 0 0 0 @clk 0 0 1 2
 -- Retrieval info: CONNECT: c3 0 0 0 0 @clk 0 0 1 3
+-- Retrieval info: CONNECT: scandataout 0 0 0 0 @scandataout 0 0 0 0
+-- Retrieval info: CONNECT: scandone 0 0 0 0 @scandone 0 0 0 0
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.vhd TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.ppf TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.inc FALSE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.cmp TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.bsf FALSE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252_inst.vhd FALSE
+-- Retrieval info: GEN_FILE: TYPE_NORMAL PLL252.mif TRUE
 -- Retrieval info: LIB_FILE: altera_mf
 -- Retrieval info: CBX_MODULE_PREFIX: ON
