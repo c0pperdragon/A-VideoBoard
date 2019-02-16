@@ -109,6 +109,7 @@ begin
 	variable tmp_righthit: boolean;
 	variable tmp_bottomhit: boolean;
 	variable tmp_bit : std_logic;
+	variable tmp_pos : integer range 1 to 27;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
 	
@@ -149,8 +150,12 @@ begin
 					
 					-- extract relevant bit or 2 bits from bitmap data
 					tmp_bit := pixelpattern(17 + tmp_hscroll);
-					tmp_2bit(1) := pixelpattern(17 + tmp_hscroll + (phase/2) mod 2);
-					tmp_2bit(0) := pixelpattern(16 + tmp_hscroll + (phase/2) mod 2);
+					tmp_pos := 17 + tmp_hscroll + (phase/2) mod 2;
+					if (tmp_hscroll mod 2) = 1 then
+						tmp_pos := 18 + tmp_hscroll - (phase/2) mod 2;
+					end if;
+					tmp_2bit(1) := pixelpattern(tmp_pos);
+					tmp_2bit(0) := pixelpattern(tmp_pos-1);
 					
 					-- set color depending on graphics/text mode
 					tmp_3bit(2) := ECM;

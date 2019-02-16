@@ -51,6 +51,9 @@ architecture immediate of C64Mod is
 		CLK25: in std_logic;		
 		-- C64 cpu clock
 		PHI0: in std_logic;
+		-- 0: use input frequency for NTSC
+		-- 1: use input frequency for PAL
+		PAL: in std_logic;
 		
 		-- x16 times output clock
 		CLK: out std_logic
@@ -92,7 +95,7 @@ architecture immediate of C64Mod is
 	
 	
 begin		
-	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), CLK );
+	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), PAL, CLK );
 	
 	vic: VIC2Emulation port map (
 		COLOR,

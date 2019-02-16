@@ -223,7 +223,7 @@ begin
 		'0','0','0','0','0','0','0','0','0','0',
 		'0','0','0','0' 
 	);
-	variable checkdelay:integer range 0 to 1023 := 0;
+	variable checkdelay:integer range 0 to 100000 := 0;
 	variable programcounter:integer range 0 to 255 := 0;
 	variable out_configupdate : std_logic := '0';
 	variable out_scanclkena : std_logic := '0';
@@ -235,7 +235,7 @@ begin
 			out_configupdate := '0';
 
 			-- for safety: short delay after power-up before checking
-			if checkdelay/=1023 then
+			if checkdelay/=100000 then
 				checkdelay := checkdelay+1;
 				
 			-- when re-programming has not started, keep a watch on the 
