@@ -74,7 +74,7 @@ begin
 
 	type T_videomatrix is array (0 to 39) of std_logic_vector(11 downto 0);
 	variable videomatrix : T_videomatrix;
-	variable pixelpattern : std_logic_vector(27 downto 0);
+	variable pixelpattern : std_logic_vector(23 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	variable videomatrixage : integer range 0 to 8 := 8;
@@ -117,7 +117,7 @@ begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then
 			-- coordinates for sprite display and the border engine
-			xcoordinate := cycle*8 + phase/2 + 3;
+			xcoordinate := cycle*8 + phase/2 + 5;
 			if PAL='1' then
 				if xcoordinate>=504 then
 					xcoordinate := xcoordinate-504;
@@ -139,7 +139,7 @@ begin
 				-- main screen area color processing
 				if cycle>=2 and cycle<43 and DEN='1' then
 					tmp_hscroll := to_integer(unsigned(XSCROLL));
-					tmp_pixelindex := cycle*8 + phase/2 - 22 - tmp_hscroll;
+					tmp_pixelindex := cycle*8 + phase/2 - 20 - tmp_hscroll;
 
 					-- access the correct video matrix cell
 					if tmp_pixelindex>=0 and videomatrixage<8 then
@@ -149,10 +149,10 @@ begin
 					end if;
 					
 					-- extract relevant bit or 2 bits from bitmap data
-					tmp_bit := pixelpattern(17 + tmp_hscroll);
-					tmp_pos := 17 + tmp_hscroll + (phase/2) mod 2;
+					tmp_bit := pixelpattern(15 + tmp_hscroll);
+					tmp_pos := 15 + tmp_hscroll + ((phase/2) mod 2);
 					if (tmp_hscroll mod 2) = 1 then
-						tmp_pos := 18 + tmp_hscroll - (phase/2) mod 2;
+						tmp_pos := 16 + tmp_hscroll - ((phase/2) mod 2);
 					end if;
 					tmp_2bit(1) := pixelpattern(tmp_pos);
 					tmp_2bit(0) := pixelpattern(tmp_pos-1);
@@ -268,7 +268,7 @@ begin
 					
 				-- override with blankings and sync signals 
 				if PAL='1' then
-					hcounter := cycle*8 + (phase/2) + 100;
+					hcounter := cycle*8 + (phase/2) + 106;
 					vcounter := displayline+18;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
@@ -314,7 +314,7 @@ begin
 			-- per-pixel modifications of internal registers and flags
 			if (phase mod 2)=0 then
 				-- shift pixels along through buffers
-				pixelpattern := pixelpattern(26 downto 0) & '0';
+				pixelpattern := pixelpattern(22 downto 0) & '0';
 				
 				-- border flipflops management
 				if CSEL='0' then    
