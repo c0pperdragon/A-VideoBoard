@@ -169,10 +169,8 @@ begin
 		variable val1 : integer range 0 to 31;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
-		variable lpixel : integer range 0 to 1023;
+		variable lpixel : integer range 0 to 2047;
 
-		constant hfix : integer := 1;
-		
 		variable EDTV_YPbPr : std_logic_vector(14 downto 0);
 		variable EDTV_CSYNC : std_logic;
 		
@@ -212,19 +210,19 @@ begin
 		-- handle jumper configuration
 		usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
 		usescanlines := GPIO2_5='0' or GPIO2_6='0';
-		lpixel := 504;
-		if PAL='0' then
-			lpixel := 520;
-		end if;
 	
 		if rising_edge(CLK) then
+			lpixel := 504;
+			if PAL='0' then
+				lpixel := 520;
+			end if;
 		
 			EDTV_YPbPr := "000000000000000";
 			EDTV_CSYNC := '1';
 			
 			-- generate EDTV output signal (with syncs and all)
 			if vcnt=0 or (vcnt=1 and hcnt<lpixel) then	  -- 3 EDTV lines with vsync	
-				if (hcnt>=hfix and hcnt<hfix+lpixel-37) or (hcnt>=hfix+lpixel and hcnt<hfix+2*lpixel-37) then 
+				if (hcnt<lpixel-37) or (hcnt>=lpixel and hcnt<2*lpixel-37) then 
 					EDTV_CSYNC := '0';
 				end if;
 			else
@@ -261,14 +259,14 @@ begin
 					EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(col0),15));
 				end if;				
 				-- two normal EDTV line syncs
-				if (hcnt>=hfix and hcnt<hfix+37) or (hcnt>=hfix+lpixel and hcnt<hfix+lpixel+37) then  
+				if hcnt<37 or (hcnt>=lpixel and hcnt<lpixel+37) then  
 					EDTV_CSYNC := '0';
 				end if;
 
 			end if;
 			
 			-- progress counters and detect sync
-			if CSYNC='0' and hcnt>1000 then
+			if CSYNC='0' and hcnt>1004 then
 				hcnt := 0;
 				if needvsync then 
 					vcnt := 0;

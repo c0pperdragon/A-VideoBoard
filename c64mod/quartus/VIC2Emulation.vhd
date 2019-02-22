@@ -48,12 +48,12 @@ begin
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011";
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 --	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
@@ -112,6 +112,7 @@ begin
 	variable tmp_pos : integer range 1 to 27;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
+	variable tmp_half : integer range 250 to 280;
 	
 	begin
 		-- synchronous logic -------------------
@@ -277,6 +278,7 @@ begin
 					if vcounter>=312 then
 						vcounter := vcounter-312;
 					end if;
+					tmp_half := 252;
 				else
 					hcounter := cycle*8 + (phase/2) + 110;
 					vcounter := displayline+253;
@@ -287,22 +289,23 @@ begin
 					if vcounter>=263 then
 						vcounter := vcounter-263;
 					end if;
+					tmp_half := 260;
 				end if;
 				
 				if hcounter<92 or hcounter>=92+403 or vcounter<28 
 				then
 					out_color := "0000";
 	
-					-- generate csync for PAL 288p signal
-					if (vcounter=0) and (hcounter<37 or (hcounter>=252 and hcounter<252+18)) then                       -- normal sync, short sync
+					-- generate csync for PAL or NTSC
+					if (vcounter=0) and (hcounter<37 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then                       -- normal sync, short sync
 						out_csync := '0';
-					elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- 2x 2 short syncs
+					elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then      -- 2x 2 short syncs
 						out_csync := '0';
-					elsif (vcounter=3 or vcounter=4) and (hcounter<252-18 or (hcounter>=252 and hcounter<504-18)) then  -- 2x 2 vsyncs
+					elsif (vcounter=3 or vcounter=4) and (hcounter<tmp_half-18 or (hcounter>=tmp_half and hcounter<2*tmp_half-18)) then  -- 2x 2 vsyncs
 						out_csync := '0';
-					elsif (vcounter=5) and (hcounter<252-18 or (hcounter>=252 and hcounter<252+18)) then                -- one vsync, one short sync
+					elsif (vcounter=5) and (hcounter<tmp_half-18 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then                -- one vsync, one short sync
 						out_csync := '0';
-					elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=252 and hcounter<252+18)) then      -- 2x 2 short syncs
+					elsif (vcounter=6 or vcounter=7) and (hcounter<18 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then      -- 2x 2 short syncs
 						out_csync := '0';
 					elsif (vcounter>=8) and (hcounter<37) then                                                          -- normal syncs
 						out_csync := '0';
