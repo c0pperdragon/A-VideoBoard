@@ -23,6 +23,14 @@ may have some glitches, but this should only affect the visual output.
 Note that the mod consumes an additional 100mA of current from the 5 volt rail, 
 so make sure that your power supply can handle this.
 
+## Assembling the VIC adapter board
+
+If you want to build your own adapter board, you need to have a PCB manufactured with 1mm thickness 
+(use the gerber.zip for ordering). After soldering the ICs and passives, you need to fit a 40-pin
+IC socket into the big holes. Use the socket type with round pins (the more expensive ones).
+Solder from below and remove as much excess solder as possible. Then install the ribbon cable connector.
+Take special care when installing the voltage regulator, as this small package always gave me the most trouble.
+
 ## Connectors
 
 In my current build, the A-Video port is just screwed on top of the existing RF modulator.
