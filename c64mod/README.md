@@ -54,6 +54,7 @@ Selecting the output can be done by jumper connectors or an external switch:
 * Connect GPIO2_6 to GPIO2_2 (GND): 576p with scanline effect
 
 ## Images
+![alt text](doc/adapterboard.jpg "VIC-II adapter board")
 ![alt text](doc/modboards.jpg "Installation of the two mod boards")
 ![alt text](doc/connectors.jpg "Backside connectors")
 ![alt text](doc/mode_288p.jpg "Display with standard definition (crappy upscaler)")
