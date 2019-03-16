@@ -162,6 +162,11 @@ begin
 		variable hcnt : integer range 0 to 2047 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
+		variable colprev : integer range 0 to 15;
+		variable colpprev : integer range 0 to 15;
+		variable colppprev : integer range 0 to 15;
+		variable colpppprev : integer range 0 to 15;
+		variable colppppprev : integer range 0 to 15;
 		
 		variable col0: integer range 0 to 15;
 		variable col1: integer range 0 to 15;
@@ -284,11 +289,16 @@ begin
 
 			-- if highres is not selected, fall back to plain SDTV
 			if not usehighres then
-				col0 := to_integer(unsigned(COLOR));
-				EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(col0),15));			
+				EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(colppppprev),15));			
 				EDTV_CSYNC := CSYNC;
 			end if;
 			
+			-- memorize previous color so to output it a bit delayed
+			colppppprev := colpppprev;
+			colpppprev := colppprev;
+			colppprev := colpprev;
+			colpprev := colprev;
+			colprev := to_integer(unsigned(COLOR)); 
 		end if;
 
 		Y  <= EDTV_CSYNC & EDTV_YPbPr(14 downto 10);

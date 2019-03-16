@@ -48,11 +48,11 @@ begin
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "1110"; -- "0000"; -- "1110";
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110"; -- "0000"; -- "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; -- "0000"; -- "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; -- "0000"; -- "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; -- "0000"; -- "0011";
 	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
@@ -136,105 +136,106 @@ begin
 				out_csync := '1';
 				out_color := backgroundcolor0;
 				tmp_isforeground := false;
+				tmp_hscroll := to_integer(unsigned(XSCROLL));
 	
 				-- main screen area color processing
-				if cycle>=2 and cycle<43 and DEN='1' then
-					tmp_hscroll := to_integer(unsigned(XSCROLL));
-					tmp_pixelindex := cycle*8 + phase/2 - 20 - tmp_hscroll;
-
-					-- access the correct video matrix cell
-					if tmp_pixelindex>=0 and videomatrixage<8 then
+				 
+				-- access the correct video matrix cell and pixel data
+				tmp_vm := "000000000000";
+				tmp_bit := '0';
+				tmp_2bit := "00";
+				if xcoordinate>=25 and xcoordinate<25+320 then
+					if videomatrixage<8 and displayline<251 then
+						tmp_pixelindex := xcoordinate - 25 - tmp_hscroll;
 						tmp_vm := videomatrix(tmp_pixelindex/8);
-					else
-						tmp_vm := "000000000000";
 					end if;
-					
 					-- extract relevant bit or 2 bits from bitmap data
 					tmp_bit := pixelpattern(15 + tmp_hscroll);
-					tmp_pos := 15 + tmp_hscroll + ((phase/2) mod 2);
 					if (tmp_hscroll mod 2) = 1 then
 						tmp_pos := 16 + tmp_hscroll - ((phase/2) mod 2);
+					else
+						tmp_pos := 15 + tmp_hscroll + ((phase/2) mod 2);
 					end if;
 					tmp_2bit(1) := pixelpattern(tmp_pos);
 					tmp_2bit(0) := pixelpattern(tmp_pos-1);
-					
-					-- set color depending on graphics/text mode
-					tmp_3bit(2) := ECM;
-					tmp_3bit(1) := BMM;
-					tmp_3bit(0) := MCM;
-					case tmp_3bit is  
-					when "000" =>   -- standard text mode
+				end if;
+				
+				-- set color depending on graphics/text mode
+				tmp_3bit(2) := ECM;
+				tmp_3bit(1) := BMM;
+				tmp_3bit(0) := MCM;
+				case tmp_3bit is  
+				when "000" =>   -- standard text mode
+					if tmp_bit='1' then
+						out_color := tmp_vm(11 downto 8);
+						tmp_isforeground := true;
+					end if;
+				when "001" =>   -- multicolor text mode
+					if tmp_vm(11)='0' then
 						if tmp_bit='1' then
-							out_color := tmp_vm(11 downto 8);
+							out_color := "0" & tmp_vm(10 downto 8);
 							tmp_isforeground := true;
 						end if;
-					when "001" =>   -- multicolor text mode
-						if tmp_vm(11)='0' then
-							if tmp_bit='1' then
-								out_color := "0" & tmp_vm(10 downto 8);
-								tmp_isforeground := true;
-							end if;
-						else
-							case tmp_2bit is
-							when "00" => out_color := backgroundcolor0;
-							when "01" => out_color := backgroundcolor1;
-							when "10" => out_color := backgroundcolor2;
-											 tmp_isforeground := true;
-							when "11" => out_color := "0" & tmp_vm(10 downto 8);
-											 tmp_isforeground := true;
-							end case;
-						end if;
-					when "010" =>  -- standard bitmap mode
-						if tmp_bit='0' then
-							out_color := tmp_vm(3 downto 0);
-						else
-							out_color := tmp_vm(7 downto 4);
-							tmp_isforeground := true;
-						end if;
-					when "011" =>  -- multicolor bitmap mode
+					else
 						case tmp_2bit is
 						when "00" => out_color := backgroundcolor0;
-						when "01" => out_color := tmp_vm(7 downto 4);
-						when "10" => out_color := tmp_vm(3 downto 0);
+						when "01" => out_color := backgroundcolor1;
+						when "10" => out_color := backgroundcolor2;
 										 tmp_isforeground := true;
-						when "11" => out_color := tmp_vm(11 downto 8);
+						when "11" => out_color := "0" & tmp_vm(10 downto 8);
 										 tmp_isforeground := true;
 						end case;
-					when "100" =>  -- ECM text mode
+					end if;
+				when "010" =>  -- standard bitmap mode
+					if tmp_bit='0' then
+						out_color := tmp_vm(3 downto 0);
+					else
+						out_color := tmp_vm(7 downto 4);
+						tmp_isforeground := true;
+					end if;
+				when "011" =>  -- multicolor bitmap mode
+					case tmp_2bit is
+					when "00" => out_color := backgroundcolor0;
+					when "01" => out_color := tmp_vm(7 downto 4);
+					when "10" => out_color := tmp_vm(3 downto 0);
+									 tmp_isforeground := true;
+					when "11" => out_color := tmp_vm(11 downto 8);
+									 tmp_isforeground := true;
+					end case;
+				when "100" =>  -- ECM text mode
+					if tmp_bit='1' then
+						out_color := tmp_vm(11 downto 8);
+						tmp_isforeground := true;
+					else
+						case tmp_vm(7 downto 6) is
+						when "00" => out_color := backgroundcolor0;
+						when "01" => out_color := backgroundcolor1;
+						when "10" => out_color := backgroundcolor2;
+						when "11" => out_color := backgroundcolor3;
+						end case;								
+					end if;
+				when "101" =>  -- Invalid text mode
+					out_color := "0000";
+					if tmp_vm(11)='0' then
 						if tmp_bit='1' then
-							out_color := tmp_vm(11 downto 8);
-							tmp_isforeground := true;
-						else
-							case tmp_vm(7 downto 6) is
-							when "00" => out_color := backgroundcolor0;
-							when "01" => out_color := backgroundcolor1;
-							when "10" => out_color := backgroundcolor2;
-							when "11" => out_color := backgroundcolor3;
-							end case;								
-						end if;
-					when "101" =>  -- Invalid text mode
-						out_color := "0000";
-						if tmp_vm(11)='0' then
-							if tmp_bit='1' then
-								tmp_isforeground := true;
-							end if;
-						else
-							if tmp_2bit="10" or tmp_2bit="11" then	
-								tmp_isforeground := true;
-							end if;
-						end if;							
-					when "110" =>  -- Invalid bitmap mode 1
-						out_color := "0000";
-						if tmp_bit='1' then
 							tmp_isforeground := true;
 						end if;
-					when "111" =>  -- Invalid bitmap mode 2
-						out_color := "0000";
-						if tmp_2bit="10" or tmp_2bit="11" then
+					else
+						if tmp_2bit="10" or tmp_2bit="11" then	
 							tmp_isforeground := true;
 						end if;
-					end case;						
-				end if;
+					end if;							
+				when "110" =>  -- Invalid bitmap mode 1
+					out_color := "0000";
+					if tmp_bit='1' then
+						tmp_isforeground := true;
+					end if;
+				when "111" =>  -- Invalid bitmap mode 2
+					out_color := "0000";
+					if tmp_2bit="10" or tmp_2bit="11" then
+						tmp_isforeground := true;
+					end if;
+				end case;						
 				
 				-- overlay with sprite graphics
 				for SP in 7 downto 0 loop
@@ -319,7 +320,7 @@ begin
 				-- shift pixels along through buffers
 				pixelpattern := pixelpattern(22 downto 0) & '0';
 				
-				-- border flipflops management
+				-- border flipflop management
 				if CSEL='0' then    
 					tmp_lefthit := xcoordinate=31;
 					tmp_righthit := xcoordinate=335;
@@ -335,9 +336,9 @@ begin
 					tmp_bottomhit := displayline=251;
 				end if;
 				if tmp_righthit then mainborderflipflop:='1'; end if;
-				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
-				if tmp_bottomhit then verticalborderflipflop:='1'; end if;
+				if tmp_bottomhit and xcoordinate=392 then verticalborderflipflop:='1'; end if;
 				if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
+				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
 				
 				-- progress sprite rendering on every pixel 
 				for SP in 0 to 7 loop
