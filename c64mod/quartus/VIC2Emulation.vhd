@@ -48,11 +48,11 @@ begin
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "1110"; -- "0000"; -- "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110"; -- "0000"; -- "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; -- "0000"; -- "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; -- "0000"; -- "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; -- "0000"; -- "0011";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
 	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
