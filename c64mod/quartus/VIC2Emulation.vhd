@@ -40,9 +40,9 @@ begin
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
+	variable MCM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
-	variable MCM:              std_logic := '0';
 	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
@@ -91,6 +91,7 @@ begin
 		
 	-- registered output 
 	variable out_color  : std_logic_vector(3 downto 0) := "0000";
+
 	variable out_csync : std_logic := '0';
 
 	-- temporary stuff
@@ -98,7 +99,6 @@ begin
 	variable vcounter : integer range 0 to 1023;      -- current scan line 
 	variable xcoordinate : integer range 0 to 1023;   -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 127;
---	variable tmp_c : std_logic_vector(3 downto 0);
 	variable tmp_isforeground : boolean;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_vm : std_logic_vector(11 downto 0);
@@ -336,7 +336,7 @@ begin
 					tmp_bottomhit := displayline=251;
 				end if;
 				if tmp_righthit then mainborderflipflop:='1'; end if;
-				if tmp_bottomhit and xcoordinate=392 then verticalborderflipflop:='1'; end if;
+				if tmp_bottomhit and (tmp_lefthit or xcoordinate=392) then verticalborderflipflop:='1'; end if;
 				if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
 				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
 				
@@ -394,10 +394,9 @@ begin
 				for SP in 0 to 7 loop
 					if spritecycle=1+SP*2 then
 						spritedata(SP)(23 downto 16) := in_db(7 downto 0);
+						spriterendering(SP) := 5;
 					elsif spritecycle=2+SP*2 then
 						spritedata(SP)(7 downto 0) := in_db(7 downto 0);
-					elsif spritecycle=0 then
-						spriterendering(SP) := 5;
 					end if;
 				end loop;
 			end if;
