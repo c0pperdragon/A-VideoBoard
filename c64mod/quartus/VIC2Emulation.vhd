@@ -105,9 +105,11 @@ begin
 	variable tmp_pixelindex : integer range 0 to 511;
 	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_lefthit : boolean;
-	variable tmp_tophit : boolean;
 	variable tmp_righthit: boolean;
+	variable tmp_dline : integer range 0 to 511;
+	variable tmp_tophit : boolean;
 	variable tmp_bottomhit: boolean;
+	variable tmp_linestarthit: boolean;
 	variable tmp_bit : std_logic;
 	variable tmp_pos : integer range 1 to 27;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
@@ -320,7 +322,19 @@ begin
 				-- shift pixels along through buffers
 				pixelpattern := pixelpattern(22 downto 0) & '0';
 				
-				-- border flipflop management
+				-- determine the alignments of the scanline as far as the border
+				-- unit is concerned
+				tmp_dline := displayline;
+				if PAL='1' then
+					if xcoordinate>=392  then
+						tmp_dline := displayline+1;
+					end if;
+				else
+					if xcoordinate>=408  then
+						tmp_dline := displayline+1;
+					end if;
+				end if;
+				-- border flipflop trigger points
 				if CSEL='0' then    
 					tmp_lefthit := xcoordinate=31;
 					tmp_righthit := xcoordinate=335;
@@ -329,16 +343,24 @@ begin
 					tmp_righthit := xcoordinate=344;
 				end if;
 				if RSEL='0' then
-					tmp_tophit := displayline=55;
-					tmp_bottomhit := displayline=247;
+					tmp_tophit := tmp_dline=55;
+					tmp_bottomhit := tmp_dline=247;
 				else
-					tmp_tophit := displayline=51;
-					tmp_bottomhit := displayline=251;
+					tmp_tophit := tmp_dline=51;
+					tmp_bottomhit := tmp_dline=251;
 				end if;
-				if tmp_righthit then mainborderflipflop:='1'; end if;
-				if tmp_bottomhit and (tmp_lefthit or xcoordinate=392) then verticalborderflipflop:='1'; end if;
-				if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
-				if tmp_lefthit and verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
+				
+				-- sample the vertical line hit conditions only once per cycle
+				if phase=0 then
+					if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
+					if tmp_bottomhit then verticalborderflipflop:='1'; end if;
+				end if;
+				-- check the horizonal conditions on every pixel
+				if tmp_lefthit then
+					if verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
+				elsif tmp_righthit then 
+					mainborderflipflop:='1';
+				end if;
 				
 				-- progress sprite rendering on every pixel 
 				for SP in 0 to 7 loop
