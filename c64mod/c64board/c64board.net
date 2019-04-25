@@ -1,13 +1,13 @@
 (export (version D)
   (design
     (source C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\c64mod\c64board\c64board.sch)
-    (date "29.10.2018 19:22:47")
+    (date "25.04.2019 09:48:13")
     (tool "Eeschema (5.0.0)")
     (sheet (number 1) (name /) (tstamps /)
       (title_block
         (title "C64 mod")
         (company)
-        (rev 1)
+        (rev 3)
         (date)
         (source c64board.sch)
         (comment (number 1) (value ""))

@@ -7,7 +7,7 @@ encoding utf-8
 Sheet 1 1
 Title "C64 mod"
 Date ""
-Rev "1"
+Rev "3"
 Comp ""
 Comment1 ""
 Comment2 ""

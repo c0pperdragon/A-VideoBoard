@@ -28,13 +28,13 @@ $EndComp
 $Comp
 L Connector_Generic:Conn_02x10_Odd_Even J1
 U 1 1 5B7FD3C0
-P 8950 3200
-F 0 "J1" H 9000 3817 50  0000 C CNN
-F 1 "Conn_02x10_Odd_Even" H 9000 3726 50  0000 C CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_2x10_P2.54mm_Vertical" H 8950 3200 50  0001 C CNN
-F 3 "~" H 8950 3200 50  0001 C CNN
-	1    8950 3200
-	-1   0    0    1   
+P 8850 3100
+F 0 "J1" H 8900 3717 50  0000 C CNN
+F 1 "Conn_02x10_Odd_Even" H 8900 3626 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_2x10_P2.54mm_Vertical" H 8850 3100 50  0001 C CNN
+F 3 "~" H 8850 3100 50  0001 C CNN
+	1    8850 3100
+	1    0    0    -1  
 $EndComp
 $Comp
 L Regulator_Linear:MIC5504-3.3YM5 U2
