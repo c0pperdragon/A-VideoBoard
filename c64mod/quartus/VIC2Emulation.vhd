@@ -48,18 +48,18 @@ begin
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110";
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110";
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001";
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010";
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011";
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100";
+	variable bordercolor:      std_logic_vector(3 downto 0) := "1110"; --
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110"; --
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; --
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; --
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; --
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100"; --
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 --	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
 	variable spritecolor: T_spritecolor := ( "0000", "0000", "0000", "0000", "0000", "0000", "0000", "0000" );
 	
-	-- registering the inputs
+	-- registering the input lines
 	variable in_phi0: std_logic; 
 	variable in_db: std_logic_vector(11 downto 0);
 	variable in_a:  std_logic_vector(5 downto 0);
@@ -68,9 +68,10 @@ begin
 	variable in_aec: std_logic; 
 	
 	-- variables for synchronious operation
-	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
-	variable cycle : integer range 0 to 127 := 0;       -- cpu cycle in line (cycle 0: first access to video ram)
 	variable displayline: integer range 0 to 511 := 0;  -- VIC-II line numbering
+	variable cycle : integer range 0 to 127 := 0;       -- cpu cycle in line (cycle 0: first access to video ram)
+	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
+	variable xcoordinate : integer range 0 to 1023;     -- x-position in sprite coordinates
 
 	type T_videomatrix is array (0 to 39) of std_logic_vector(11 downto 0);
 	variable videomatrix : T_videomatrix;
@@ -84,21 +85,19 @@ begin
 	type T_spriterendering is array (0 to 7) of integer range 0 to 5; 
 	variable spriterendering : T_spriterendering := (0,0,0,0,0,0,0,0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
-		
+
+   -- synchronizing the screen by detecing the DRAM refresh pattern	
 	variable syncdetect_ok : boolean := false;
 	variable syncdetect_cycle : integer range 0 to 127 := 0;
 	variable ramrefreshpattern : std_logic_vector(9 downto 0) := "0000000000";
 		
 	-- registered output 
 	variable out_color  : std_logic_vector(3 downto 0) := "0000";
-
 	variable out_csync : std_logic := '0';
 
 	-- temporary stuff
 	variable hcounter : integer range 0 to 1023;      -- pixel in current scan line
 	variable vcounter : integer range 0 to 1023;      -- current scan line 
-	variable xcoordinate : integer range 0 to 1023;   -- x-position in sprite coordinates
-	variable spritecycle : integer range 0 to 127;
 	variable tmp_isforeground : boolean;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_vm : std_logic_vector(11 downto 0);
@@ -106,7 +105,6 @@ begin
 	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_lefthit : boolean;
 	variable tmp_righthit: boolean;
-	variable tmp_dline : integer range 0 to 511;
 	variable tmp_tophit : boolean;
 	variable tmp_bottomhit: boolean;
 	variable tmp_linestarthit: boolean;
@@ -118,19 +116,8 @@ begin
 	
 	begin
 		-- synchronous logic -------------------
-		if rising_edge(CLK) then
-			-- coordinates for sprite display and the border engine
-			xcoordinate := cycle*8 + phase/2 + 5;
-			if PAL='1' then
-				if xcoordinate>=504 then
-					xcoordinate := xcoordinate-504;
-				end if;
-			else
-				if xcoordinate>=520 then
-					xcoordinate := xcoordinate-520;
-				end if;
-			end if;
-			
+		if rising_edge(CLK) then	
+		
 			-- generate pixel output
 			if (phase mod 2) = 0 then   
 			
@@ -272,7 +259,7 @@ begin
 					
 				-- override with blankings and sync signals 
 				if PAL='1' then
-					hcounter := cycle*8 + (phase/2) + 106;
+					hcounter := xcoordinate + 101;
 					vcounter := displayline+18;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
@@ -283,7 +270,7 @@ begin
 					end if;
 					tmp_half := 252;
 				else
-					hcounter := cycle*8 + (phase/2) + 110;
+					hcounter := xcoordinate + 101;
 					vcounter := displayline+253;
 					if hcounter>=520 then
 						hcounter:=hcounter-520;
@@ -294,7 +281,6 @@ begin
 					end if;
 					tmp_half := 260;
 				end if;
-				
 				if hcounter<92 or hcounter>=92+403 or vcounter<28 
 				then
 					out_color := "0000";
@@ -322,43 +308,18 @@ begin
 				-- shift pixels along through buffers
 				pixelpattern := pixelpattern(22 downto 0) & '0';
 				
-				-- determine the alignments of the scanline as far as the border
-				-- unit is concerned
-				tmp_dline := displayline;
-				if PAL='1' then
-					if xcoordinate>=392  then
-						tmp_dline := displayline+1;
-					end if;
-				else
-					if xcoordinate>=408  then
-						tmp_dline := displayline+1;
-					end if;
-				end if;
-				-- border flipflop trigger points
-				if CSEL='0' then    
-					tmp_lefthit := xcoordinate=31;
-					tmp_righthit := xcoordinate=335;
-				else
-					tmp_lefthit := xcoordinate=24;
-					tmp_righthit := xcoordinate=344;
-				end if;
-				if RSEL='0' then
-					tmp_tophit := tmp_dline=55;
-					tmp_bottomhit := tmp_dline=247;
-				else
-					tmp_tophit := tmp_dline=51;
-					tmp_bottomhit := tmp_dline=251;
-				end if;
-				
 				-- sample the vertical line hit conditions only once per cycle
-				if phase=0 then
-					if tmp_tophit and DEN='1' then verticalborderflipflop:='0'; end if;
-					if tmp_bottomhit then verticalborderflipflop:='1'; end if;
+				if phase=14 then
+					if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
+						if DEN='1' then verticalborderflipflop:='0'; end if;
+					elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
+						verticalborderflipflop:='1'; 
+					end if;
 				end if;
 				-- check the horizonal conditions on every pixel
-				if tmp_lefthit then
+				if (CSEL='0' and xcoordinate=31) or (CSEL='1' and xcoordinate=24) then
 					if verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
-				elsif tmp_righthit then 
+				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
 					mainborderflipflop:='1';
 				end if;
 				
@@ -382,65 +343,74 @@ begin
 					end case;
 					
 				end loop;
-			end if;
-			
-			-- determine point on which the sprite DMA happens
-			if PAL='1' then
-				spritecycle := cycle-42;
-			else
-				spritecycle := cycle-43;
+				
+				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
+				if cycle=14 and phase=4 then
+					xcoordinate := 0;
+				else
+					xcoordinate := xcoordinate+1;
+				end if;
 			end if;
 			
 			-- data from memory
 			if phase=7 then                -- received in first half of cycle
 				-- pixel pattern read
-				if cycle>=1 and cycle<41 then
+				if cycle>=16 and cycle<56 then
 					pixelpattern(7 downto 0) := in_db(7 downto 0);
 				end if;
 				-- sprite DMA read
-				for SP in 0 to 7 loop
-					if spritecycle=2+SP*2 then
-						spritedata(SP)(15 downto 8) := in_db(7 downto 0);
-					end if;
-				end loop;
+				if cycle=61 then spritedata(0)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=63 then spritedata(1)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=0  then spritedata(2)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=2  then spritedata(3)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=4  then spritedata(4)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=6  then spritedata(5)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=8  then spritedata(6)(15 downto 8) := in_db(7 downto 0); end if;
+				if cycle=10 then spritedata(7)(15 downto 8) := in_db(7 downto 0); end if;
 			end if;
-			if phase=14 then   -- receive during a CPU-blocking cycle
+			if phase=14 and in_aec='0' then   -- receive during a CPU-blocking second half of a cycle
 				-- video matrix read
-				if cycle>=0 and cycle<40 then
-					if in_aec='0' then 
-						videomatrix(cycle) := in_db;
-						videomatrixage := 0;
-					end if;
+				if cycle>=15 and cycle<55 then
+					videomatrix(cycle-15) := in_db;
+					videomatrixage := 0;
 				end if;
 				-- sprite DMA read
-				for SP in 0 to 7 loop
-					if spritecycle=1+SP*2 then
-						spritedata(SP)(23 downto 16) := in_db(7 downto 0);
-						spriterendering(SP) := 5;
-					elsif spritecycle=2+SP*2 then
-						spritedata(SP)(7 downto 0) := in_db(7 downto 0);
-					end if;
-				end loop;
+				if cycle=60 then spritedata(0)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=62 then spritedata(1)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=64 then spritedata(2)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=1  then spritedata(3)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=3  then spritedata(4)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=5  then spritedata(5)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=7  then spritedata(6)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=9  then spritedata(7)(23 downto 16) := in_db(7 downto 0); end if;
+				if cycle=61 then spritedata(0)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=63 then spritedata(1)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=0  then spritedata(2)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=2  then spritedata(3)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=4  then spritedata(4)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=6  then spritedata(5)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=8  then spritedata(6)(7 downto 0) := in_db(7 downto 0); end if;
+				if cycle=10 then spritedata(7)(7 downto 0) := in_db(7 downto 0); end if;
 			end if;
 			
 			-- detect if there was a real sprite read (when the
 			-- read address did change between individual bytes)
 			-- set rendering to ready
 			-- (very short time slot were address is stable)
-			if phase=9 then
-				if in_aec='0' then -- only when having done DMA
-					if spritecycle=1 or spritecycle=3 or spritecycle=5 or spritecycle=7 
-					or spritecycle=9 or spritecycle=11 or spritecycle=13 or spritecycle=15 then
+			if phase=9 and in_aec='1' then
+					if cycle=60 or cycle=62 or cycle=64 or cycle=1 
+					or cycle=3 or cycle=5 or cycle=7 or cycle=9 
+					then
 						firstspritereadaddress := in_a(1 downto 0);
 					end if;
-					for SP in 0 to 7 loop
-						if spritecycle=2+SP*2 then
-							if firstspritereadaddress /= in_a(1 downto 0) then
-								spriterendering(SP) := 4;
-							end if;
-						end if;
-					end loop;
-				end if;
+					if cycle=61 and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(0) := 4; end if;
+					if cycle=63 and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(1) := 4; end if;
+					if cycle=0  and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(2) := 4; end if;
+					if cycle=2  and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(3) := 4; end if;
+					if cycle=4  and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(4) := 4; end if;
+					if cycle=6  and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(5) := 4; end if;
+					if cycle=8  and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(6) := 4; end if;
+					if cycle=10 and firstspritereadaddress /= in_a(1 downto 0) then spriterendering(7) := 4; end if;
 			end if;
 			
 			-- CPU writes into registers 
@@ -494,7 +464,7 @@ begin
 
 			-- progress horizontal and vertical counters
 			if phase=15 then
-				if (cycle=62 and PAL='1') or cycle=64 then
+				if cycle=64 then
 					cycle := 0;
 					if (displayline=262 and PAL='0') or displayline=311 then
 						displayline := 0;
@@ -505,7 +475,13 @@ begin
 						videomatrixage := videomatrixage+1;
 					end if;
 				else
-					cycle := cycle+1;
+					if PAL='1' and cycle=57 then   -- for PAL skip two of the cycles
+						cycle := 59;
+					elsif PAL='1' and cycle=9 then
+						cycle := 11;
+					else
+						cycle := cycle+1;
+					end if;
 				end if;
 			end if;
 
@@ -526,14 +502,14 @@ begin
 						syncdetect_ok := true;  -- have detected the refresh pattern
 					elsif syncdetect_ok then
 						syncdetect_ok := false; -- not detected for 1. time 
-						-- detect the top of the frame annomaly (when in sync)
+						-- detect the bottom of the frame annomaly (when in sync)
 						if ramrefreshpattern = "1111111111" then
+							cycle := 16;	
 							if PAL='1' then
 								displayline := 311;
 							else
 								displayline := 262;
 							end if;
-							cycle := 1;	
 						end if;
 					else 
 						syncdetect_cycle := 6;  -- two missdetecions: search for sync
@@ -554,7 +530,7 @@ begin
 				phase:=phase+1;
 			end if;
 
-			-- take input into registers
+			-- take signals into registers
 			in_phi0 := PHI0;
 			in_db := DB;
 			in_a := A;
