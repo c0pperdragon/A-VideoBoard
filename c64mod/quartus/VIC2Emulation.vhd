@@ -119,7 +119,7 @@ begin
 	variable spritereadcomplete : std_logic;
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
-	type T_spritedata is array (0 to 7) of std_logic_vector(23 downto 0);
+	type T_spritedata is array (0 to 7) of std_logic_vector(25 downto 0);
 	variable spritedata : T_spritedata;
 	type T_spriterendering is array (0 to 7) of std_logic; 
 	variable spriterendering : T_spriterendering := ('0','0','0','0','0','0','0','0');
@@ -263,24 +263,23 @@ begin
 				-- overlay with sprite graphics
 				for SP in 7 downto 0 loop
 					if ((not tmp_isforeground) or spritepriority(SP)='0') and (spriterendering(SP)='1')	then
---						if spritemulticolor(SP)='1' then								
---							tmp_2bit := spritedata(SP)(23 downto 22);
---							if (doublewidth(SP)='0' and spriterendering(SP) mod 2 = 1) 
---							or (doublewidth(SP)='1' and spriterendering(SP) / 2 = 1)
---							then
---								tmp_2bit := spritedata(SP)(24 downto 23);
---							end if;
---							case tmp_2bit is
---							when "00" => 
---							when "01" => out_color := spritemulticolor0;
---							when "10" => out_color := spritecolor(SP);
---							when "11" => out_color := spritemulticolor1;
---							end case;
---						else
+						if spritemulticolor(SP)='1' then								
+							if spritedata(SP)(25) = '0' then
+								tmp_2bit := spritedata(SP)(23 downto 22);
+							else
+								tmp_2bit := spritedata(SP)(24 downto 23);
+							end if;
+							case tmp_2bit is
+							when "00" => 
+							when "01" => out_color := spritemulticolor0;
+							when "10" => out_color := spritecolor(SP);
+							when "11" => out_color := spritemulticolor1;
+							end case;
+						else
 							if spritedata(SP)(23)='1' then
 								out_color := spritecolor(SP);						
 							end if;
---						end if;
+						end if;
 					end if;
 				end loop;
 				
@@ -361,7 +360,7 @@ begin
 					elsif spriterendering(SP)='1' then
 						if doublewidth(SP)='0' 
 						or (xcoordinate mod 2) = (to_integer(unsigned(spritex(SP))) mod 2)  then 
-							spritedata(SP) := spritedata(SP)(22 downto 0) & '0';
+							spritedata(SP) := (not spritedata(SP)(25)) & spritedata(SP)(23 downto 0) & '0';
 						end if;
 					elsif xcoordinate=to_integer(unsigned(spritex(SP))) then
 						spriterendering(SP) := '1';
@@ -400,28 +399,28 @@ begin
 				end if;
 				-- read the last byte for a sprite
 				if cycle=60 and spritereadcomplete='1' then
-					spritedata(0) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(0) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=62 and spritereadcomplete='1' then
-					spritedata(1) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(1) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=64 and spritereadcomplete='1' then
-					spritedata(2) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(2) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=1 and spritereadcomplete='1' then
-					spritedata(3) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(3) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=3 and spritereadcomplete='1' then
-					spritedata(4) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(4) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=5 and spritereadcomplete='1' then
-					spritedata(5) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(5) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=7 and spritereadcomplete='1' then
-					spritedata(6) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(6) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 				if cycle=9 and spritereadcomplete='1' then
-					spritedata(7) := spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+					spritedata(7) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
 				end if;
 			end if;
 			
