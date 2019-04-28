@@ -69,17 +69,6 @@ architecture immediate of ClockMultiplier is
 begin		
 	subdividerpll: PLL252 port map ( CONFIGUPDATE, CLK25, CLK25, SCANCLKENA, SCANDATA, CLKA, CLKB, CLKC, CLKD, open,open );   -- use with PAL
 --	subdividerpll: PLL262 port map ( CONFIGUPDATE, CLK25, CLK25, SCANCLKENA, SCANDATA, CLKA, CLKB, CLKC, CLKD, open,open );   -- use with NTSC
-
---	process (CLKA)
---	variable counter : integer range 0 to 15 := 0;
---	variable bits : std_logic_vector(3 downto 0);
---	begin
---		if rising_edge(CLKA) then
---			counter := counter+1;
---		end if;
---		bits:= std_logic_vector	( to_unsigned(counter,4) );
---		CLK <= bits(3);
---	end process;
 	
 	-- generate the 16 times CPU clock
 	process (PHI0, CLKA, CLKB, CLKC, CLKD)
