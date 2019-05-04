@@ -75,8 +75,11 @@ begin
   	type T_spritex is array (0 to 7) of std_logic_vector(8 downto 0);
 	variable spritex : T_spritex := 
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
+	variable ECM_SET:          std_logic := '0';
 	variable ECM:              std_logic := '0';
+	variable BMM_SET:          std_logic := '0';
 	variable BMM:              std_logic := '0';
+	variable MCM_SET:          std_logic := '0';
 	variable MCM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
@@ -108,7 +111,7 @@ begin
 	variable displayline: integer range 0 to 511 := 0;  -- VIC-II line numbering
 	variable cycle : integer range 0 to 127 := 0;       -- cpu cycle in line (cycle 0: first access to video ram)
 	variable phase: integer range 0 to 15 := 0;         -- phase inside of the cycle
-	variable xcoordinate : integer range 0 to 1023;     -- x-position in sprite coordinates
+	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 
 	variable pixelpattern : std_logic_vector(23 downto 0);
 	variable mainborderflipflop : std_logic := '0';
@@ -355,9 +358,7 @@ begin
 				
 				-- progress sprite rendering on every pixel 
 				for SP in 0 to 7 loop
-					if xcoordinate = 350 then
-						spriterendering(SP) := '0';
-					elsif spriterendering(SP)='1' then
+					if spriterendering(SP)='1' then
 						if doublewidth(SP)='0' 
 						or (xcoordinate mod 2) = (to_integer(unsigned(spritex(SP))) mod 2)  then 
 							spritedata(SP) := (not spritedata(SP)(25)) & spritedata(SP)(23 downto 0) & '0';
@@ -368,8 +369,8 @@ begin
 				end loop;
 				
 				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
-				if cycle=14 and phase=4 then
-					xcoordinate := 0;
+				if cycle=0 and phase=4 then
+					xcoordinate := 400;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
@@ -398,30 +399,17 @@ begin
 					spritedatabyte0 := in_db(7 downto 0);
 				end if;
 				-- read the last byte for a sprite
-				if cycle=60 and spritereadcomplete='1' then
-					spritedata(0) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=62 and spritereadcomplete='1' then
-					spritedata(1) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=64 and spritereadcomplete='1' then
-					spritedata(2) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=1 and spritereadcomplete='1' then
-					spritedata(3) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=3 and spritereadcomplete='1' then
-					spritedata(4) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=5 and spritereadcomplete='1' then
-					spritedata(5) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=7 and spritereadcomplete='1' then
-					spritedata(6) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
-				if cycle=9 and spritereadcomplete='1' then
-					spritedata(7) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
-				end if;
+				for SP in 0 to 7 loop
+					if (SP=0 and cycle=60) or (SP=1 and cycle=62) or (SP=2 and cycle=64) or (SP=3 and cycle=1)
+					or (SP=4 and cycle=3) or (SP=5 and cycle=5) or (SP=6 and cycle=7) or (SP=7 and cycle=9) then
+						spriterendering(SP) := '0';
+						if spritereadcomplete='1' then
+							spritedata(SP) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+						else
+							spritedata(SP) := "00000000000000000000000000";
+						end if;
+					end if;
+				end loop;
 			end if;
 			
 			-- detect if there was a real sprite read (when the
@@ -439,6 +427,14 @@ begin
 				end if;
 			end if;
 			
+			-- make the changes to some registers have delayed effect
+			if phase=15 then
+				MCM := MCM_SET;
+			end if;
+			if phase=9 then
+				ECM := ECM_SET;
+				BMM := BMM_SET;
+			end if;
 			-- CPU writes into registers 
 			-- (very short time slot were address is stable)
 			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
@@ -459,11 +455,11 @@ begin
 								  spritex(5)(8) := in_db(5);
 								  spritex(6)(8) := in_db(6);
 								  spritex(7)(8) := in_db(7);
-					when 17 => ECM := in_db(6);
-	                       BMM := in_db(5);
+					when 17 => ECM_SET := in_db(6);
+	                       BMM_SET := in_db(5);
 								  DEN := in_db(4);
 								  RSEL:= in_db(3);
-					when 22 => MCM := in_db(4);
+					when 22 => MCM_SET := in_db(4);
 					           CSEL := in_db(3);
 								  XSCROLL := in_db(2 downto 0);
 					when 27 => spritepriority := in_db(7 downto 0);
