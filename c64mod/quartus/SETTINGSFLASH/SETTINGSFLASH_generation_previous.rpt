@@ -1,0 +1,17 @@
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\c64mod\quartus\SETTINGSFLASH.qsys --synthesis=VHDL --output-directory=C:\Users\Reinhard\Documents\GitHub\A-VideoBoard\c64mod\quartus\SETTINGSFLASH\synthesis --family="MAX 10" --part=10M02SCE144C8G
+Progress: Loading quartus/SETTINGSFLASH.qsys
+Progress: Reading input file
+Progress: Adding onchip_flash_0 [altera_onchip_flash 18.0]
+Progress: Parameterizing module onchip_flash_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Warning: SETTINGSFLASH.onchip_flash_0: Clock frequency is set to 116000000.0 Hz, but the target device only supports maximum 7250000 Hz for the selected interface.
+Info: SETTINGSFLASH: Generating SETTINGSFLASH "SETTINGSFLASH" for QUARTUS_SYNTH
+Info: onchip_flash_0: Generating top-level entity altera_onchip_flash
+Info: onchip_flash_0: "SETTINGSFLASH" instantiated altera_onchip_flash "onchip_flash_0"
+Info: SETTINGSFLASH: Done "SETTINGSFLASH" with 2 modules, 7 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis

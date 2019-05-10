@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pinplan
+ variation_name="onchip_flash_0"
+ megafunction_name="ALTERA_ONCHIP_FLASH"
+ intended_family="MAX 10"
+ specifies="all_ports">
+ <global>
+  <pin name="clock" direction="input" scope="external" />
+  <pin name="reset_n" direction="input" scope="external" />
+  <pin name="avmm_data_addr[11..0]" direction="input" scope="external" />
+  <pin name="avmm_data_read" direction="input" scope="external" />
+  <pin name="avmm_data_writedata[31..0]" direction="input" scope="external" />
+  <pin name="avmm_data_write" direction="input" scope="external" />
+  <pin name="avmm_data_readdata[31..0]" direction="output" scope="external" />
+  <pin name="avmm_data_waitrequest" direction="output" scope="external" />
+  <pin name="avmm_data_readdatavalid" direction="output" scope="external" />
+  <pin name="avmm_data_burstcount[1..0]" direction="input" scope="external" />
+  <pin name="avmm_csr_addr" direction="input" scope="external" />
+  <pin name="avmm_csr_read" direction="input" scope="external" />
+  <pin name="avmm_csr_writedata[31..0]" direction="input" scope="external" />
+  <pin name="avmm_csr_write" direction="input" scope="external" />
+  <pin name="avmm_csr_readdata[31..0]" direction="output" scope="external" />
+ </global>
+</pinplan>
