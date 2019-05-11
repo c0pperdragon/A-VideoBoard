@@ -25,11 +25,14 @@ so make sure that your power supply can handle this.
 
 ## Assembling the VIC adapter board
 
-If you want to build your own adapter board, you need to have a PCB manufactured with 1mm thickness 
+If you want to build your own adapter board, you need to have a PCB manufactured with 0.8mm thickness 
 (use the gerber.zip for ordering). After soldering the ICs and passives, you need to fit a 40-pin
 IC socket into the big holes. Use the socket type with round pins (the more expensive ones).
 Solder from below and remove as much excess solder as possible. Then install the ribbon cable connector.
 Take special care when installing the voltage regulator, as this small package always gave me the most trouble.
+For your convenience, I have set up a parts list at 
+[mouser](https://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=2b75b16750)
+containing everything to build the board.
 
 ## Connectors
 
