@@ -3,6 +3,7 @@
 library ieee;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
+use work.Settings_pkg.all;
 
 entity C64Mod is	
 	port (
@@ -47,25 +48,10 @@ architecture immediate of C64Mod is
 	signal vramq1        : std_logic_vector (14 downto 0);
 	
 	-- current user settings (palette and such)
-	type T_palette is array (0 to 15) of std_logic_vector(14 downto 0);
+	signal settings_writeaddr : std_logic_vector(5 downto 0) := "000000";
+	signal settings_writedata : std_logic_vector(7 downto 0) := "00000000";
+	signal settings_writeen : std_logic := '0';
 	signal palette : T_palette;
-	
-	-- communicate with the flash memory controller
-	signal CLK6_25 : std_logic;
---	signal avmm_csr_addr: std_logic;
---	signal avmm_csr_read: std_logic;
---	signal avmm_csr_writedata :  std_logic_vector(31 downto 0);
---	signal avmm_csr_write: std_logic;
---	signal avmm_csr_readdata: std_logic_vector(31 downto 0);
---	signal avmm_data_addr:  std_logic_vector(11 downto 0);
---	signal avmm_data_read:  std_logic;
---	signal avmm_data_writedata: std_logic_vector(31 downto 0);
---	signal avmm_data_write: std_logic;
---	signal avmm_data_readdata: std_logic_vector(31 downto 0);
---	signal avmm_data_waitrequest: std_logic;
---	signal avmm_data_readdatavalid: std_logic;  
---	signal avmm_data_burstcount: std_logic_vector(1 downto 0);
-	
 	
    component ClockMultiplier is
 	port (
@@ -122,26 +108,22 @@ architecture immediate of C64Mod is
 		q		: out std_logic_vector(data_width-1 downto 0)
 	);	
 	end component;
-	
-	component SETTINGSFLASH is
+
+	component Settings is
 	port (
-		clock                   : in  std_logic                     := '0';             --    clk.clk
-		avmm_csr_addr           : in  std_logic                     := '0';             --    csr.address
-		avmm_csr_read           : in  std_logic                     := '0';             --       .read
-		avmm_csr_writedata      : in  std_logic_vector(31 downto 0) := (others => '0'); --       .writedata
-		avmm_csr_write          : in  std_logic                     := '0';             --       .write
-		avmm_csr_readdata       : out std_logic_vector(31 downto 0);                    --       .readdata
-		avmm_data_addr          : in  std_logic_vector(11 downto 0) := (others => '0'); --   data.address
-		avmm_data_read          : in  std_logic                     := '0';             --       .read
-		avmm_data_writedata     : in  std_logic_vector(31 downto 0) := (others => '0'); --       .writedata
-		avmm_data_write         : in  std_logic                     := '0';             --       .write
-		avmm_data_readdata      : out std_logic_vector(31 downto 0);                    --       .readdata
-		avmm_data_waitrequest   : out std_logic;                                        --       .waitrequest
-		avmm_data_readdatavalid : out std_logic;                                        --       .readdatavalid
-		avmm_data_burstcount    : in  std_logic_vector(1 downto 0)  := (others => '0'); --       .burstcount
-		reset_n                 : in  std_logic                     := '0'              -- nreset.reset_n
-	);
-	end component;	
+		-- reference clock
+		CLK25: in std_logic;		
+		
+		-- get notified when CPU writes into the registers
+		WRITEADDR : in std_logic_vector(5 downto 0);
+		WRITEDATA : in std_logic_vector(7 downto 0);
+		WRITEEN : in std_logic;
+		
+		-- settings output signals
+		PALETTE: out T_palette
+	);	
+	end component;
+	
 	
 begin		
 	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), PAL, CLK );
@@ -183,33 +165,15 @@ begin
 			vramq1		
 		);
 		
-	flash : SETTINGSFLASH port map (
-		CLK6_25, 
-		'0', -- avmm_csr_addr           : in  std_logic
-		'0', -- avmm_csr_read           : in  std_logic
-		"00000000000000000000000000000000", -- avmm_csr_writedata      : in  std_logic_vector(31 downto 0) 
-		'0', -- avmm_csr_write          : in  std_logic   
-		open, -- avmm_csr_readdata       : out std_logic_vector(31 downto 0)
-		"000000000000", -- avmm_data_addr          : in  std_logic_vector(11 downto 0) := (others => '0'); --   data.address
-		'0', -- avmm_data_read          : in  std_logic                     := '0';             --       .read
-		"00000000000000000000000000000000", -- avmm_data_writedata     : in  std_logic_vector(31 downto 0) := (others => '0'); --       .writedata
-		'0', -- avmm_data_write         : in  std_logic                     := '0';             --       .write
-		open, -- avmm_data_readdata      : out std_logic_vector(31 downto 0);                    --       .readdata
-		open, -- avmm_data_waitrequest   : out std_logic;                                        --       .waitrequest
-		open, -- avmm_data_readdatavalid : out std_logic;                                        --       .readdatavalid
-		"00", -- avmm_data_burstcount    : in  std_logic_vector(1 downto 0)  := (others => '0'); --       .burstcount
-		'0' -- reset_n                 : in  std_logic                     := '0'              -- nreset.reset_n
-	);
-	
-	--- divide refernce clock to get a slower clock for the flash memory controller
-	process (CLK25)
-		variable counter : std_logic_vector(1 downto 0) := "00";
-	begin
-		if rising_edge(CLK25) then		
-			counter := std_logic_vector(unsigned(counter)+1);
-		end if;
-		CLK6_25 <= counter(1);
-	end process;
+	settings0: Settings 
+		port map(
+			CLK25,
+			settings_writeaddr,
+			settings_writedata,
+			settings_writeen,
+			PALETTE
+		);
+		
 	
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
@@ -382,33 +346,11 @@ begin
 	end process;
 		
 
-	------------------ manage user settings (colors and such) 
+	------- listen to CPU activity and forward register change to Settings
 	process (CLK) 
-	-- default settings 
-	type T_settings is array (0 to 15) of std_logic_vector(14 downto 0);
-	variable settings : T_settings :=
-	(     "000000000000000",
-			std_logic_vector(to_unsigned(31,5) & to_unsigned(16,5) & to_unsigned(16,5)),
-			std_logic_vector(to_unsigned(10,5) & to_unsigned(13,5) & to_unsigned(24,5)),
-			std_logic_vector(to_unsigned(19,5) & to_unsigned(16,5) & to_unsigned(11,5)),
-			std_logic_vector(to_unsigned(12,5) & to_unsigned(21,5) & to_unsigned(22,5)),
-			std_logic_vector(to_unsigned(16,5) & to_unsigned(12,5) & to_unsigned( 4,5)),
-			std_logic_vector(to_unsigned( 8,5) & to_unsigned(26,5) & to_unsigned(14,5)),
-			std_logic_vector(to_unsigned(23,5) & to_unsigned( 8,5) & to_unsigned(17,5)),
-			std_logic_vector(to_unsigned(12,5) & to_unsigned(11,5) & to_unsigned(21,5)),
-			std_logic_vector(to_unsigned( 8,5) & to_unsigned(11,5) & to_unsigned(18,5)),
-			std_logic_vector(to_unsigned(16,5) & to_unsigned(13,5) & to_unsigned(24,5)),
-			std_logic_vector(to_unsigned(10,5) & to_unsigned(16,5) & to_unsigned(16,5)),
-			std_logic_vector(to_unsigned(15,5) & to_unsigned(16,5) & to_unsigned(16,5)),
-			std_logic_vector(to_unsigned(23,5) & to_unsigned( 8,5) & to_unsigned(12,5)),
-			std_logic_vector(to_unsigned(15,5) & to_unsigned(26,5) & to_unsigned( 6,5)),
-			std_logic_vector(to_unsigned(19,5) & to_unsigned(16,5) & to_unsigned(16,5))
-	);
-	-- modification selector
-	variable selected : integer range 0 to 15 := 1;
 	
 	-- monitor the CPU actions
-	variable phase: integer range 0 to 15 := 0;  
+	variable phase: integer range 0 to 15 := 0;
 	variable in_phi0: std_logic; 
 	variable in_db: std_logic_vector(11 downto 0);
 	variable in_a:  std_logic_vector(5 downto 0);
@@ -416,26 +358,33 @@ begin
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
 	
+	variable writedetected : std_logic := '0';
+	
 	begin
-		-- monitor when the CPU writes into registers 
+		-- monitor when the CPU writes into registers and forward info the settings manager
 		if rising_edge(CLK) then
-		
-			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
-				case to_integer(unsigned(in_a)) is 
-					when 60 => settings(selected)(14 downto 10) := in_db(4 downto 0);					
-					when 61 => settings(selected)(9 downto 5) := in_db(4 downto 0);
-					when 62 => settings(selected)(4 downto 0) := in_db(4 downto 0);
-					when 63 => selected := to_integer(unsigned(in_db(3 downto 0)));
-					when others => null;
-				end case;
+			-- as the settings manager runs at a different clock, the 
+			-- data needs to be transfered with proper setup and hold times
+			if phase=9 then
+				if in_aec='1' and in_rw='0' and in_cs='0' then  
+					settings_writeaddr <= in_a;
+					settings_writedata <= in_db(7 downto 0);
+					writedetected := '1';
+				else
+					writedetected := '0';
+				end if;
+			elsif phase=10 then
+				settings_writeen <= writedetected;
+			elsif phase=6 then
+				settings_writeen <= '0';
 			end if;
-		
+			
 			-- progress the phase
 			if phase>12 and in_phi0='0' then
 				phase:=0;
 			elsif phase<15 then
 				phase:=phase+1;
-			end if;
+			end if;			
 			
 			-- take signals into registers
 			in_phi0 := GPIO1(20);
@@ -448,24 +397,6 @@ begin
 			in_cs := GPIO1(15); 
 			in_aec := GPIO1(18);					
 		end if;	
-	
-		-- generate palette signals from registers 
-		palette(0) <= "000001000010000";
-		palette(1) <= settings(1);
-		palette(2) <= settings(2);
-		palette(3) <= settings(3);
-		palette(4) <= settings(4);
-		palette(5) <= settings(5);
-		palette(6) <= settings(6);
-		palette(7) <= settings(7);
-		palette(8) <= settings(8);
-		palette(9) <= settings(9);
-		palette(10) <= settings(10);
-		palette(11) <= settings(11);
-		palette(12) <= settings(12);
-		palette(13) <= settings(13);
-		palette(14) <= settings(14);
-		palette(15) <= settings(15);
 	end process;
 		
 end immediate;

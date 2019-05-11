@@ -155,6 +155,7 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_6
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name VHDL_FILE Settings.vhd
 set_global_assignment -name QIP_FILE SETTINGSFLASH/synthesis/SETTINGSFLASH.qip
 set_global_assignment -name VHDL_FILE ram_dual.vhd
 set_global_assignment -name VHDL_FILE VIC2Emulation.vhd
