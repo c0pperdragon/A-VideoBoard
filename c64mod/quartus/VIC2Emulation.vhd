@@ -79,7 +79,6 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM_SET:          std_logic := '0';
 	variable BMM:              std_logic := '0';
-	variable MCM_SET:          std_logic := '0';
 	variable MCM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
@@ -106,6 +105,11 @@ begin
 	variable in_rw: std_logic; 
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
+	
+	-- memory requests to write into registers
+	variable register_requestwrite : std_logic := '0';
+	variable register_writeaddress : std_logic_vector(5 downto 0);
+	variable register_writedata : std_logic_vector(7 downto 0);
 	
 	-- variables for synchronious operation
 	variable displayline: integer range 0 to 511 := 0;  -- VIC-II line numbering
@@ -428,58 +432,64 @@ begin
 			end if;
 			
 			-- make the changes to some registers have delayed effect
-			if phase=15 then
-				MCM := MCM_SET;
-			end if;
 			if phase=9 then
 				ECM := ECM_SET;
 				BMM := BMM_SET;
 			end if;
-			-- CPU writes into registers 
-			-- (very short time slot were address is stable)
-			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
-				case to_integer(unsigned(in_a)) is 
-					when 0  => spritex(0)(7 downto 0) := in_db(7 downto 0);
-					when 2  => spritex(1)(7 downto 0) := in_db(7 downto 0);
-					when 4  => spritex(2)(7 downto 0) := in_db(7 downto 0);
-					when 6  => spritex(3)(7 downto 0) := in_db(7 downto 0);
-					when 8  => spritex(4)(7 downto 0) := in_db(7 downto 0);
-					when 10 => spritex(5)(7 downto 0) := in_db(7 downto 0);
-					when 12 => spritex(6)(7 downto 0) := in_db(7 downto 0);
-					when 14 => spritex(7)(7 downto 0) := in_db(7 downto 0);
-					when 16 => spritex(0)(8) := in_db(0);
-					           spritex(1)(8) := in_db(1);
-								  spritex(2)(8) := in_db(2);
-								  spritex(3)(8) := in_db(3);
-								  spritex(4)(8) := in_db(4);
-								  spritex(5)(8) := in_db(5);
-								  spritex(6)(8) := in_db(6);
-								  spritex(7)(8) := in_db(7);
-					when 17 => ECM_SET := in_db(6);
-	                       BMM_SET := in_db(5);
-								  DEN := in_db(4);
-								  RSEL:= in_db(3);
-					when 22 => MCM_SET := in_db(4);
-					           CSEL := in_db(3);
-								  XSCROLL := in_db(2 downto 0);
-					when 27 => spritepriority := in_db(7 downto 0);
-					when 28 => spritemulticolor := in_db(7 downto 0);
-					when 29 => doublewidth := in_db(7 downto 0);
-					when 32 => bordercolor := in_db(3 downto 0);
-					when 33 => backgroundcolor0 := in_db(3 downto 0);
-					when 34 => backgroundcolor1 := in_db(3 downto 0);
-					when 35 => backgroundcolor2 := in_db(3 downto 0);
-					when 36 => backgroundcolor3 := in_db(3 downto 0);
-					when 37 => spritemulticolor0 := in_db(3 downto 0);
-					when 38 => spritemulticolor1 := in_db(3 downto 0);
-					when 39 => spritecolor(0) := in_db(3 downto 0);
-					when 40 => spritecolor(1) := in_db(3 downto 0);
-					when 41 => spritecolor(2) := in_db(3 downto 0);
-					when 42 => spritecolor(3) := in_db(3 downto 0);
-					when 43 => spritecolor(4) := in_db(3 downto 0);
-					when 44 => spritecolor(5) := in_db(3 downto 0);
-					when 45 => spritecolor(6) := in_db(3 downto 0);
-					when 46 => spritecolor(7) := in_db(3 downto 0);
+
+			-- detect if a register write should happen in this cycle
+			if phase>4 and in_aec='1' and in_cs='0' then  
+				if in_rw='0' and register_requestwrite = '0' then
+					register_requestwrite := '1';
+					register_writeaddress := in_a;
+					register_writedata := in_db(7 downto 0);
+				end if;
+			end if;
+			-- write the new value through to the registers before next cycle
+			if phase=15 and register_requestwrite = '1' then
+				register_requestwrite := '0';
+				case to_integer(unsigned(register_writeaddress)) is 
+					when 0  => spritex(0)(7 downto 0) := register_writedata;
+					when 2  => spritex(1)(7 downto 0) := register_writedata;
+					when 4  => spritex(2)(7 downto 0) := register_writedata;
+					when 6  => spritex(3)(7 downto 0) := register_writedata;
+					when 8  => spritex(4)(7 downto 0) := register_writedata;
+					when 10 => spritex(5)(7 downto 0) := register_writedata;
+					when 12 => spritex(6)(7 downto 0) := register_writedata;
+					when 14 => spritex(7)(7 downto 0) := register_writedata;
+					when 16 => spritex(0)(8) := register_writedata(0);
+					           spritex(1)(8) := register_writedata(1);
+								  spritex(2)(8) := register_writedata(2);
+								  spritex(3)(8) := register_writedata(3);
+								  spritex(4)(8) := register_writedata(4);
+								  spritex(5)(8) := register_writedata(5);
+								  spritex(6)(8) := register_writedata(6);
+								  spritex(7)(8) := register_writedata(7);
+					when 17 => ECM_SET := register_writedata(6);
+	                       BMM_SET := register_writedata(5);
+								  DEN := register_writedata(4);
+								  RSEL:= register_writedata(3);
+					when 22 => MCM := register_writedata(4);
+					           CSEL := register_writedata(3);
+								  XSCROLL := register_writedata(2 downto 0);
+					when 27 => spritepriority := register_writedata;
+					when 28 => spritemulticolor := register_writedata;
+					when 29 => doublewidth := register_writedata;
+					when 32 => bordercolor := register_writedata(3 downto 0);
+					when 33 => backgroundcolor0 := register_writedata(3 downto 0);
+					when 34 => backgroundcolor1 := register_writedata(3 downto 0);
+					when 35 => backgroundcolor2 := register_writedata(3 downto 0);
+					when 36 => backgroundcolor3 := register_writedata(3 downto 0);
+					when 37 => spritemulticolor0 := register_writedata(3 downto 0);
+					when 38 => spritemulticolor1 := register_writedata(3 downto 0);
+					when 39 => spritecolor(0) := register_writedata(3 downto 0);
+					when 40 => spritecolor(1) := register_writedata(3 downto 0);
+					when 41 => spritecolor(2) := register_writedata(3 downto 0);
+					when 42 => spritecolor(3) := register_writedata(3 downto 0);
+					when 43 => spritecolor(4) := register_writedata(3 downto 0);
+					when 44 => spritecolor(5) := register_writedata(3 downto 0);
+					when 45 => spritecolor(6) := register_writedata(3 downto 0);
+					when 46 => spritecolor(7) := register_writedata(3 downto 0);
 					when others => null;
 				end case;
 			end if;

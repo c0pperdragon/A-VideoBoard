@@ -1,9 +1,6 @@
--- running on A-Video board Rev.2
-
 library ieee;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
-use work.Settings_pkg.all;
 
 entity C64Mod is	
 	port (
@@ -37,6 +34,7 @@ architecture immediate of C64Mod is
 	
 	-- SDTV signals
 	signal COLOR   : std_logic_vector(3 downto 0);	
+	signal QUERYCOLOR : std_logic_vector(3 downto 0);
 	signal YPBPR   : std_logic_vector(14 downto 0);
 	signal CSYNC   : std_logic;
 
@@ -51,7 +49,6 @@ architecture immediate of C64Mod is
 	signal settings_writeaddr : std_logic_vector(5 downto 0) := "000000";
 	signal settings_writedata : std_logic_vector(7 downto 0) := "00000000";
 	signal settings_writeen : std_logic := '0';
-	signal palette : T_palette;
 	
    component ClockMultiplier is
 	port (
@@ -112,7 +109,7 @@ architecture immediate of C64Mod is
 	component Settings is
 	port (
 		-- reference clock
-		CLK25: in std_logic;		
+		CLK: in std_logic;		
 		
 		-- get notified when CPU writes into the registers
 		WRITEADDR : in std_logic_vector(5 downto 0);
@@ -120,7 +117,8 @@ architecture immediate of C64Mod is
 		WRITEEN : in std_logic;
 		
 		-- settings output signals
-		PALETTE: out T_palette
+		QUERYCOLOR : in std_logic_vector(3 downto 0);
+		YPBPR : out std_logic_vector(14 downto 0)
 	);	
 	end component;
 	
@@ -167,11 +165,12 @@ begin
 		
 	settings0: Settings 
 		port map(
-			CLK25,
+			CLK,
 			settings_writeaddr,
 			settings_writedata,
 			settings_writeen,
-			PALETTE
+			QUERYCOLOR,
+			YPBPR
 		);
 		
 	
@@ -211,7 +210,7 @@ begin
 		variable delay4   : std_logic_vector(3 downto 0);
 	begin
 		if rising_edge(CLK) then
-			YPBPR <= palette (to_integer(unsigned(delay4)));
+			QUERYCOLOR <= delay4;
 			delay4 := delay3;	
 			delay3 := delay2;	
 			delay2 := delay1;	
@@ -363,19 +362,12 @@ begin
 	begin
 		-- monitor when the CPU writes into registers and forward info the settings manager
 		if rising_edge(CLK) then
-			-- as the settings manager runs at a different clock, the 
-			-- data needs to be transfered with proper setup and hold times
-			if phase=9 then
-				if in_aec='1' and in_rw='0' and in_cs='0' then  
-					settings_writeaddr <= in_a;
-					settings_writedata <= in_db(7 downto 0);
-					writedetected := '1';
-				else
-					writedetected := '0';
-				end if;
-			elsif phase=10 then
-				settings_writeen <= writedetected;
-			elsif phase=6 then
+
+			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
+				settings_writeaddr <= in_a;
+				settings_writedata <= in_db(7 downto 0);
+				settings_writeen <= '1';
+			else
 				settings_writeen <= '0';
 			end if;
 			
