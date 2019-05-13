@@ -298,10 +298,10 @@ begin
 				-- override with blankings and sync signals 
 				if PAL='1' then
 					hcounter := cycle*8 + phase/2;
-					vcounter := displayline+18;
-					if hcounter>=504 then
-						hcounter:=hcounter-504;
-						vcounter := vcounter+1;
+					vcounter := displayline + 20;
+					if hcounter>=12 then
+						hcounter:=hcounter-12;
+						vcounter := vcounter-1;
 					end if;
 					if vcounter>=312 then
 						vcounter := vcounter-312;
@@ -321,7 +321,9 @@ begin
 					end if;
 					tmp_half := 260;
 				end if;
-				if hcounter<288-205 or hcounter>=288+205 or vcounter<141-120 or vcounter>=141+120
+				if hcounter<288-205 or hcounter>=288+205 
+				or (PAL='0' and (vcounter<141-120 or vcounter>=141+120))
+				or (PAL='1' and (vcounter<166-144 or vcounter>=166+144))
 				then
 					out_color := "0000";
 	
@@ -373,8 +375,8 @@ begin
 				end loop;
 				
 				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
-				if cycle=0 and phase=4 then
-					xcoordinate := 400;
+				if cycle=11 and phase=4 then
+					xcoordinate := 488;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
@@ -438,12 +440,10 @@ begin
 			end if;
 
 			-- detect if a register write should happen in this cycle
-			if phase>4 and in_aec='1' and in_cs='0' then  
-				if in_rw='0' and register_requestwrite = '0' then
-					register_requestwrite := '1';
-					register_writeaddress := in_a;
-					register_writedata := in_db(7 downto 0);
-				end if;
+			if phase>=9 and phase<15 and in_aec='1' and in_cs='0' and in_rw='0' and register_requestwrite = '0' then
+				register_requestwrite := '1';
+				register_writeaddress := in_a;
+				register_writedata := in_db(7 downto 0);
 			end if;
 			-- write the new value through to the registers before next cycle
 			if phase=15 and register_requestwrite = '1' then

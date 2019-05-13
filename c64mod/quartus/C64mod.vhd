@@ -140,7 +140,7 @@ begin
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
       PAL
-	);	
+	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
 		port map (
@@ -360,7 +360,7 @@ begin
 	variable writedetected : std_logic := '0';
 	
 	begin
-		-- monitor when the CPU writes into registers and forward info the settings manager
+		-- monitor when the CPU writes into registers and forward info to the settings manager
 		if rising_edge(CLK) then
 
 			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
