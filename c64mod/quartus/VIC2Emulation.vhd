@@ -347,13 +347,11 @@ begin
 				-- shift pixels along through buffers
 				pixelpattern := pixelpattern(22 downto 0) & '0';
 				
-				-- sample the vertical line hit conditions only once per cycle
-				if phase=14 then
-					if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
-						if DEN='1' then verticalborderflipflop:='0'; end if;
-					elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
-						verticalborderflipflop:='1'; 
-					end if;
+				-- sample the vertical line hit conditions
+				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
+					if DEN='1' then verticalborderflipflop:='0'; end if;
+				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
+					verticalborderflipflop:='1'; 
 				end if;
 				-- check the horizonal conditions on every pixel
 				if (CSEL='0' and xcoordinate=31) or (CSEL='1' and xcoordinate=24) then
@@ -440,9 +438,11 @@ begin
 			end if;
 
 			-- detect if a register write should happen in this cycle
-			if phase>=9 and phase<15 and in_aec='1' and in_cs='0' and in_rw='0' and register_requestwrite = '0' then
+			if phase=9 and in_aec='1' and in_cs='0' and in_rw='0' then
 				register_requestwrite := '1';
 				register_writeaddress := in_a;
+			end if;
+			if phase=12 and register_requestwrite='1' then
 				register_writedata := in_db(7 downto 0);
 			end if;
 			-- write the new value through to the registers before next cycle

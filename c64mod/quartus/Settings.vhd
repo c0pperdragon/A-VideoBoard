@@ -60,7 +60,9 @@ architecture immediate of Settings is
 	-- communicate with the ram
 	signal ram_wrdata : std_logic_vector(14 downto 0);
 	signal ram_wraddress : std_logic_vector(3 downto 0);
-	signal ram_we : std_logic;
+	signal ram_we0 : std_logic;
+	signal ram_we1 : std_logic;
+	signal ram_we2 : std_logic;
 	
 	-- communicate with the flash memory controller
 	signal avmm_clock : std_logic;
@@ -83,15 +85,35 @@ architecture immediate of Settings is
 
 begin
 
-	ram: ram_dual generic map(data_width => 15, addr_width => 4)
+	ram0: ram_dual generic map(data_width => 5, addr_width => 4)
 		port map (
-			ram_wrdata,
+			ram_wrdata(14 downto 10),
 			QUERYCOLOR,
 			ram_wraddress,
-			ram_we,
+			ram_we0,
 			CLK,
 			CLK,
-			YPBPR		
+			YPBPR(14 downto 10)		
+		);
+	ram1: ram_dual generic map(data_width => 5, addr_width => 4)
+		port map (
+			ram_wrdata(9 downto 5),
+			QUERYCOLOR,
+			ram_wraddress,
+			ram_we1,
+			CLK,
+			CLK,
+			YPBPR(9 downto 5)		
+		);
+	ram2: ram_dual generic map(data_width => 5, addr_width => 4)
+		port map (
+			ram_wrdata(4 downto 0),
+			QUERYCOLOR,
+			ram_wraddress,
+			ram_we2,
+			CLK,
+			CLK,
+			YPBPR(4 downto 0)		
 		);
 
 	flash : SETTINGSFLASH port map (
@@ -128,10 +150,14 @@ begin
 	variable in_writeaddr : std_logic_vector(5 downto 0);
 	variable in_writedata : std_logic_vector(7 downto 0);
 	variable in_writeen : std_logic;
+	
+	variable auxflags : std_logic_vector(4 downto 0) :="00000";
 			
 	begin
 		if rising_edge(CLK) then
-			ram_we <= '0';
+			ram_we0 <= '0';
+			ram_we1 <= '0';
+			ram_we2 <= '0';
 		
 			-- initial startup-reset
 			if startdelay<50000 then
@@ -153,7 +179,13 @@ begin
 							avmm_data_readdata(12 downto 8)
 						 & avmm_data_readdata(20 downto 16)
 						 & avmm_data_readdata(28 downto 24);
-						ram_we <= '1';
+						if (readcursor/=0) then
+							ram_we0 <= '1'; -- do not store this in RAM on position 0
+						else
+							auxflags := avmm_data_readdata(12 downto 8); -- but directly in registers
+						end if; 
+						ram_we1 <= '1';
+						ram_we2 <= '1';
 						readcursor := readcursor+1;
 					elsif not requestingdata then
 						requestingdata := true;
@@ -181,24 +213,30 @@ begin
 							avmm_clock <= '0';
 			end case;
 
-		
---			-- monitor when the CPU writes into registers 
---			if in_writeen='1' then  
---				case to_integer(unsigned(in_writeaddr)) is 
---					when 60 => 
---						regwriteaddr := selected*3;
---						regwritedata := in_writedata(4 downto 0);					
---					when 61 => 
---						regwriteaddr := selected*3 + 1;
---						regwritedata := in_writedata(4 downto 0);					
---					when 62 => 
---						regwriteaddr := selected*3 + 2;
---						regwritedata := in_writedata(4 downto 0);					
---					when 63 => 
---						selected := to_integer(unsigned(in_writedata(3 downto 0)));
---					when others => null;
---				end case;
---			end if;		
+			-- monitor wants to write into registers 
+			if in_writeen='1' then  
+				case to_integer(unsigned(in_writeaddr)) is 
+					when 60 => 
+						ram_wraddress <= std_logic_vector(to_unsigned(selected,4));
+						ram_wrdata <= in_writedata(4 downto 0) & in_writedata(4 downto 0) & in_writedata(4 downto 0);
+						if selected/=0 then
+							ram_we0 <= '1';	   -- for position 0 do not set in ram
+						else
+							auxflags := in_writedata(4 downto 0);   -- but set in registers instead
+						end if;
+					when 61 => 
+						ram_wraddress <= std_logic_vector(to_unsigned(selected,4));
+						ram_wrdata <= in_writedata(4 downto 0) & in_writedata(4 downto 0) & in_writedata(4 downto 0);
+						ram_we1 <= '1';					
+					when 62 => 
+						ram_wraddress <= std_logic_vector(to_unsigned(selected,4));
+						ram_wrdata <= in_writedata(4 downto 0) & in_writedata(4 downto 0) & in_writedata(4 downto 0);
+						ram_we2 <= '1';					
+					when 63 => 
+						selected := to_integer(unsigned(in_writedata(3 downto 0)));
+					when others => null;
+				end case;
+			end if;		
 			
 			-- take signals into registers
 			in_writeaddr := WRITEADDR;
