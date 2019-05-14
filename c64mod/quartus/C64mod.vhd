@@ -255,7 +255,11 @@ begin
 		
 			-- if highres is not selected, just use plain SDTV
 			if not usehighres then
-				Y(5) <= CSYNC;
+				if CSYNC='0' then	
+					Y(5) <= YPBPR(10);  -- suppress sync signal if black color Y has lowest bit set
+				else 
+					Y(5)<='1'; 
+				end if; 
 				Y(4 downto 0) <= YPBPR(14 downto 10);
 				Pb <= YPBPR(9 downto 5);
 				Pr <= YPBPR(4 downto 0);
