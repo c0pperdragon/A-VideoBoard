@@ -12,8 +12,12 @@ entity Settings is
 		WRITEDATA : in std_logic_vector(7 downto 0);
 		WRITEEN : in std_logic;
 		
+		-- color palette conversion
 		QUERYCOLOR : in std_logic_vector(3 downto 0);
-		YPBPR : out std_logic_vector(14 downto 0)
+		YPBPR : out std_logic_vector(14 downto 0);
+		
+		-- auxilary settings registers
+		SUPPRESSSYNC : out std_logic
 	);	
 end entity;
 
@@ -59,7 +63,7 @@ architecture immediate of Settings is
 
 	-- communicate with the ram
 	signal ram_wrdata : std_logic_vector(14 downto 0);
-	signal ram_wraddress : std_logic_vector(3 downto 0);
+	signal ram_wraddress : std_logic_vector(7 downto 0);
 	signal ram_we : std_logic;
 	
 	-- communicate with the flash memory controller
@@ -83,10 +87,10 @@ architecture immediate of Settings is
 
 begin
 
-	ram: ram_dual generic map(data_width => 15, addr_width => 4)
+	ram: ram_dual generic map(data_width => 15, addr_width => 8)
 		port map (
 			ram_wrdata,
-			QUERYCOLOR,
+			"0000" & QUERYCOLOR,
 			ram_wraddress,
 			ram_we,
 			CLK,
@@ -118,7 +122,7 @@ begin
 
 	-- state machine to read startup-settings
 	variable startdelay : integer range 0 to 100000 := 0;
-	variable readcursor : integer range 0 to 16 := 0;
+	variable readcursor : integer range 0 to 31 := 0;
 	variable readtick : integer range 0 to 3 := 0;
 	variable requestingdata : boolean := false;
 	variable waitfordata : boolean := false;
@@ -145,15 +149,18 @@ begin
 			end if;			
 			
 			-- transfer settings into the ram
-			if readcursor<16 then
+			if readcursor<17 then
 				if readtick=1 then
 					if waitfordata and avmm_data_readdatavalid='1' then
 						waitfordata := false;
-						ram_wraddress <= std_logic_vector(to_unsigned(readcursor,4));
+						ram_wraddress <= std_logic_vector(to_unsigned(readcursor,8));
 						ram_wrdata <= 
 							avmm_data_readdata(12 downto 8)
 						 & avmm_data_readdata(20 downto 16)
 						 & avmm_data_readdata(28 downto 24);
+						if readcursor=16 then
+							SUPPRESSSYNC <= avmm_data_readdata(0);
+						end if;
 						ram_we <= '1';
 						readcursor := readcursor+1;
 					elsif not requestingdata then
@@ -192,8 +199,11 @@ begin
 					when 62 => 
 						ram_wrdata(4 downto 0) <= in_writedata(4 downto 0);
 					when 63 => 
-						ram_wraddress <= in_writedata(3 downto 0);
+						ram_wraddress <= in_writedata;
 						ram_we <= '1';					
+						if in_writedata = "00010000" then
+							SUPPRESSSYNC <= ram_wrdata(10);
+						end if;
 					when others => null;
 				end case;
 			end if;		

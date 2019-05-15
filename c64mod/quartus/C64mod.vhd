@@ -34,7 +34,6 @@ architecture immediate of C64Mod is
 	
 	-- SDTV signals
 	signal COLOR   : std_logic_vector(3 downto 0);	
-	signal QUERYCOLOR : std_logic_vector(3 downto 0);
 	signal YPBPR   : std_logic_vector(14 downto 0);
 	signal CSYNC   : std_logic;
 
@@ -49,6 +48,7 @@ architecture immediate of C64Mod is
 	signal settings_writeaddr : std_logic_vector(5 downto 0) := "000000";
 	signal settings_writedata : std_logic_vector(7 downto 0) := "00000000";
 	signal settings_writeen : std_logic := '0';
+	signal SUPPRESSSYNC : std_logic;
 	
    component ClockMultiplier is
 	port (
@@ -116,9 +116,12 @@ architecture immediate of C64Mod is
 		WRITEDATA : in std_logic_vector(7 downto 0);
 		WRITEEN : in std_logic;
 		
-		-- settings output signals
+		-- color palette conversion
 		QUERYCOLOR : in std_logic_vector(3 downto 0);
-		YPBPR : out std_logic_vector(14 downto 0)
+		YPBPR : out std_logic_vector(14 downto 0);
+		
+		-- auxilary settings registers
+		SUPPRESSSYNC : out std_logic
 	);	
 	end component;
 	
@@ -169,8 +172,9 @@ begin
 			settings_writeaddr,
 			settings_writedata,
 			settings_writeen,
-			QUERYCOLOR,
-			YPBPR
+			COLOR,
+			YPBPR,
+			SUPPRESSSYNC
 		);
 		
 	
@@ -201,23 +205,7 @@ begin
 		PAL <= out_pal;
 	end process;
 	
-	------- implement the delay for the digital signal path and eventually create YPbPr 
-	process (CLK)
-		-- delayed color signal (to bring analog and digital path in sync)
-		variable delay1   : std_logic_vector(3 downto 0);	
-		variable delay2   : std_logic_vector(3 downto 0);	
-		variable delay3   : std_logic_vector(3 downto 0);	
-		variable delay4   : std_logic_vector(3 downto 0);
-	begin
-		if rising_edge(CLK) then
-			QUERYCOLOR <= delay4;
-			delay4 := delay3;	
-			delay3 := delay2;	
-			delay2 := delay1;	
-			delay1 := COLOR;	
-		end if;
-	end process;
-		
+	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper) 
 	process (CLK) 
 		variable hcnt : integer range 0 to 2047 := 0;
@@ -256,9 +244,9 @@ begin
 			-- if highres is not selected, just use plain SDTV
 			if not usehighres then
 				if CSYNC='0' then	
-					Y(5) <= YPBPR(10);  -- suppress sync signal if black color Y has lowest bit set
+					Y(5) <= SUPPRESSSYNC;  -- suppress sync signal when set to '1'
 				else 
-					Y(5)<='1'; 
+					Y(5) <= '1'; 
 				end if; 
 				Y(4 downto 0) <= YPBPR(14 downto 10);
 				Pb <= YPBPR(9 downto 5);
@@ -355,24 +343,27 @@ begin
 	-- monitor the CPU actions
 	variable phase: integer range 0 to 15 := 0;
 	variable in_phi0: std_logic; 
-	variable in_db: std_logic_vector(11 downto 0);
+	variable in_db: std_logic_vector(7 downto 0);
 	variable in_a:  std_logic_vector(5 downto 0);
 	variable in_rw: std_logic; 
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
 	
-	variable writedetected : std_logic := '0';
+	variable unlocked : std_logic := '0';
 	
 	begin
 		-- monitor when the CPU writes into registers and forward info to the settings manager
 		if rising_edge(CLK) then
 
+			settings_writeen <= '0';
 			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
-				settings_writeaddr <= in_a;
-				settings_writedata <= in_db(7 downto 0);
-				settings_writeen <= '1';
-			else
-				settings_writeen <= '0';
+				if unlocked='1' then
+					settings_writeaddr <= in_a;
+					settings_writedata <= in_db;
+					settings_writeen <= '1';
+				elsif in_db="10001001" and in_a="111111" then   -- magic number 137
+					unlocked := '1'; 
+				end if;
 			end if;
 			
 			-- progress the phase
@@ -384,8 +375,7 @@ begin
 			
 			-- take signals into registers
 			in_phi0 := GPIO1(20);
-			in_db := GPIO1(9 downto 9) & GPIO1(10) & GPIO1(11) & GPIO1(12)   
-						& GPIO1(1) & GPIO1(2) & GPIO1(3) & GPIO1(4)
+			in_db :=   GPIO1(1) & GPIO1(2) & GPIO1(3) & GPIO1(4)
 						& GPIO1(5) & GPIO1(6) & GPIO1(7) & GPIO1(8);
 			in_a := GPIO1(9 downto 9) & GPIO1(10) & GPIO1(11)  & GPIO1(12)
 					& GPIO1(13) & GPIO1(14);
