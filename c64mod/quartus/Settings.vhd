@@ -14,10 +14,8 @@ entity Settings is
 		
 		-- color palette conversion
 		QUERYCOLOR : in std_logic_vector(3 downto 0);
-		YPBPR : out std_logic_vector(14 downto 0);
-		
-		-- auxilary settings registers
-		SUPPRESSSYNC : out std_logic
+		QUERYDELAYEDCOLOR : in std_logic_vector(3 downto 0);
+		YPBPR : out std_logic_vector(15 downto 0)
 	);	
 end entity;
 
@@ -62,7 +60,7 @@ architecture immediate of Settings is
 	end component;	
 
 	-- communicate with the ram
-	signal ram_wrdata : std_logic_vector(14 downto 0);
+	signal ram_wrdata : std_logic_vector(15 downto 0);
 	signal ram_wraddress : std_logic_vector(7 downto 0);
 	signal ram_we : std_logic;
 	
@@ -87,10 +85,10 @@ architecture immediate of Settings is
 
 begin
 
-	ram: ram_dual generic map(data_width => 15, addr_width => 8)
+	ram: ram_dual generic map(data_width => 16, addr_width => 8)
 		port map (
 			ram_wrdata,
-			"0000" & QUERYCOLOR,
+			QUERYCOLOR & QUERYDELAYEDCOLOR,
 			ram_wraddress,
 			ram_we,
 			CLK,
@@ -122,7 +120,9 @@ begin
 
 	-- state machine to read startup-settings
 	variable startdelay : integer range 0 to 100000 := 0;
-	variable readcursor : integer range 0 to 31 := 0;
+	variable cursor : integer range 0 to 255 := 0;
+	variable reading: boolean := false;
+	variable writing : boolean := false;
 	variable readtick : integer range 0 to 3 := 0;
 	variable requestingdata : boolean := false;
 	variable waitfordata : boolean := false;
@@ -131,8 +131,6 @@ begin
 	variable in_writeaddr : std_logic_vector(5 downto 0);
 	variable in_writedata : std_logic_vector(7 downto 0);
 	variable in_writeen : std_logic;
-	
-	variable auxflags : std_logic_vector(4 downto 0) :="00000";
 			
 	begin
 		if rising_edge(CLK) then
@@ -142,27 +140,27 @@ begin
 			if startdelay<50000 then
 				reset_n <= '0';
 				readtick := 0;
-				readcursor := 0;
 				startdelay := startdelay+1;
-			else
+			elsif startdelay=50000 then
 				reset_n <= '1';
+				reading := true;
+				startdelay := startdelay+1;
 			end if;			
 			
 			-- transfer settings into the ram
-			if readcursor<17 then
+			if reading then
 				if readtick=1 then
 					if waitfordata and avmm_data_readdatavalid='1' then
 						waitfordata := false;
-						ram_wraddress <= std_logic_vector(to_unsigned(readcursor,8));
-						ram_wrdata <= 
-							avmm_data_readdata(12 downto 8)
-						 & avmm_data_readdata(20 downto 16)
-						 & avmm_data_readdata(28 downto 24);
-						if readcursor=16 then
-							SUPPRESSSYNC <= avmm_data_readdata(0);
-						end if;
+						ram_wraddress <= std_logic_vector(to_unsigned(cursor,8));
+						ram_wrdata <= avmm_data_readdata(15 downto 0);
 						ram_we <= '1';
-						readcursor := readcursor+1;
+						if cursor = 255 then
+							reading := false;
+							cursor := 0;
+						else
+							cursor := cursor+1;
+						end if;
 					elsif not requestingdata then
 						requestingdata := true;
 					else
@@ -171,7 +169,7 @@ begin
 					end if;
 				elsif readtick=2 then
 					if requestingdata then
-						avmm_data_addr <= std_logic_vector(to_unsigned(readcursor,12));
+						avmm_data_addr <= std_logic_vector(to_unsigned(cursor,12));
 						avmm_data_read <= '1';
 					else
 						avmm_data_read <= '0';
@@ -192,18 +190,13 @@ begin
 			-- CPU wants to write into registers 
 			if in_writeen='1' then  
 				case to_integer(unsigned(in_writeaddr)) is 
-					when 60 => 
-						ram_wrdata(14 downto 10) <= in_writedata(4 downto 0);
 					when 61 => 
-						ram_wrdata(9 downto 5) <= in_writedata(4 downto 0);
+						ram_wrdata(7 downto 0) <= in_writedata;
 					when 62 => 
-						ram_wrdata(4 downto 0) <= in_writedata(4 downto 0);
+						ram_wrdata(15 downto 8) <= in_writedata;
 					when 63 => 
 						ram_wraddress <= in_writedata;
 						ram_we <= '1';					
-						if in_writedata = "00010000" then
-							SUPPRESSSYNC <= ram_wrdata(10);
-						end if;
 					when others => null;
 				end case;
 			end if;		

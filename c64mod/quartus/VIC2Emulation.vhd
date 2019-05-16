@@ -310,12 +310,12 @@ begin
 				else
 					hcounter := cycle*8 + phase/2; 
 					vcounter := displayline+253;
---					if hcounter>=12 then
---						hcounter := hcounter-12;
---					else
---						hcounter := hcounter+(520-12);
---						vcounter := vcounter-1;
---					end if;					
+					if hcounter>=6 then
+						hcounter := hcounter-6;
+					else
+						hcounter := hcounter+(520-6);
+						vcounter := vcounter-1;
+					end if;					
 					if vcounter>=263 then
 						vcounter := vcounter-263;
 					end if;
@@ -373,7 +373,7 @@ begin
 				end loop;
 				
 				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
-				if cycle=11 and phase=4 then
+				if cycle=11 and phase=6 then
 					xcoordinate := 493;
 				else
 					xcoordinate := xcoordinate+1;
@@ -381,7 +381,7 @@ begin
 			end if;
 			
 			-- data from memory
-			if phase=7 then                -- received in first half of cycle
+			if phase=9 then                -- received in first half of cycle
 				-- pixel pattern read
 				if cycle>=15 and cycle<55 then
 					pixelpattern(7 downto 0) := in_db(7 downto 0);
@@ -391,7 +391,7 @@ begin
 					spritedatabyte1 := in_db(7 downto 0);
 				end if;
 			end if;
-			if phase=14 and in_aec='0' then   -- receive during a CPU-blocking second half of a cycle
+			if phase=15 and in_aec='0' then   -- receive during a CPU-blocking second half of a cycle
 				-- video matrix read
 				if cycle>=14 and cycle<54 then
 					matrixdata <= in_db;
@@ -419,7 +419,7 @@ begin
 			-- detect if there was a real sprite read (when the
 			-- read address did change between individual bytes)
 			-- (very short time slot were address is stable)
-			if phase=9 then
+			if phase=11 then
 				if cycle=58 or cycle=60 or cycle=62 or cycle=64 or cycle=1 or cycle=3 or cycle=5 or cycle=7 then
 					firstspritereadaddress := in_a(1 downto 0);
 				elsif cycle=59 or cycle=61 or cycle=63 or cycle=0 or cycle=2 or cycle=4 or cycle=6 or cycle=8 then
@@ -432,16 +432,16 @@ begin
 			end if;
 			
 			-- make the changes to some registers have delayed effect
-			if phase=9 then
+			if phase=11 then
 				ECM := ECM_SET;
 				BMM := BMM_SET;
 			end if;
 
 			-- detect if a register write should happen in this cycle
-			if phase=9 then
+			if phase=11 then
 				register_writeaddress := in_a;
 			end if;
-			if phase=12 and in_aec='1' and in_cs='0' and in_rw='0' then
+			if phase=14 and in_aec='1' and in_cs='0' and in_rw='0' then
 				register_writedata := in_db(7 downto 0);
 				register_requestwrite := '1';
 			end if;
@@ -518,7 +518,7 @@ begin
 			end if;
 
 			-- try to find the dram refresh pattern to sync the output 
-			if phase=1 then
+			if phase=3 then
 				case syncdetect_cycle is
 				when 0 => ramrefreshpattern(9 downto 8) := in_a(1 downto 0);
 				when 1 => ramrefreshpattern(7 downto 6) := in_a(1 downto 0);
@@ -556,9 +556,9 @@ begin
 			end if;
 			
 			-- progress the phase
-			if phase>12 and in_phi0='0' then
-				phase:=0;
-			elsif phase<15 then
+			if (phase=15 or phase=0 or phase=1) and in_phi0='0' then
+				phase:=2;
+			elsif phase/=1 then
 				phase:=phase+1;
 			end if;
 

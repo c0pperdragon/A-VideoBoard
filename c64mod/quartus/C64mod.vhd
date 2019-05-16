@@ -34,8 +34,9 @@ architecture immediate of C64Mod is
 	
 	-- SDTV signals
 	signal COLOR   : std_logic_vector(3 downto 0);	
-	signal YPBPR   : std_logic_vector(14 downto 0);
+	signal DELAYEDCOLOR   : std_logic_vector(3 downto 0);	
 	signal CSYNC   : std_logic;
+	signal YPBPR   : std_logic_vector(15 downto 0);
 
 	-- video memory control
 	signal vramrdaddress0 : std_logic_vector (9 downto 0);
@@ -44,11 +45,14 @@ architecture immediate of C64Mod is
 	signal vramq0        : std_logic_vector (14 downto 0);
 	signal vramq1        : std_logic_vector (14 downto 0);
 	
-	-- current user settings (palette and such)
+	-- color delay line addressing
+	signal delayrdaddress : std_logic_vector(10 downto 0);
+	signal delaywraddress : std_logic_vector(10 downto 0);	
+	
+	-- signals to change user settings
 	signal settings_writeaddr : std_logic_vector(5 downto 0) := "000000";
 	signal settings_writedata : std_logic_vector(7 downto 0) := "00000000";
 	signal settings_writeen : std_logic := '0';
-	signal SUPPRESSSYNC : std_logic;
 	
    component ClockMultiplier is
 	port (
@@ -118,10 +122,8 @@ architecture immediate of C64Mod is
 		
 		-- color palette conversion
 		QUERYCOLOR : in std_logic_vector(3 downto 0);
-		YPBPR : out std_logic_vector(14 downto 0);
-		
-		-- auxilary settings registers
-		SUPPRESSSYNC : out std_logic
+		QUERYDELAYEDCOLOR : in std_logic_vector(3 downto 0);
+		YPBPR : out std_logic_vector(15 downto 0)
 	);	
 	end component;
 	
@@ -147,7 +149,7 @@ begin
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
 		port map (
-			YPBPR,
+			YPBPR(14 downto 0),
 			vramrdaddress0,
 			vramwraddress,
 			'1',
@@ -157,7 +159,7 @@ begin
 		);
 	vram1: ram_dual generic map(data_width => 15, addr_width => 10)
 		port map (
-			YPBPR,
+			YPBPR(14 downto 0),
 			vramrdaddress1,
 			vramwraddress,
 			'1',
@@ -173,10 +175,20 @@ begin
 			settings_writedata,
 			settings_writeen,
 			COLOR,
-			YPBPR,
-			SUPPRESSSYNC
+			DELAYEDCOLOR,
+			YPBPR
 		);
-		
+	
+	colordelayline : ram_dual generic map(data_width => 4, addr_width => 11)
+		port map (
+			COLOR,
+			delayrdaddress,
+			delaywraddress,
+			'1',
+			CLK,
+			CLK,
+			DELAYEDCOLOR		
+		);
 	
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
@@ -205,6 +217,20 @@ begin
 		PAL <= out_pal;
 	end process;
 	
+	--- control the read and write address of the color delay line
+	process (CLK)
+	variable p : integer range 0 to 2047;
+	begin
+		if rising_edge(CLK) then
+			p := p+1;		
+		end if;
+		delayrdaddress <= std_logic_vector(to_unsigned(p,11));
+		if PAL='0' then
+			delaywraddress <= std_logic_vector(to_unsigned(p+1039,11));
+		else
+			delaywraddress <= std_logic_vector(to_unsigned(p+1007,11));		
+		end if;
+	end process;
 	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper) 
 	process (CLK) 
@@ -244,7 +270,7 @@ begin
 			-- if highres is not selected, just use plain SDTV
 			if not usehighres then
 				if CSYNC='0' then	
-					Y(5) <= SUPPRESSSYNC;  -- suppress sync signal when set to '1'
+					Y(5) <= YPBPR(15);  -- suppress sync signal when set to '1'
 				else 
 					Y(5) <= '1'; 
 				end if; 
