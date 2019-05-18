@@ -868,7 +868,7 @@
 																</placeholders>
 															</leaf>
 														</node>
-														<leaf id="3" nodeId="1375899667061">
+														<leaf id="1" nodeId="1375899667061">
 															<placeholders>
 																<placeholder>dock.single.Connections</placeholder>
 																<placeholder>dock.single.System\ Contents</placeholder>
@@ -936,7 +936,7 @@
 															</placeholder-map>
 														</leaf>
 													</node>
-													<leaf id="1" nodeId="1372710005745">
+													<leaf id="2" nodeId="1372710005745">
 														<placeholders>
 															<placeholder>dock.single.Messages</placeholder>
 															<placeholder>dock.single.Generation\ Messages</placeholder>
@@ -969,7 +969,7 @@
 															<format>dock.PlaceholderList</format>
 														</placeholder-map>
 													</leaf>
-													<leaf id="2" nodeId="1372710005743">
+													<leaf id="3" nodeId="1372710005743">
 														<placeholders>
 															<placeholder>dock.single.Presets</placeholder>
 															<placeholder>dock.single.Device\ Family</placeholder>
@@ -1061,6 +1061,16 @@
 									</children>
 								</child>
 								<child>
+									<layout factory="predefined" placeholder="dock.single.Parameters">
+										<replacement id="dockablesingle Parameters"/>
+										<delegate id="delegate_ccontrol backup factory id">
+											<id>Parameters</id>
+											<area/>
+										</delegate>
+									</layout>
+									<children ignore="false"/>
+								</child>
+								<child>
 									<layout factory="predefined" placeholder="dock.single.Messages">
 										<replacement id="dockablesingle Messages"/>
 										<delegate id="delegate_ccontrol backup factory id">
@@ -1075,16 +1085,6 @@
 										<replacement id="dockablesingle Presets"/>
 										<delegate id="delegate_ccontrol backup factory id">
 											<id>Presets</id>
-											<area/>
-										</delegate>
-									</layout>
-									<children ignore="false"/>
-								</child>
-								<child>
-									<layout factory="predefined" placeholder="dock.single.Parameters">
-										<replacement id="dockablesingle Parameters"/>
-										<delegate id="delegate_ccontrol backup factory id">
-											<id>Parameters</id>
 											<area/>
 										</delegate>
 									</layout>

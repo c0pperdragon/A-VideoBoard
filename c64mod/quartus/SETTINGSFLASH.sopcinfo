@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <EnsembleReport name="SETTINGSFLASH" kind="SETTINGSFLASH" version="1.0" fabric="QSYS">
  <!-- Format version 18.0 614 (Future versions may contain additional information.) -->
- <!-- 2019.05.10.21:51:27 -->
+ <!-- 2019.05.17.17:25:11 -->
  <!-- A collection of modules and connections -->
  <parameter name="AUTO_GENERATION_ID">
   <type>java.lang.Integer</type>
-  <value>1557517887</value>
+  <value>1558106711</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>false</visible>
@@ -248,7 +248,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="CLOCK_FREQUENCY">
    <type>double</type>
-   <value>6.25</value>
+   <value>4.0</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -320,7 +320,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="initializationFileName">
    <type>java.lang.String</type>
-   <value>C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus/defaultsettings.hex</value>
+   <value>defaultsettings.hex</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -345,7 +345,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="INIT_FILENAME">
    <type>java.lang.String</type>
-   <value>C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus/defaultsettings.hex</value>
+   <value>defaultsettings.hex</value>
    <derived>true</derived>
    <enabled>false</enabled>
    <visible>false</visible>
@@ -653,7 +653,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="FLASH_BUSY_TIMEOUT_CYCLE_MAX_INDEX">
    <type>int</type>
-   <value>7</value>
+   <value>4</value>
    <derived>true</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -661,7 +661,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="FLASH_ERASE_TIMEOUT_CYCLE_MAX_INDEX">
    <type>int</type>
-   <value>2187500</value>
+   <value>1400000</value>
    <derived>true</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -669,7 +669,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="FLASH_WRITE_TIMEOUT_CYCLE_MAX_INDEX">
    <type>int</type>
-   <value>1906</value>
+   <value>1220</value>
    <derived>true</derived>
    <enabled>true</enabled>
    <visible>false</visible>

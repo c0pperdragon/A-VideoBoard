@@ -3,8 +3,8 @@
 preplace inst unsaved.onchip_flash_0 -pg 1 -lvl 1 -y 30
 preplace inst unsaved -pg 1 -lvl 1 -y 40 -regy -20
 preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)unsaved.csr,(SLAVE)onchip_flash_0.csr) 1 0 1 NJ
-preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)onchip_flash_0.data,(SLAVE)unsaved.data) 1 0 1 NJ
-preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)unsaved.nreset,(SLAVE)onchip_flash_0.nreset) 1 0 1 NJ
-preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)unsaved.clk,(SLAVE)onchip_flash_0.clk) 1 0 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)onchip_flash_0.clk,(SLAVE)unsaved.clk) 1 0 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)onchip_flash_0.nreset,(SLAVE)unsaved.nreset) 1 0 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)unsaved.data,(SLAVE)onchip_flash_0.data) 1 0 1 NJ
 levelinfo -pg 1 0 50 210
 levelinfo -hier unsaved 60 100 200

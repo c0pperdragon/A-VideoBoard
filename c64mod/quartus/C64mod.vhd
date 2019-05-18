@@ -33,8 +33,8 @@ architecture immediate of C64Mod is
 	signal CLK     : std_logic;         -- 16 times CPU clock
 	
 	-- SDTV signals
-	signal COLOR   : std_logic_vector(3 downto 0);	
-	signal DELAYEDCOLOR   : std_logic_vector(3 downto 0);	
+	signal COLOR : std_logic_vector(3 downto 0);
+	signal DELAYEDCOLOR  : std_logic_vector(3 downto 0);	
 	signal CSYNC   : std_logic;
 	signal YPBPR   : std_logic_vector(15 downto 0);
 
@@ -121,9 +121,8 @@ architecture immediate of C64Mod is
 		WRITEEN : in std_logic;
 		
 		-- color palette conversion
-		QUERYCOLOR : in std_logic_vector(3 downto 0);
-		QUERYDELAYEDCOLOR : in std_logic_vector(3 downto 0);
-		YPBPR : out std_logic_vector(15 downto 0)
+		QUERYREGISTER : in std_logic_vector(7 downto 0);
+		REGISTERDATA : out std_logic_vector(15 downto 0)
 	);	
 	end component;
 	
@@ -174,8 +173,7 @@ begin
 			settings_writeaddr,
 			settings_writedata,
 			settings_writeen,
-			COLOR,
-			DELAYEDCOLOR,
+			COLOR & DELAYEDCOLOR,
 			YPBPR
 		);
 	
@@ -218,7 +216,7 @@ begin
 	end process;
 	
 	--- control the read and write address of the color delay line
-	process (CLK)
+	process (CLK, PAL)
 	variable p : integer range 0 to 2047;
 	begin
 		if rising_edge(CLK) then

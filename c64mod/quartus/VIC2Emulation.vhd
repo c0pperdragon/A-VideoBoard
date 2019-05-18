@@ -180,11 +180,11 @@ begin
 						tmp_vm := matrixq;
 					end if;
 					-- extract relevant bit or 2 bits from bitmap data
-					tmp_bit := pixelpattern(18 + tmp_hscroll);
+					tmp_bit := pixelpattern(17 + tmp_hscroll);
 					if (tmp_hscroll mod 2) = 0 then
-						tmp_pos := 19 + tmp_hscroll - ((phase/2) mod 2);
+						tmp_pos := 18 + tmp_hscroll - ((phase/2) mod 2);
 					else
-						tmp_pos := 18 + tmp_hscroll + ((phase/2) mod 2);
+						tmp_pos := 17 + tmp_hscroll + ((phase/2) mod 2);
 					end if;
 					tmp_2bit(1) := pixelpattern(tmp_pos);
 					tmp_2bit(0) := pixelpattern(tmp_pos-1);
@@ -353,7 +353,7 @@ begin
 				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
 					verticalborderflipflop:='1'; 
 				end if;
-				-- check the horizonal conditions 
+				-- check the horizontal conditions 
 				if (CSEL='0' and xcoordinate=31) or (CSEL='1' and xcoordinate=24) then
 					if verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
 				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
@@ -373,8 +373,9 @@ begin
 				end loop;
 				
 				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
-				if cycle=11 and phase=6 then
-					xcoordinate := 493;
+				if cycle=0 and phase=0 then
+					xcoordinate := 403;
+					if PAL='1' then xcoordinate := 411; end if;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;

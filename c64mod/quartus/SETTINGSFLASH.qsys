@@ -68,7 +68,7 @@
    enabled="1"
    autoexport="1">
   <parameter name="AUTO_CLOCK_RATE" value="0" />
-  <parameter name="CLOCK_FREQUENCY" value="6.25" />
+  <parameter name="CLOCK_FREQUENCY" value="4.0" />
   <parameter name="CONFIGURATION_MODE">Single Uncompressed Image</parameter>
   <parameter name="CONFIGURATION_SCHEME">Internal Configuration</parameter>
   <parameter name="DATA_INTERFACE" value="Parallel" />
@@ -79,7 +79,7 @@
   <parameter name="SECTOR_ACCESS_MODE">Read and write,Read and write,Read only,Hidden,Hidden</parameter>
   <parameter name="autoInitializationFileName">$${FILENAME}_onchip_flash_0</parameter>
   <parameter name="initFlashContent" value="true" />
-  <parameter name="initializationFileName">C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus/defaultsettings.hex</parameter>
+  <parameter name="initializationFileName" value="defaultsettings.hex" />
   <parameter name="initializationFileNameForSim">altera_onchip_flash.dat</parameter>
   <parameter name="useNonDefaultInitFile" value="true" />
  </module>

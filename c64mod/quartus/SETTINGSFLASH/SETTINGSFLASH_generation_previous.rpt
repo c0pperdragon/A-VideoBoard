@@ -8,7 +8,6 @@ Progress: Building connections
 Progress: Parameterizing connections
 Progress: Validating
 Progress: Done reading input file
-Warning: SETTINGSFLASH.onchip_flash_0: Clock frequency is set to 116000000.0 Hz, but the target device only supports maximum 7250000 Hz for the selected interface.
 Info: SETTINGSFLASH: Generating SETTINGSFLASH "SETTINGSFLASH" for QUARTUS_SYNTH
 Info: onchip_flash_0: Generating top-level entity altera_onchip_flash
 Info: onchip_flash_0: "SETTINGSFLASH" instantiated altera_onchip_flash "onchip_flash_0"
