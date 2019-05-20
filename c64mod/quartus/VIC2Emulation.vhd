@@ -370,15 +370,7 @@ begin
 					elsif xcoordinate=to_integer(unsigned(spritex(SP))) then
 						spriterendering(SP) := '1';
 					end if;
-				end loop;
-				
-				-- horizontal pixel coordinate runs independent of the CPU cycle, but is synced to it
-				if cycle=0 and phase=0 then
-					xcoordinate := 403;
-					if PAL='1' then xcoordinate := 411; end if;
-				else
-					xcoordinate := xcoordinate+1;
-				end if;
+				end loop;				
 			end if;
 			
 			-- data from memory
@@ -395,13 +387,13 @@ begin
 			if phase=15 and in_aec='0' then   -- receive during a CPU-blocking second half of a cycle
 				-- video matrix read
 				if cycle>=14 and cycle<54 then
-					matrixdata <= in_db;
+					matrixdata <= DB; -- in_db; 
 					matrixwaddress <= std_logic_vector(to_unsigned(cycle-14,6));
 					videomatrixage := 0;
 				end if;
 				-- sprite DMA read
 				if cycle=58 or cycle=60 or cycle=62 or cycle=64 or cycle=1 or cycle=3 or cycle=5 or cycle=7 then
-					spritedatabyte0 := in_db(7 downto 0);
+					spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
 				end if;
 				-- read the last byte for a sprite
 				for SP in 0 to 7 loop
@@ -409,7 +401,7 @@ begin
 					or (SP=4 and cycle=2) or (SP=5 and cycle=4) or (SP=6 and cycle=6) or (SP=7 and cycle=8) then
 						spriterendering(SP) := '0';
 						if spritereadcomplete='1' then
-							spritedata(SP) := "00" & spritedatabyte0 & spritedatabyte1 & in_db(7 downto 0);
+							spritedata(SP) := "00" & spritedatabyte0 & spritedatabyte1 & DB(7 downto 0); --in_db(7 downto 0);
 						else
 							spritedata(SP) := "00000000000000000000000000";
 						end if;
@@ -496,6 +488,9 @@ begin
 			end if;
 
 			-- progress horizontal and vertical counters
+			if phase mod 2 = 0 then
+				xcoordinate := xcoordinate+1;
+			end if;
 			if phase=15 then
 				if cycle=64 then
 					cycle := 0;
@@ -507,6 +502,11 @@ begin
 					if videomatrixage<8 then 
 						videomatrixage := videomatrixage+1;
 					end if;
+					if PAL='0' then
+						xcoordinate := 402;
+					else
+						xcoordinate := 410; 
+					end if;					
 				else
 					if PAL='1' and cycle=57 then   -- for PAL skip two of the cycles
 						cycle := 59;
