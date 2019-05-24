@@ -373,29 +373,48 @@ begin
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
 	
-	variable unlocked : std_logic := '0';
+	variable modeswitch : std_logic_vector(2 downto 0);
+	variable prevmodeswitch : std_logic_vector(2 downto 0);
+	
+	variable writeaddr : std_logic_vector(5 downto 0);
+	variable unlocked1 : boolean := false;
+	variable unlocked2 : boolean := false;
 	
 	begin
 		-- monitor when the CPU writes into registers and forward info to the settings manager
 		if rising_edge(CLK) then
 
 			settings_writeen <= '0';
-			if phase=9 and in_aec='1' and in_rw='0' and in_cs='0' then  
-				if unlocked='1' then
-					settings_writeaddr <= in_a;
-					settings_writedata <= in_db;
+			settings_writeaddr <= writeaddr;
+			settings_writedata <= in_db;
+			
+			-- attempt to write into register
+			if phase=11 then
+				writeaddr := in_a;
+			end if;
+			if phase=14 and in_aec='1' and in_cs='0' and in_rw='0' then
+				-- unlock step 1: write 137 to register 63
+				if not unlocked1 then
+					if in_db="10001001" and writeaddr="111111" then   -- magic number 137
+						unlocked1 := true;
+					end if;
+				-- everything unlocked - send to settings manager
+				elsif unlocked2 then
 					settings_writeen <= '1';
-				elsif in_db="10001001" and in_a="111111" then   -- magic number 137
-					unlocked := '1'; 
 				end if;
 			end if;
 			
 			-- progress the phase
-			if phase>12 and in_phi0='0' then
-				phase:=0;
-			elsif phase<15 then
+			if (phase=15 or phase=0 or phase=1) and in_phi0='0' then
+				phase:=2;
+			elsif phase/=1 then
 				phase:=phase+1;
 			end if;			
+
+			-- unlock step 2: change the mode switch
+			if unlocked1 and modeswitch /= prevmodeswitch then
+				unlocked2 := true;
+			end if;
 			
 			-- take signals into registers
 			in_phi0 := GPIO1(20);
@@ -405,7 +424,9 @@ begin
 					& GPIO1(13) & GPIO1(14);
 			in_rw := GPIO1(16); 
 			in_cs := GPIO1(15); 
-			in_aec := GPIO1(18);					
+			in_aec := GPIO1(18);		
+			prevmodeswitch := modeswitch;
+			modeswitch := GPIO2_4 & GPIO2_5 & GPIO2_6;
 		end if;	
 	end process;
 		

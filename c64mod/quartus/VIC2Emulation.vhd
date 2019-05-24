@@ -87,15 +87,14 @@ begin
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "1110"; --
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110"; --
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; --
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; --
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; --
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100"; --
+	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110"; --
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110"; --
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001"; --
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010"; --
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011"; --
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100"; --
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
---	variable spritecolor: T_spritecolor := ( "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1100" );
 	variable spritecolor: T_spritecolor := ( "0000", "0000", "0000", "0000", "0000", "0000", "0000", "0000" );
 	
 	-- registering the input lines
@@ -508,8 +507,8 @@ begin
 						xcoordinate := 410; 
 					end if;					
 				else
-					if PAL='1' and cycle=57 then   -- for PAL skip two of the cycles
-						cycle := 59;
+					if PAL='1' and cycle=56 then   -- for PAL skip two of the cycles
+						cycle := 58;
 					elsif PAL='1' and cycle=9 then
 						cycle := 11;
 					else
