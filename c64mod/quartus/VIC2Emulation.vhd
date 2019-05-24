@@ -151,6 +151,7 @@ begin
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
 	variable tmp_half : integer range 250 to 280;
+	variable tmp_line : integer range 0 to 511;
 
 	begin
 		-- synchronous logic -------------------
@@ -347,9 +348,13 @@ begin
 				pixelpattern := pixelpattern(25 downto 0) & '0';
 				
 				-- check the vertical line hit conditions			
-				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
+				tmp_line := displayline;
+				if PAL='1' and cycle=64 then
+					tmp_line := tmp_line+1;
+				end if;
+				if (RSEL='0' and tmp_line=55) or (RSEL='1' and tmp_line=51) then
 					if DEN='1' then verticalborderflipflop:='0'; end if;
-				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
+				elsif (RSEL='0' and tmp_line=247) or (RSEL='1' and tmp_line=251) then
 					verticalborderflipflop:='1'; 
 				end if;
 				-- check the horizontal conditions 
