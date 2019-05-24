@@ -1,5 +1,3 @@
--- running on A-Video board Rev.2
-
 library ieee;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
@@ -35,15 +33,26 @@ architecture immediate of C64Mod is
 	signal CLK     : std_logic;         -- 16 times CPU clock
 	
 	-- SDTV signals
-	signal COLOR   : std_logic_vector(3 downto 0);
+	signal COLOR : std_logic_vector(3 downto 0);
+	signal DELAYEDCOLOR  : std_logic_vector(3 downto 0);	
 	signal CSYNC   : std_logic;
+	signal YPBPR   : std_logic_vector(15 downto 0);
 
 	-- video memory control
 	signal vramrdaddress0 : std_logic_vector (9 downto 0);
 	signal vramrdaddress1 : std_logic_vector (9 downto 0);
 	signal vramwraddress : std_logic_vector (9 downto 0);
-	signal vramq0        : std_logic_vector (3 downto 0);
-	signal vramq1        : std_logic_vector (3 downto 0);
+	signal vramq0        : std_logic_vector (14 downto 0);
+	signal vramq1        : std_logic_vector (14 downto 0);
+	
+	-- color delay line addressing
+	signal delayrdaddress : std_logic_vector(10 downto 0);
+	signal delaywraddress : std_logic_vector(10 downto 0);	
+	
+	-- signals to change user settings
+	signal settings_writeaddr : std_logic_vector(5 downto 0) := "000000";
+	signal settings_writedata : std_logic_vector(7 downto 0) := "00000000";
+	signal settings_writeen : std_logic := '0';
 	
    component ClockMultiplier is
 	port (
@@ -81,16 +90,40 @@ architecture immediate of C64Mod is
 		PAL         : in std_logic
 	);	
 	end component;
+	
+	
+	component ram_dual is
+	generic
+	(
+		data_width : integer := 8;
+		addr_width : integer := 16
+	); 
+	port 
+	(
+		data	: in std_logic_vector(data_width-1 downto 0);
+		raddr	: in std_logic_vector(addr_width-1 downto 0);
+		waddr	: in std_logic_vector(addr_width-1 downto 0);
+		we		: in std_logic := '1';
+		rclk	: in std_logic;
+		wclk	: in std_logic;
+		q		: out std_logic_vector(data_width-1 downto 0)
+	);	
+	end component;
 
-	component VideoRAM is
+	component Settings is
 	port (
-		clock		: IN STD_LOGIC  := '1';
-		data		: IN STD_LOGIC_VECTOR (3 DOWNTO 0);
-		rdaddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
-		wraddress		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
-		wren		: IN STD_LOGIC  := '0';
-		q		: OUT STD_LOGIC_VECTOR (3 DOWNTO 0)
-	);
+		-- reference clock
+		CLK: in std_logic;		
+		
+		-- get notified when CPU writes into the registers
+		WRITEADDR : in std_logic_vector(5 downto 0);
+		WRITEDATA : in std_logic_vector(7 downto 0);
+		WRITEEN : in std_logic;
+		
+		-- color palette conversion
+		QUERYREGISTER : in std_logic_vector(7 downto 0);
+		REGISTERDATA : out std_logic_vector(15 downto 0)
+	);	
 	end component;
 	
 	
@@ -111,24 +144,49 @@ begin
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
       PAL
-	);	
+	);	 
 
-	vram0: VideoRAM port map (
-		CLK,
-		COLOR,
-		vramrdaddress0,
-		vramwraddress,
-		'1',
-		vramq0		
-	);
-	vram1: VideoRAM port map (
-		CLK,
-		COLOR,
-		vramrdaddress1,
-		vramwraddress,
-		'1',
-		vramq1
-	);
+	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
+		port map (
+			YPBPR(14 downto 0),
+			vramrdaddress0,
+			vramwraddress,
+			'1',
+			CLK,
+			CLK,
+			vramq0		
+		);
+	vram1: ram_dual generic map(data_width => 15, addr_width => 10)
+		port map (
+			YPBPR(14 downto 0),
+			vramrdaddress1,
+			vramwraddress,
+			'1',
+			CLK,
+			CLK,
+			vramq1		
+		);
+		
+	settings0: Settings 
+		port map(
+			CLK,
+			settings_writeaddr,
+			settings_writedata,
+			settings_writeen,
+			COLOR & DELAYEDCOLOR,
+			YPBPR
+		);
+	
+	colordelayline : ram_dual generic map(data_width => 4, addr_width => 11)
+		port map (
+			COLOR,
+			delayrdaddress,
+			delaywraddress,
+			'1',
+			CLK,
+			CLK,
+			DELAYEDCOLOR		
+		);
 	
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
@@ -156,51 +214,34 @@ begin
 		end if;
 		PAL <= out_pal;
 	end process;
-		
-	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
-	process (CLK, GPIO2_4, GPIO2_5, GPIO2_6) 
+	
+	--- control the read and write address of the color delay line
+	process (CLK, PAL)
+	variable p : integer range 0 to 2047;
+	begin
+		if rising_edge(CLK) then
+			p := p+1;		
+		end if;
+		delayrdaddress <= std_logic_vector(to_unsigned(p,11));
+		if PAL='0' then
+			delaywraddress <= std_logic_vector(to_unsigned(p+1039,11));
+		else
+			delaywraddress <= std_logic_vector(to_unsigned(p+1007,11));		
+		end if;
+	end process;
+	
+	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper) 
+	process (CLK) 
 		variable hcnt : integer range 0 to 2047 := 0;
 		variable vcnt : integer range 0 to 511 := 0;
 		variable needvsync : boolean := false;
-		variable colprev : integer range 0 to 15;
-		variable colpprev : integer range 0 to 15;
-		variable colppprev : integer range 0 to 15;
-		variable colpppprev : integer range 0 to 15;
-		variable colppppprev : integer range 0 to 15;
 		
-		variable col0: integer range 0 to 15;
-		variable col1: integer range 0 to 15;
 		variable val0 : integer range 0 to 31;
 		variable val1 : integer range 0 to 31;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
 		variable lpixel : integer range 0 to 2047;
-
-		variable EDTV_YPbPr : std_logic_vector(14 downto 0);
-		variable EDTV_CSYNC : std_logic;
 		
-		-- palette as specified by
-		-- https://www.c64-wiki.de/wiki/Farbe but with darker luminance
-		type T_c64palette is array (0 to 15) of integer range 0 to 32767;
-		constant c64palette : T_c64palette := 
-		(	 0 *1024 + 16*32 + 16,
-			31 *1024 + 16*32 + 16,
-			10 *1024 + 13*32 + 24,
-			19 *1024 + 16*32 + 11,
-			12 *1024 + 21*32 + 22,
-			16 *1024 + 12*32 + 4,
-			8  *1024 + 26*32 + 14,
-			23 *1024 + 8*32 + 17,
-			12 *1024 + 11*32 + 21,
-			8  *1024 + 11*32 + 18,
-			16 *1024 + 13*32 + 24,
-			10 *1024 + 16*32 + 16,
-			15 *1024 + 16*32 + 16,
-			23 *1024 + 8*32 + 12,
-			15 *1024 + 26*32 + 6,
-			19 *1024 + 16*32 + 16	
-		); 
-
 		type T_lumadjustment is array (0 to 31) of integer range 0 to 31;
 		constant scanlineboost : T_lumadjustment := 
 		(	 0,  1,  2, 4,  5,  6,  8,  9,  10, 11, 13, 14, 15, 17, 18, 20, 
@@ -212,62 +253,79 @@ begin
 		);			                           -- W+C     W+Y
 
 	begin
-		-- handle jumper configuration
-		usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
-		usescanlines := GPIO2_5='0' or GPIO2_6='0';
 	
 		if rising_edge(CLK) then
+			-- jumper configuration
+			usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
+			usescanlines := GPIO2_5='0' or GPIO2_6='0';
+
+			-- determine hsync position
 			lpixel := 504;
 			if PAL='0' then
 				lpixel := 520;
 			end if;
 		
-			EDTV_YPbPr := "000000000000000";
-			EDTV_CSYNC := '1';
-			
+			-- if highres is not selected, just use plain SDTV
+			if not usehighres then
+				if CSYNC='0' then	
+					Y(5) <= YPBPR(15);  -- suppress sync signal when set to '1'
+				else 
+					Y(5) <= '1'; 
+				end if; 
+				Y(4 downto 0) <= YPBPR(14 downto 10);
+				Pb <= YPBPR(9 downto 5);
+				Pr <= YPBPR(4 downto 0);
+				
 			-- generate EDTV output signal (with syncs and all)
-			if vcnt=0 or (vcnt=1 and hcnt<lpixel) then	  -- 3 EDTV lines with vsync	
-				if (hcnt<lpixel-37) or (hcnt>=lpixel and hcnt<2*lpixel-37) then 
-					EDTV_CSYNC := '0';
-				end if;
-			else
-				-- use scanline effect
-				if usescanlines then
-					-- construct bright line
-					if hcnt<lpixel then
-						col0 := to_integer(unsigned(vramq0));
-						val0 := c64palette(col0) / 1024;
-						val0 := scanlineboost(val0);
-						EDTV_YPbPr(14 downto 10) := std_logic_vector(to_unsigned((val0), 5));
-						val0 := (c64palette(col0) / 32) mod 32;
-						EDTV_YPbPr(9 downto 5) := std_logic_vector(to_unsigned((val0), 5));
-						val0 := c64palette(col0) mod 32;
-						EDTV_YPbPr(4 downto 0) := std_logic_vector(to_unsigned((val0), 5));
-					-- construct scanline darkening from both adjacent lines
-					else  
-						col0 := to_integer(unsigned(vramq0));
-						col1 := to_integer(unsigned(vramq1));
-						val0 := c64palette(col0) / 1024;
-						val1 := c64palette(col1) / 1024;
-						val0 := scanlinedarken((val0+val1)/2);
-						EDTV_YPbPr(14 downto 10) := std_logic_vector(to_unsigned((val0), 5));
-						val0 := (c64palette(col0) / 32) mod 32;
-						val1 := (c64palette(col1) / 32) mod 32;										
-						EDTV_YPbPr(9 downto 5) := std_logic_vector(to_unsigned((val0+val1) / 2, 5));
-						val0 := c64palette(col0) mod 32;
-						val1 := c64palette(col1) mod 32;									
-						EDTV_YPbPr(4 downto 0) := std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+			else 
+				-- 3 EDTV lines with vsync	
+				if vcnt=0 or (vcnt=1 and hcnt<lpixel) then	  
+					if (hcnt<lpixel-37) or (hcnt>=lpixel and hcnt<2*lpixel-37) then
+						Y(5) <= '0';
+					else
+						Y(5) <= '1';				
 					end if;
-				-- normal scanline color
+					Pb <= "00000";
+					Pr <= "00000";			
+				-- normal EDTV lines with line syncs
 				else
-					col0 := to_integer(unsigned(vramq0));
-					EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(col0),15));
-				end if;				
-				-- two normal EDTV line syncs
-				if hcnt<37 or (hcnt>=lpixel and hcnt<lpixel+37) then  
-					EDTV_CSYNC := '0';
+					-- compute the sync signals
+					if hcnt<37 or (hcnt>=lpixel and hcnt<lpixel+37) then  
+						Y(5) <= '0';
+					else
+						Y(5) <= '1';
+					end if;
+				
+					-- use scanline effect
+					if usescanlines then
+						-- construct bright line
+						if hcnt<lpixel then
+							val0 := to_integer(unsigned(vramq0(14 downto 10)));
+							val0 := scanlineboost(val0);
+							Y(4 downto 0) <= std_logic_vector(to_unsigned((val0), 5));
+							Pb <= vramq0(9 downto 5);
+							Pr <= vramq0(4 downto 0);
+						-- construct scanline darkening from both adjacent lines
+						else  
+							val0 := to_integer(unsigned(vramq0(14 downto 10)));
+							val1 := to_integer(unsigned(vramq1(14 downto 10)));
+							val0 := scanlinedarken((val0+val1)/2);
+							Y(4 downto 0) <= std_logic_vector(to_unsigned((val0), 5));
+							val0 := to_integer(unsigned(vramq0(9 downto 5)));
+							val1 := to_integer(unsigned(vramq1(9 downto 5)));								
+							Pb <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+							val0 := to_integer(unsigned(vramq0(4 downto 0)));
+							val1 := to_integer(unsigned(vramq1(4 downto 0)));						
+							Pr <= std_logic_vector(to_unsigned((val0+val1) / 2, 5));
+						end if;
+					-- normal scanline color
+					else
+						Y(4 downto 0) <= vramq0(14 downto 10);
+						Pb <= vramq0(9 downto 5);
+						Pr <= vramq0(4 downto 0);
+					end if;	
+					
 				end if;
-
 			end if;
 			
 			-- progress counters and detect sync
@@ -286,24 +344,8 @@ begin
 				end if;
 				hcnt := hcnt+1;
 			end if;
-
-			-- if highres is not selected, fall back to plain SDTV
-			if not usehighres then
-				EDTV_YPbPr := std_logic_vector(to_unsigned(c64palette(colppppprev),15));			
-				EDTV_CSYNC := CSYNC;
-			end if;
 			
-			-- memorize previous color so to output it a bit delayed
-			colppppprev := colpppprev;
-			colpppprev := colppprev;
-			colppprev := colpprev;
-			colpprev := colprev;
-			colprev := to_integer(unsigned(COLOR)); 
 		end if;
-
-		Y  <= EDTV_CSYNC & EDTV_YPbPr(14 downto 10);
-		Pb <= EDTV_YPbPr(9 downto 5);
-		Pr <= EDTV_YPbPr(4 downto 0);
 		
 		-- compute VideoRAM write position (write in buffer one line ahead)
 		vramwraddress <= std_logic_vector(to_unsigned(hcnt/2 + ((vcnt+1) mod 2)*512, 10));
@@ -319,5 +361,74 @@ begin
 	end process;
 		
 
+	------- listen to CPU activity and forward register change to Settings
+	process (CLK) 
+	
+	-- monitor the CPU actions
+	variable phase: integer range 0 to 15 := 0;
+	variable in_phi0: std_logic; 
+	variable in_db: std_logic_vector(7 downto 0);
+	variable in_a:  std_logic_vector(5 downto 0);
+	variable in_rw: std_logic; 
+	variable in_cs: std_logic; 
+	variable in_aec: std_logic; 
+	
+	variable modeswitch : std_logic_vector(2 downto 0);
+	variable prevmodeswitch : std_logic_vector(2 downto 0);
+	
+	variable writeaddr : std_logic_vector(5 downto 0);
+	variable unlocked1 : boolean := false;
+	variable unlocked2 : boolean := false;
+	
+	begin
+		-- monitor when the CPU writes into registers and forward info to the settings manager
+		if rising_edge(CLK) then
+
+			settings_writeen <= '0';
+			settings_writeaddr <= writeaddr;
+			settings_writedata <= in_db;
+			
+			-- attempt to write into register
+			if phase=11 then
+				writeaddr := in_a;
+			end if;
+			if phase=14 and in_aec='1' and in_cs='0' and in_rw='0' then
+				-- unlock step 1: write 137 to register 63
+				if not unlocked1 then
+					if in_db="10001001" and writeaddr="111111" then   -- magic number 137
+						unlocked1 := true;
+					end if;
+				-- everything unlocked - send to settings manager
+				elsif unlocked2 then
+					settings_writeen <= '1';
+				end if;
+			end if;
+			
+			-- progress the phase
+			if (phase=15 or phase=0 or phase=1) and in_phi0='0' then
+				phase:=2;
+			elsif phase/=1 then
+				phase:=phase+1;
+			end if;			
+
+			-- unlock step 2: change the mode switch
+			if unlocked1 and modeswitch /= prevmodeswitch then
+				unlocked2 := true;
+			end if;
+			
+			-- take signals into registers
+			in_phi0 := GPIO1(20);
+			in_db :=   GPIO1(1) & GPIO1(2) & GPIO1(3) & GPIO1(4)
+						& GPIO1(5) & GPIO1(6) & GPIO1(7) & GPIO1(8);
+			in_a := GPIO1(9 downto 9) & GPIO1(10) & GPIO1(11)  & GPIO1(12)
+					& GPIO1(13) & GPIO1(14);
+			in_rw := GPIO1(16); 
+			in_cs := GPIO1(15); 
+			in_aec := GPIO1(18);		
+			prevmodeswitch := modeswitch;
+			modeswitch := GPIO2_4 & GPIO2_5 & GPIO2_6;
+		end if;	
+	end process;
+		
 end immediate;
 
