@@ -85,6 +85,7 @@ begin
 	variable CSEL:             std_logic := '1';
 	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
+	variable YSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
@@ -117,11 +118,13 @@ begin
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
 	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
-
+	
+	variable DENinline30 : boolean := false;
+	variable displaystate : boolean := false;
+	variable RC : integer range 0 to 7 := 0;
 	variable pixelpattern : std_logic_vector(26 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
-	variable videomatrixage : integer range 0 to 8 := 8;
 	
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 	variable spritereadcomplete : std_logic;
@@ -181,7 +184,7 @@ begin
 				tmp_bit := '0';
 				tmp_2bit := "00";
 				if xcoordinate>=25+tmp_hscroll and xcoordinate<25+tmp_hscroll+320 then
-					if videomatrixage<8 and displayline<251 then
+					if displaystate and displayline<251 then
 						tmp_vm := matrixq;
 					end if;
 					-- extract relevant bit or 2 bits from bitmap data
@@ -274,9 +277,6 @@ begin
 				
 				-- overlay with sprite graphics
 				for SP in 7 downto 0 loop
-				
---				 if SP=0 then
-				
 					if spriterendering(SP)='1' and ((not tmp_isforeground) or spritepriority(SP)='0') then
 						if spritemulticolor(SP)='1' then								
 							tmp_2bit(1) := spritedata(SP)(spritecursor(SP)/2*2 + 1);
@@ -293,7 +293,6 @@ begin
 							end if;
 						end if;
 					end if;
---				 end if;
 				end loop;
 				
 				-- overlay with border 
@@ -409,7 +408,6 @@ begin
 				if cycle>=15 and cycle<55 and in_aec='0' then
 					matrixdata <= DB; -- in_db; 
 					matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
-					videomatrixage := 0;
 				end if;
 				-- potential sprite DMA read
 				if spritecycle=0 or spritecycle=2 or spritecycle=4 or spritecycle=6 
@@ -442,6 +440,35 @@ begin
 						spritereadcomplete := '1';
 					else
 						spritereadcomplete := '0';
+					end if;
+				end if;
+			end if;
+			
+			if phase=15 then
+			-- memorize if DEN was set during line $30 
+				if displayline=48 then
+					if DEN='1' then 
+						DENinline30:=true; 
+					end if;
+				end if;
+				-- bad line condition detected
+				if DENinline30 and displayline<248 and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
+					-- enter display state and force row counter to 0
+					if cycle=14 then
+						displaystate := true;
+						RC := 0; 
+					end if;
+					if cycle=58 then
+						RC:= RC+1;
+					end if;
+				-- no bad line condition
+				else
+					if cycle=58 then
+						if RC=7 then
+							displaystate := false;
+						else
+							RC:=RC+1;
+						end if;
 					end if;
 				end if;
 			end if;
@@ -484,6 +511,7 @@ begin
 	                       BMM_SET := register_writedata(5);
 								  DEN := register_writedata(4);
 								  RSEL:= register_writedata(3);
+								  YSCROLL := register_writedata(2 downto 0);
 					when 21 => SPRITEACTIVE := register_writedata;
 					when 22 => MCM := register_writedata(4);
 					           CSEL := register_writedata(3);
@@ -519,11 +547,9 @@ begin
 					cycle := 1;
 					if (displayline=262 and PAL='0') or displayline=311 then
 						displayline := 0;
+						DENinline30 := false;
 					else
 						displayline := displayline+1;
-					end if;
-					if videomatrixage<8 then 
-						videomatrixage := videomatrixage+1;
 					end if;
 				else
 					cycle := cycle+1;
