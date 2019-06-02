@@ -74,14 +74,14 @@ begin
 	process (PHI0, CLKA, CLKB, CLKC, CLKD)
 		-- having 8 versions of the circuit running slightly 
 		-- time-shifted
-		variable counter0 : integer range 0 to 15 := 0;
-		variable counter1 : integer range 0 to 15 := 0;
-		variable counter2 : integer range 0 to 15 := 0;
-		variable counter3 : integer range 0 to 15 := 0;
-		variable counter4 : integer range 0 to 15 := 0;
-		variable counter5 : integer range 0 to 15 := 0;
-		variable counter6 : integer range 0 to 15 := 0;
-		variable counter7 : integer range 0 to 15 := 0;
+		variable counter0 : unsigned(3 downto 0) := "0000";
+		variable counter1 : unsigned(3 downto 0) := "0000";
+		variable counter2 : unsigned(3 downto 0) := "0000";
+		variable counter3 : unsigned(3 downto 0) := "0000";
+		variable counter4 : unsigned(3 downto 0) := "0000";
+		variable counter5 : unsigned(3 downto 0) := "0000";
+		variable counter6 : unsigned(3 downto 0) := "0000";
+		variable counter7 : unsigned(3 downto 0) := "0000";
 		variable in0_clk : std_logic := '0'; 
 		variable in1_clk : std_logic := '0'; 		
 		variable in2_clk : std_logic := '0'; 		
@@ -100,7 +100,7 @@ begin
 		variable prev7_clk : std_logic := '0';	
 			
 		variable bits : std_logic_vector(3 downto 0);
-		constant reset: integer := 4;
+		constant reset: unsigned(3 downto 0) := "1000";
 	begin
 	
 		if rising_edge(CLKA) then
@@ -178,16 +178,15 @@ begin
 		
       -- merge clock counters asynchronously
 		bits:= std_logic_vector
-		(	   to_unsigned(counter0,4) 
-			or to_unsigned(counter1,4) 
-		   or to_unsigned(counter2,4) 
-			or to_unsigned(counter3,4)
-			or to_unsigned(counter4,4) 
-		   or to_unsigned(counter5,4) 
-			or to_unsigned(counter6,4)
-			or to_unsigned(counter7,4)
+		(	   counter0 
+			or counter1 
+		   or counter2 
+			or counter3
+			or counter4 
+		   or counter5 
+			or counter6
+			or counter7
 		);
-		
 		CLK <= bits(3);
 	end process;
 

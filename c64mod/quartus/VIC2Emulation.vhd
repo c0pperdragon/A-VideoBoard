@@ -85,16 +85,17 @@ begin
 	variable CSEL:             std_logic := '1';
 	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
+	variable XSCROLL_SET:      std_logic_vector(2 downto 0) := "000";
 	variable YSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
-	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110"; --
-	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110"; --
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001"; --
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010"; --
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011"; --
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100"; --
+	variable bordercolor:      std_logic_vector(3 downto 0) := "1110"; --
+	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0110"; --
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; --
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; --
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; --
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100"; --
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 	variable spritecolor: T_spritecolor := ( "0000", "0000", "0000", "0000", "0000", "0000", "0000", "0000" );
@@ -122,6 +123,7 @@ begin
 	variable DENinline30 : boolean := false;
 	variable displaystate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
+	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(26 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
@@ -156,7 +158,6 @@ begin
 	variable tmp_vm : std_logic_vector(11 downto 0);
 	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_bit : std_logic;
-	variable tmp_pos : integer range 1 to 27;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
 	variable tmp_half : integer range 250 to 280;
@@ -178,24 +179,21 @@ begin
 				 
 				-- address the correct video matrix cell for the next clock
 				matrixraddress <= std_logic_vector(to_unsigned((xcoordinate - 24 - tmp_hscroll) / 8, 6));
+				-- get the data from the video matrix buffer
+				if xcoordinate>=25+tmp_hscroll and xcoordinate<25+tmp_hscroll+320 and displaystate then
+					tmp_vm := matrixq;
+				else
+					tmp_vm := "000000000000";
+				end if;
 				
-				-- get the pixel bits from the shift register
-				tmp_vm := "000000000000";
-				tmp_bit := '0';
-				tmp_2bit := "00";
-				if xcoordinate>=25+tmp_hscroll and xcoordinate<25+tmp_hscroll+320 then
-					if displaystate and displayline<251 then
-						tmp_vm := matrixq;
-					end if;
-					-- extract relevant bit or 2 bits from bitmap data
-					tmp_bit := pixelpattern(17 + tmp_hscroll);
-					if (tmp_hscroll mod 2) = 0 then
-						tmp_pos := 18 + tmp_hscroll - ((phase/2) mod 2);
-					else
-						tmp_pos := 17 + tmp_hscroll + ((phase/2) mod 2);
-					end if;
-					tmp_2bit(1) := pixelpattern(tmp_pos);
-					tmp_2bit(0) := pixelpattern(tmp_pos-1);
+				-- extract relevant bit or 2 bits from bitmap data
+				tmp_bit := pixelpattern(20);
+				if (tmp_hscroll mod 2) /= ((phase/2) mod 2) then
+					tmp_2bit(1) := pixelpattern(20);
+					tmp_2bit(0) := pixelpattern(19);
+				else
+					tmp_2bit(1) := pixelpattern(21);
+					tmp_2bit(0) := pixelpattern(20);
 				end if;
 				
 				-- set color depending on graphics/text mode
@@ -349,7 +347,20 @@ begin
 				end if;
 				
 				-- shift pixels along through buffers
-				pixelpattern := pixelpattern(25 downto 0) & '0';
+				if phase=0 then
+					case XSCROLL is
+					when "000" => pixelpattern := pixelpattern(25 downto 14) & pixelfetcher & "0000000";
+					when "001" => pixelpattern := pixelpattern(25 downto 13) & pixelfetcher & "000000";
+					when "010" => pixelpattern := pixelpattern(25 downto 12) & pixelfetcher & "00000";
+					when "011" => pixelpattern := pixelpattern(25 downto 11) & pixelfetcher & "0000";
+					when "100" => pixelpattern := pixelpattern(25 downto 10) & pixelfetcher & "000";
+					when "101" => pixelpattern := pixelpattern(25 downto 9)  & pixelfetcher & "00";
+					when "110" => pixelpattern := pixelpattern(25 downto 8)  & pixelfetcher & "0";
+					when "111" => pixelpattern := pixelpattern(25 downto 7)  & pixelfetcher;
+					end case;				
+				else
+					pixelpattern := pixelpattern(25 downto 0) & '0';
+				end if;
 				
 				-- check the vertical line hit conditions			
 				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
@@ -395,7 +406,9 @@ begin
 			if phase=9 then                -- received in first half of cycle
 				-- pixel pattern read
 				if cycle>=16 and cycle<56 then
-					pixelpattern(7 downto 0) := in_db(7 downto 0);
+					pixelfetcher := in_db(7 downto 0);
+				else
+					pixelfetcher := "00000000";
 				end if;
 				-- sprite DMA read
 				if spritecycle=1 or spritecycle=3 or spritecycle=5 or spritecycle=7
@@ -445,14 +458,14 @@ begin
 			end if;
 			
 			if phase=15 then
-			-- memorize if DEN was set during line $30 
+			-- memorize if DEN was set during line $30
 				if displayline=48 then
 					if DEN='1' then 
 						DENinline30:=true; 
 					end if;
 				end if;
 				-- bad line condition detected
-				if DENinline30 and displayline<248 and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
+				if DENinline30 and displayline<251 and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
 					-- enter display state and force row counter to 0
 					if cycle=14 then
 						displaystate := true;
@@ -471,6 +484,9 @@ begin
 						end if;
 					end if;
 				end if;
+				if displayline>=251 then 
+					displaystate := false;
+				end if;
 			end if;
 			
 			-- make the changes to some registers have delayed effect
@@ -478,7 +494,10 @@ begin
 				ECM := ECM_SET;
 				BMM := BMM_SET;
 			end if;
-
+--			if phase=15 then
+--				XSCROLL := XSCROLL_SET;
+--			end if;
+			
 			-- detect if a register write should happen in this cycle
 			if phase=11 then
 				register_writeaddress := in_a;
