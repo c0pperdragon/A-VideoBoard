@@ -75,9 +75,7 @@ begin
   	type T_spritex is array (0 to 7) of std_logic_vector(8 downto 0);
 	variable spritex : T_spritex := 
 	( "000000000","000000000","000000000","000000000","000000000","000000000","000000000","000000000");	
-	variable ECM_SET:          std_logic := '0';
 	variable ECM:              std_logic := '0';
-	variable BMM_SET:          std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable MCM:              std_logic := '0';
 	variable DEN:              std_logic := '1';
@@ -85,7 +83,6 @@ begin
 	variable CSEL:             std_logic := '1';
 	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
-	variable XSCROLL_SET:      std_logic_vector(2 downto 0) := "000";
 	variable YSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
@@ -109,9 +106,10 @@ begin
 	variable in_aec: std_logic; 
 	
 	-- memory requests to write into registers
-	variable register_requestwrite : std_logic := '0';
 	variable register_writeaddress : std_logic_vector(5 downto 0);
+	variable register_writeaddress2 : std_logic_vector(5 downto 0);
 	variable register_writedata : std_logic_vector(7 downto 0);
+	variable register_writedata2 : std_logic_vector(7 downto 0);
 	
 	-- variables for synchronious operation
 	variable displayline: integer range 0 to 511 := 0; -- VIC-II line numbering
@@ -119,6 +117,7 @@ begin
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
 	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
+	variable matrixsequencer : integer range 0 to 511;
 	
 	variable DENinline30 : boolean := false;
 	variable displaystate : boolean := false;
@@ -161,6 +160,7 @@ begin
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
 	variable tmp_half : integer range 250 to 280;
+--	variable tmp_maddr : integer range 0 to 63;
 
 	begin
 		-- synchronous logic -------------------
@@ -171,20 +171,27 @@ begin
 			
 				-- output defaults to background (no csync active)
 				out_csync := '1';
-				out_color := backgroundcolor0;
+				out_color :=  backgroundcolor0;
 				tmp_isforeground := false;
 				tmp_hscroll := to_integer(unsigned(XSCROLL));
 	
 				-- main screen area color processing
 				 
-				-- address the correct video matrix cell for the next clock
-				matrixraddress <= std_logic_vector(to_unsigned((xcoordinate - 24 - tmp_hscroll) / 8, 6));
-				-- get the data from the video matrix buffer
-				if xcoordinate>=25+tmp_hscroll and xcoordinate<25+tmp_hscroll+320 and displaystate then
-					tmp_vm := matrixq;
-				else
-					tmp_vm := "000000000000";
-				end if;
+--				-- address the correct video matrix cell for the next clock
+--				tmp_maddr := (xcoordinate - 24 - tmp_hscroll) / 8;
+--				if matrixaddress<40 then
+--					matrixraddress <= std_logic_vector(to_unsigned(tmp_maddr, 6));
+--				else
+--					matrixaddress <= std_logic_vector(to_unsigned(tmp_maddr, 39));
+--				end if;
+				
+--				-- get the data from the video matrix buffer
+--				if displaystate and xcoordinate>=25+tmp_hscroll then -- and xcoordinate<25+tmp_hscroll+320 then
+--					tmp_vm := matrixq;
+--				else
+--					tmp_vm := "000000000000";
+--				end if;
+				tmp_vm := matrixq;
 				
 				-- extract relevant bit or 2 bits from bitmap data
 				tmp_bit := pixelpattern(20);
@@ -362,6 +369,15 @@ begin
 					pixelpattern := pixelpattern(25 downto 0) & '0';
 				end if;
 				
+				-- handle the the matrix sequencer counter
+				if cycle=1 and phase=0 then
+					matrixsequencer := 511;
+				elsif xcoordinate=24+to_integer(unsigned(XSCROLL)) and displaystate then
+					matrixsequencer := 0;
+				elsif matrixsequencer<8*40-1 then
+					matrixsequencer := matrixsequencer+1;
+				end if;
+				
 				-- check the vertical line hit conditions			
 				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
 					if DEN='1' then verticalborderflipflop:='0'; end if;
@@ -488,46 +504,23 @@ begin
 					displaystate := false;
 				end if;
 			end if;
-			
-			-- make the changes to some registers have delayed effect
-			if phase=11 then
-				ECM := ECM_SET;
-				BMM := BMM_SET;
-			end if;
---			if phase=15 then
---				XSCROLL := XSCROLL_SET;
---			end if;
-			
+						
 			-- detect if a register write should happen in this cycle
 			if phase=11 then
 				register_writeaddress := in_a;
 			end if;
-			if phase=14 and in_aec='1' and in_cs='0' and in_rw='0' then
-				register_writedata := in_db(7 downto 0);
-				register_requestwrite := '1';
+			if phase=14 then
+				if in_aec='1' and in_cs='0' and in_rw='0' then
+					register_writedata := in_db(7 downto 0);
+				else
+					register_writeaddress := "111111"; -- no write
+				end if;
 			end if;
-			-- write the new value through to the registers before next cycle
-			if phase=15 and register_requestwrite = '1' then
-				register_requestwrite := '0';
+			if phase=15 then
+				-- write the new value through to the registers before next cycle
 				case to_integer(unsigned(register_writeaddress)) is 
-					when 0  => spritex(0)(7 downto 0) := register_writedata;
-					when 2  => spritex(1)(7 downto 0) := register_writedata;
-					when 4  => spritex(2)(7 downto 0) := register_writedata;
-					when 6  => spritex(3)(7 downto 0) := register_writedata;
-					when 8  => spritex(4)(7 downto 0) := register_writedata;
-					when 10 => spritex(5)(7 downto 0) := register_writedata;
-					when 12 => spritex(6)(7 downto 0) := register_writedata;
-					when 14 => spritex(7)(7 downto 0) := register_writedata;
-					when 16 => spritex(0)(8) := register_writedata(0);
-					           spritex(1)(8) := register_writedata(1);
-								  spritex(2)(8) := register_writedata(2);
-								  spritex(3)(8) := register_writedata(3);
-								  spritex(4)(8) := register_writedata(4);
-								  spritex(5)(8) := register_writedata(5);
-								  spritex(6)(8) := register_writedata(6);
-								  spritex(7)(8) := register_writedata(7);
-					when 17 => ECM_SET := register_writedata(6);
-	                       BMM_SET := register_writedata(5);
+					when 17 => ECM := register_writedata(6);
+	                       BMM := register_writedata(5);
 								  DEN := register_writedata(4);
 								  RSEL:= register_writedata(3);
 								  YSCROLL := register_writedata(2 downto 0);
@@ -537,7 +530,6 @@ begin
 								  XSCROLL := register_writedata(2 downto 0);
 					when 27 => spritepriority := register_writedata;
 					when 28 => spritemulticolor := register_writedata;
-					when 29 => doublewidth := register_writedata;
 					when 32 => bordercolor := register_writedata(3 downto 0);
 					when 33 => backgroundcolor0 := register_writedata(3 downto 0);
 					when 34 => backgroundcolor1 := register_writedata(3 downto 0);
@@ -553,6 +545,32 @@ begin
 					when 44 => spritecolor(5) := register_writedata(3 downto 0);
 					when 45 => spritecolor(6) := register_writedata(3 downto 0);
 					when 46 => spritecolor(7) := register_writedata(3 downto 0);
+					when others => null;
+				end case;
+				-- memorize for delayed action
+				register_writedata2 := register_writedata;
+				register_writeaddress2 := register_writeaddress;
+			end if;
+			if phase=11 then
+				-- some registers need delayed write
+				case to_integer(unsigned(register_writeaddress2)) is
+					when 0  => spritex(0)(7 downto 0) := register_writedata2;
+					when 2  => spritex(1)(7 downto 0) := register_writedata2;
+					when 4  => spritex(2)(7 downto 0) := register_writedata2;
+					when 6  => spritex(3)(7 downto 0) := register_writedata2;
+					when 8  => spritex(4)(7 downto 0) := register_writedata2;
+					when 10 => spritex(5)(7 downto 0) := register_writedata2;
+					when 12 => spritex(6)(7 downto 0) := register_writedata2;
+					when 14 => spritex(7)(7 downto 0) := register_writedata2;
+					when 16 => spritex(0)(8) := register_writedata2(0);
+					           spritex(1)(8) := register_writedata2(1);
+								  spritex(2)(8) := register_writedata2(2);
+								  spritex(3)(8) := register_writedata2(3);
+								  spritex(4)(8) := register_writedata2(4);
+								  spritex(5)(8) := register_writedata2(5);
+								  spritex(6)(8) := register_writedata2(6);
+								  spritex(7)(8) := register_writedata2(7);
+					when 29 => doublewidth := register_writedata2;								  
 					when others => null;
 				end case;
 			end if;
@@ -639,6 +657,9 @@ begin
 			in_aec := AEC;			
 		-- end of synchronous logic
 		end if;		
+		
+		-- access the correct video matrix cell for the next pixel
+		matrixraddress <= std_logic_vector(to_unsigned(matrixsequencer/8, 6));
 		
 		-------------------- output signals ---------------------		
 		COLOR <= out_color;
