@@ -117,13 +117,13 @@ begin
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
 	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
-	variable matrixsequencer : integer range 0 to 511;
 	
 	variable DENinline30 : boolean := false;
 	variable displaystate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(26 downto 0);
+	variable matrixpattern : std_logic_vector(11 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
@@ -154,13 +154,11 @@ begin
 	variable vcounter : integer range 0 to 1023;      -- current scan line 
 	variable tmp_isforeground : boolean;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
-	variable tmp_vm : std_logic_vector(11 downto 0);
 	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_bit : std_logic;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
 	variable tmp_half : integer range 250 to 280;
---	variable tmp_maddr : integer range 0 to 63;
 
 	begin
 		-- synchronous logic -------------------
@@ -176,22 +174,9 @@ begin
 				tmp_hscroll := to_integer(unsigned(XSCROLL));
 	
 				-- main screen area color processing
-				 
---				-- address the correct video matrix cell for the next clock
---				tmp_maddr := (xcoordinate - 24 - tmp_hscroll) / 8;
---				if matrixaddress<40 then
---					matrixraddress <= std_logic_vector(to_unsigned(tmp_maddr, 6));
---				else
---					matrixaddress <= std_logic_vector(to_unsigned(tmp_maddr, 39));
---				end if;
-				
---				-- get the data from the video matrix buffer
---				if displaystate and xcoordinate>=25+tmp_hscroll then -- and xcoordinate<25+tmp_hscroll+320 then
---					tmp_vm := matrixq;
---				else
---					tmp_vm := "000000000000";
---				end if;
-				tmp_vm := matrixq;
+				if ((phase/2)+1) mod 8 = tmp_hscroll then
+					matrixpattern := matrixq;
+				end if;
 				
 				-- extract relevant bit or 2 bits from bitmap data
 				tmp_bit := pixelpattern(20);
@@ -210,13 +195,13 @@ begin
 				case tmp_3bit is  
 				when "000" =>   -- standard text mode
 					if tmp_bit='1' then
-						out_color := tmp_vm(11 downto 8);
+						out_color := matrixpattern(11 downto 8);
 						tmp_isforeground := true;
 					end if;
 				when "001" =>   -- multicolor text mode
-					if tmp_vm(11)='0' then
+					if matrixpattern(11)='0' then
 						if tmp_bit='1' then
-							out_color := "0" & tmp_vm(10 downto 8);
+							out_color := "0" & matrixpattern(10 downto 8);
 							tmp_isforeground := true;
 						end if;
 					else
@@ -225,32 +210,32 @@ begin
 						when "01" => out_color := backgroundcolor1;
 						when "10" => out_color := backgroundcolor2;
 										 tmp_isforeground := true;
-						when "11" => out_color := "0" & tmp_vm(10 downto 8);
+						when "11" => out_color := "0" & matrixpattern(10 downto 8);
 										 tmp_isforeground := true;
 						end case;
 					end if;
 				when "010" =>  -- standard bitmap mode
 					if tmp_bit='0' then
-						out_color := tmp_vm(3 downto 0);
+						out_color := matrixpattern(3 downto 0);
 					else
-						out_color := tmp_vm(7 downto 4);
+						out_color := matrixpattern(7 downto 4);
 						tmp_isforeground := true;
 					end if;
 				when "011" =>  -- multicolor bitmap mode
 					case tmp_2bit is
 					when "00" => out_color := backgroundcolor0;
-					when "01" => out_color := tmp_vm(7 downto 4);
-					when "10" => out_color := tmp_vm(3 downto 0);
+					when "01" => out_color := matrixpattern(7 downto 4);
+					when "10" => out_color := matrixpattern(3 downto 0);
 									 tmp_isforeground := true;
-					when "11" => out_color := tmp_vm(11 downto 8);
+					when "11" => out_color := matrixpattern(11 downto 8);
 									 tmp_isforeground := true;
 					end case;
 				when "100" =>  -- ECM text mode
 					if tmp_bit='1' then
-						out_color := tmp_vm(11 downto 8);
+						out_color := matrixpattern(11 downto 8);
 						tmp_isforeground := true;
 					else
-						case tmp_vm(7 downto 6) is
+						case matrixpattern(7 downto 6) is
 						when "00" => out_color := backgroundcolor0;
 						when "01" => out_color := backgroundcolor1;
 						when "10" => out_color := backgroundcolor2;
@@ -259,7 +244,7 @@ begin
 					end if;
 				when "101" =>  -- Invalid text mode
 					out_color := "0000";
-					if tmp_vm(11)='0' then
+					if matrixpattern(11)='0' then
 						if tmp_bit='1' then
 							tmp_isforeground := true;
 						end if;
@@ -369,13 +354,19 @@ begin
 					pixelpattern := pixelpattern(25 downto 0) & '0';
 				end if;
 				
-				-- handle the the matrix sequencer counter
-				if cycle=1 and phase=0 then
-					matrixsequencer := 511;
-				elsif xcoordinate=24+to_integer(unsigned(XSCROLL)) and displaystate then
-					matrixsequencer := 0;
-				elsif matrixsequencer<8*40-1 then
-					matrixsequencer := matrixsequencer+1;
+				-- handle the the matrix adressing
+				if phase=12 then 
+					if displaystate then
+						if cycle>=57 then
+							matrixraddress <= std_logic_vector(to_unsigned(39,6));
+						elsif cycle>=17 then
+							matrixraddress <= std_logic_vector(to_unsigned(cycle-17,6));
+						else
+							matrixraddress <= std_logic_vector(to_unsigned(63,6));
+						end if;
+					else
+						matrixraddress <= std_logic_vector(to_unsigned(63,6));
+					end if;
 				end if;
 				
 				-- check the vertical line hit conditions			
@@ -519,14 +510,11 @@ begin
 			if phase=15 then
 				-- write the new value through to the registers before next cycle
 				case to_integer(unsigned(register_writeaddress)) is 
-					when 17 => ECM := register_writedata(6);
-	                       BMM := register_writedata(5);
-								  DEN := register_writedata(4);
+					when 17 => DEN := register_writedata(4);
 								  RSEL:= register_writedata(3);
 								  YSCROLL := register_writedata(2 downto 0);
 					when 21 => SPRITEACTIVE := register_writedata;
-					when 22 => MCM := register_writedata(4);
-					           CSEL := register_writedata(3);
+					when 22 => CSEL := register_writedata(3);
 								  XSCROLL := register_writedata(2 downto 0);
 					when 27 => spritepriority := register_writedata;
 					when 28 => spritemulticolor := register_writedata;
@@ -551,8 +539,22 @@ begin
 				register_writedata2 := register_writedata;
 				register_writeaddress2 := register_writeaddress;
 			end if;
+			-- some registers need delayed write
+			if phase=5 then
+				case to_integer(unsigned(register_writeaddress2)) is
+					when 17 => ECM := register_writedata2(6);
+	                       BMM := register_writedata2(5);
+					when 22 => MCM := register_writedata2(4);
+					when others => null;
+				end case;
+			end if;
+			if phase=9 then
+				case to_integer(unsigned(register_writeaddress2)) is
+					when 29 => doublewidth := register_writedata2;								  
+					when others => null;
+				end case;
+			end if;
 			if phase=11 then
-				-- some registers need delayed write
 				case to_integer(unsigned(register_writeaddress2)) is
 					when 0  => spritex(0)(7 downto 0) := register_writedata2;
 					when 2  => spritex(1)(7 downto 0) := register_writedata2;
@@ -569,8 +571,7 @@ begin
 								  spritex(4)(8) := register_writedata2(4);
 								  spritex(5)(8) := register_writedata2(5);
 								  spritex(6)(8) := register_writedata2(6);
-								  spritex(7)(8) := register_writedata2(7);
-					when 29 => doublewidth := register_writedata2;								  
+								  spritex(7)(8) := register_writedata2(7);							  
 					when others => null;
 				end case;
 			end if;
@@ -657,9 +658,6 @@ begin
 			in_aec := AEC;			
 		-- end of synchronous logic
 		end if;		
-		
-		-- access the correct video matrix cell for the next pixel
-		matrixraddress <= std_logic_vector(to_unsigned(matrixsequencer/8, 6));
 		
 		-------------------- output signals ---------------------		
 		COLOR <= out_color;
