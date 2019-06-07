@@ -304,11 +304,11 @@ begin
 					tmp_half := 252;
 				else
 					hcounter := (cycle-1)*8 + phase/2; 
-					vcounter := displayline+253;
-					if hcounter>=6 then
-						hcounter := hcounter-6;
+					vcounter := displayline+253-4;
+					if hcounter>=7 then
+						hcounter := hcounter-7;
 					else
-						hcounter := hcounter+(520-6);
+						hcounter := hcounter+(520-7);
 						vcounter := vcounter-1;
 					end if;					
 					if vcounter>=263 then
