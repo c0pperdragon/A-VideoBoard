@@ -127,8 +127,8 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
+	variable spritedmaactive : std_logic_vector(7 downto 0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
-	variable spritereadcomplete : std_logic;
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
 	type T_spritedata is array (0 to 7) of std_logic_vector(23 downto 0);
@@ -429,16 +429,21 @@ begin
 					matrixdata <= DB; -- in_db; 
 					matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
 				end if;
-				-- potential sprite DMA read
-				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10 
-				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
+				-- reset the dma flags
+				if spritecycle=2 then
+					spritedmaactive := SPRITEACTIVE;
 				end if;
-				-- read the last byte for a sprite and check if it is indeed valid data
 				for SP in 0 to 7 loop
-					if (SP=0 and spritecycle=5) or (SP=1 and spritecycle=7) or (SP=2 and spritecycle=9) or (SP=3 and spritecycle=11)
-					or (SP=4 and spritecycle=13) or (SP=5 and spritecycle=15) or (SP=6 and spritecycle=17) or (SP=7 and spritecycle=19) then
-						if spritereadcomplete='1' and SPRITEACTIVE(SP)='1' then
+					-- potential sprite DMA read
+					if spritecycle=4+2*SP then
+						spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
+						if in_aec/='0' then 
+							spritedmaactive(SP) := '0';
+						end if;
+					end if;
+					-- read the last byte for a sprite and check if it is indeed valid data
+					if spritecycle=5+SP*2 then
+						if spritedmaactive(SP)='1' and in_aec='0' then
 							spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
 						else
 							spritedata(SP) := "000000000000000000000000";
@@ -454,14 +459,14 @@ begin
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
 					firstspritereadaddress := in_a(1 downto 0);
-				elsif spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11 
-				   or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
-					if in_aec='0' and firstspritereadaddress /= in_a(1 downto 0) then
-						spritereadcomplete := '1';
-					else
-						spritereadcomplete := '0';
-					end if;
 				end if;
+				for SP in 0 to 7 loop
+					if spritecycle=5+2*SP then
+						if in_aec/='0' or firstspritereadaddress=in_a(1 downto 0) then
+							spritedmaactive(SP) := '0';
+						end if;
+					end if;
+				end loop;
 			end if;
 			
 			if phase=15 then
