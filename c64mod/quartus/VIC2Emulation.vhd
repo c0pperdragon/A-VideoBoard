@@ -292,8 +292,8 @@ begin
 					
 				-- override with blankings and sync signals 
 				if PAL='1' then
-					hcounter := (cycle-1)*8 + phase/2 + (504-10);
-					vcounter := displayline + 17;
+					hcounter := (cycle-1)*8 + phase/2 + (504-9);
+					vcounter := displayline + 10;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
 						vcounter := vcounter+1;
@@ -578,7 +578,11 @@ begin
 
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
-				xcoordinate := xcoordinate+1;
+				if cycle=12 and phase=14 then
+					xcoordinate := 498;
+				else
+					xcoordinate := xcoordinate+1;
+				end if;
 			end if;
 			if phase=15 then
 				if cycle=65 or (cycle=63 and PAL='1') then
@@ -596,9 +600,6 @@ begin
 					spritecycle := 0;
 				elsif spritecycle/=31 then
 					spritecycle := spritecycle+1;
-				end if;
-				if cycle=13 then
-					xcoordinate := 498;
 				end if;
 			end if;
 			
