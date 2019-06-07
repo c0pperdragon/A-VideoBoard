@@ -292,7 +292,7 @@ begin
 					
 				-- override with blankings and sync signals 
 				if PAL='1' then
-					hcounter := (cycle-1)*8 + phase/2 + (504-9);
+					hcounter := (cycle-1)*8 + phase/2 + (504-8);
 					vcounter := displayline + 10;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
@@ -578,8 +578,8 @@ begin
 
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
-				if cycle=12 and phase=14 then
-					xcoordinate := 498;
+				if cycle=14 and phase=10 then
+					xcoordinate := 0;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
