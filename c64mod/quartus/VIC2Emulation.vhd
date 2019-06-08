@@ -584,8 +584,10 @@ begin
 
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
-				if cycle=14 and phase=10 then
+				if PAL='1' and cycle=14 and phase=10 then
 					xcoordinate := 0;
+				elsif PAL='0' and cycle=10 and phase=10 then
+					xcoordinate := 480;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
