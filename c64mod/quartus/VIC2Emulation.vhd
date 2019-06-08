@@ -101,6 +101,7 @@ begin
 	variable in_phi0: std_logic; 
 	variable in_db: std_logic_vector(11 downto 0);
 	variable in_a:  std_logic_vector(5 downto 0);
+	variable in2_a:  std_logic_vector(5 downto 0);
 	variable in_rw: std_logic; 
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
@@ -458,11 +459,11 @@ begin
 			if phase=11 then
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					firstspritereadaddress := in_a(1 downto 0);
+					firstspritereadaddress := in2_a(1 downto 0);
 				end if;
 				for SP in 0 to 7 loop
 					if spritecycle=5+2*SP then
-						if in_aec/='0' or firstspritereadaddress=in_a(1 downto 0) then
+						if in_aec/='0' or firstspritereadaddress=in2_a(1 downto 0) then
 							spritedmaactive(SP) := '0';
 						end if;
 					end if;
@@ -663,7 +664,10 @@ begin
 			in_cs := CS; 
 			in_aec := AEC;			
 		-- end of synchronous logic
-		end if;		
+		end if;	
+	   if falling_edge(CLK) then
+			in2_a := A;
+		end if;
 		
 		-------------------- output signals ---------------------		
 		COLOR <= out_color;
