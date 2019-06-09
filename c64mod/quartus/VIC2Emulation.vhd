@@ -123,7 +123,10 @@ begin
 	variable displaystate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
-	variable pixelpattern : std_logic_vector(26 downto 0);
+	variable pixelfetcher2 : std_logic_vector(7 downto 0);
+	variable pixelpattern : std_logic_vector(13 downto 0);
+	variable pixelpattern1 : std_logic_vector(13 downto 0);
+	variable pixelpattern2 : std_logic_vector(13 downto 0);
 	variable matrixpattern : std_logic_vector(11 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
@@ -159,6 +162,8 @@ begin
 	variable tmp_bit : std_logic;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
+	variable tmp_8bit1 : std_logic_vector(7 downto 0);
+	variable tmp_8bit2 : std_logic_vector(7 downto 0);
 	variable tmp_half : integer range 250 to 280;
 
 	begin
@@ -180,14 +185,9 @@ begin
 				end if;
 				
 				-- extract relevant bit or 2 bits from bitmap data
-				tmp_bit := pixelpattern(20);
-				if (tmp_hscroll mod 2) /= ((phase/2) mod 2) then
-					tmp_2bit(1) := pixelpattern(20);
-					tmp_2bit(0) := pixelpattern(19);
-				else
-					tmp_2bit(1) := pixelpattern(21);
-					tmp_2bit(0) := pixelpattern(20);
-				end if;
+				tmp_bit := pixelpattern(13);
+				tmp_2bit(0) := pixelpattern2(13);
+				tmp_2bit(1) := pixelpattern1(13);
 				
 				-- set color depending on graphics/text mode
 				tmp_3bit(2) := ECM;
@@ -290,7 +290,7 @@ begin
 				if mainborderflipflop='1' then
 					out_color := bordercolor;
 				end if;
-					
+				
 				-- override with blankings and sync signals 
 				if PAL='1' then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
@@ -340,31 +340,30 @@ begin
 				end if;
 				
 				-- shift pixels along through buffers
-				if phase=0 then
-					case XSCROLL is
-					when "000" => pixelpattern := pixelpattern(25 downto 14) & pixelfetcher & "0000000";
-					when "001" => pixelpattern := pixelpattern(25 downto 13) & pixelfetcher & "000000";
-					when "010" => pixelpattern := pixelpattern(25 downto 12) & pixelfetcher & "00000";
-					when "011" => pixelpattern := pixelpattern(25 downto 11) & pixelfetcher & "0000";
-					when "100" => pixelpattern := pixelpattern(25 downto 10) & pixelfetcher & "000";
-					when "101" => pixelpattern := pixelpattern(25 downto 9)  & pixelfetcher & "00";
-					when "110" => pixelpattern := pixelpattern(25 downto 8)  & pixelfetcher & "0";
-					when "111" => pixelpattern := pixelpattern(25 downto 7)  & pixelfetcher;
-					end case;				
+				if cycle>=17 and cycle<57 and (phase/2) = to_integer(unsigned(XSCROLL)) then
+					pixelpattern := pixelpattern(12 downto 7) & pixelfetcher2;
+					pixelpattern1 := pixelpattern1(12 downto 7) 
+						& pixelfetcher2(7) & pixelfetcher2(7) 
+						& pixelfetcher2(5) & pixelfetcher2(5) 
+						& pixelfetcher2(3) & pixelfetcher2(3)
+						& pixelfetcher2(1) & pixelfetcher2(1);
+					pixelpattern2 := pixelpattern2(12 downto 7) 
+						& pixelfetcher2(6) & pixelfetcher2(6) 
+						& pixelfetcher2(4) & pixelfetcher2(4) 
+						& pixelfetcher2(2) & pixelfetcher2(2)
+						& pixelfetcher2(0) & pixelfetcher2(0);					
 				else
-					pixelpattern := pixelpattern(25 downto 0) & '0';
+					pixelpattern := pixelpattern(12 downto 0) & '0';
+					pixelpattern1 := pixelpattern1(12 downto 0) & '0';
+					pixelpattern2 := pixelpattern2(12 downto 0) & '0';
 				end if;
 				
 				-- handle the the matrix adressing
 				if phase=12 then 
-					if displaystate then
-						if cycle>=57 then
-							matrixraddress <= std_logic_vector(to_unsigned(39,6));
-						elsif cycle>=17 then
-							matrixraddress <= std_logic_vector(to_unsigned(cycle-17,6));
-						else
-							matrixraddress <= std_logic_vector(to_unsigned(63,6));
-						end if;
+					if cycle>=57 then
+						matrixraddress <= std_logic_vector(to_unsigned(39,6));
+					elsif cycle>=17 then
+						matrixraddress <= std_logic_vector(to_unsigned(cycle-17,6));
 					else
 						matrixraddress <= std_logic_vector(to_unsigned(63,6));
 					end if;
@@ -413,22 +412,26 @@ begin
 			-- data from memory
 			if phase=9 then                -- received in first half of cycle
 				-- pixel pattern read
-				if cycle>=16 and cycle<56 then
-					pixelfetcher := in_db(7 downto 0);
-				else
-					pixelfetcher := "00000000";
-				end if;
+				pixelfetcher := in_db(7 downto 0);
 				-- potential sprite DMA read
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					spritedatabyte1 := in_db(7 downto 0);
 				end if;
 			end if;
+			if phase=15 then
+				pixelfetcher2 := pixelfetcher;
+			end if;
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- video matrix read
-				if cycle>=15 and cycle<55 and in_aec='0' then
-					matrixdata <= DB; -- in_db; 
-					matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+				if cycle>=15 and cycle<55 then
+					if not displaystate then
+						matrixdata <= "100000000000";
+						matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+					elsif in_aec='0' then
+						matrixdata <= DB; -- in_db; 
+						matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+					end if;
 				end if;
 				-- reset the dma flags
 				if spritecycle=2 then
@@ -546,16 +549,9 @@ begin
 				register_writeaddress2 := register_writeaddress;
 			end if;
 			-- some registers need delayed write
-			if phase=5 then
-				case to_integer(unsigned(register_writeaddress2)) is
-					when 17 => ECM := register_writedata2(6);
-	                       BMM := register_writedata2(5);
-					when 22 => MCM := register_writedata2(4);
-					when others => null;
-				end case;
-			end if;
 			if phase=9 then
 				case to_integer(unsigned(register_writeaddress2)) is
+					when 22 => MCM := register_writedata2(4);
 					when 29 => doublewidth := register_writedata2;								  
 					when others => null;
 				end case;
@@ -578,6 +574,13 @@ begin
 								  spritex(5)(8) := register_writedata2(5);
 								  spritex(6)(8) := register_writedata2(6);
 								  spritex(7)(8) := register_writedata2(7);							  
+					when others => null;
+				end case;
+			end if;
+			if phase=13 then
+				case to_integer(unsigned(register_writeaddress2)) is
+					when 17 => ECM := register_writedata2(6);
+	                       BMM := register_writedata2(5);				
 					when others => null;
 				end case;
 			end if;
