@@ -1,0 +1,23 @@
+IP Ports Diff Report for settingsflash
+Mon Jun 10 22:05:10 2019
+Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
+
+
+---------------------
+; Table of Contents ;
+---------------------
+  1. IP Information
+
+
+
++------------------------------------------------------------------+
+; IP Information                                                   ;
++----------------------+-------------------------------------------+
+; IP Variation Name    ; settingsflash                             ;
+; Prior Version        ; 18.0                                      ;
+; New Version          ; 18.1                                      ;
+; New File             ; SETTINGSFLASH/synthesis/SETTINGSFLASH.vhd ;
+; Has Port Differences ; No                                        ;
++----------------------+-------------------------------------------+
+
+

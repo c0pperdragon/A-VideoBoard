@@ -1,0 +1,21 @@
+# system info SETTINGSFLASH on 2019.06.10.22:04:48
+system_info:
+name,value
+DEVICE,10M02SCE144C8G
+DEVICE_FAMILY,MAX 10
+GENERATION_ID,1560197085
+#
+#
+# Files generated for SETTINGSFLASH on 2019.06.10.22:04:48
+files:
+filepath,kind,attributes,module,is_top
+simulation/SETTINGSFLASH.vhd,VHDL,,SETTINGSFLASH,true
+simulation/submodules/altera_onchip_flash_util.v,VERILOG,,altera_onchip_flash,false
+simulation/submodules/altera_onchip_flash.v,VERILOG,,altera_onchip_flash,false
+simulation/submodules/altera_onchip_flash_avmm_data_controller.v,VERILOG,,altera_onchip_flash,false
+simulation/submodules/altera_onchip_flash_avmm_csr_controller.v,VERILOG,,altera_onchip_flash,false
+#
+# Map from instance-path to kind of module
+instances:
+instancePath,module
+SETTINGSFLASH.onchip_flash_0,altera_onchip_flash

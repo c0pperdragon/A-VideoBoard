@@ -1,0 +1,18 @@
+
+WORK > DEFAULT
+DEFAULT:          ./libraries/work/            
+work:             ./libraries/work/            
+onchip_flash_0:   ./libraries/onchip_flash_0/  
+altera_ver:       ./libraries/altera_ver/      
+lpm_ver:          ./libraries/lpm_ver/         
+sgate_ver:        ./libraries/sgate_ver/       
+altera_mf_ver:    ./libraries/altera_mf_ver/   
+altera_lnsim_ver: ./libraries/altera_lnsim_ver/
+fiftyfivenm_ver:  ./libraries/fiftyfivenm_ver/ 
+altera:           ./libraries/altera/          
+lpm:              ./libraries/lpm/             
+sgate:            ./libraries/sgate/           
+altera_mf:        ./libraries/altera_mf/       
+altera_lnsim:     ./libraries/altera_lnsim/    
+fiftyfivenm:      ./libraries/fiftyfivenm/     
+LIBRARY_SCAN = TRUE

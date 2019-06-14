@@ -119,15 +119,19 @@ begin
 	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
 	
-	variable DENinline30 : boolean := false;
-	variable displaystate : boolean := false;
-	variable RC : integer range 0 to 7 := 0;
+	variable displayactive : boolean := false;
+	variable RC : integer range 0 to 8 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(13 downto 0);
 	variable pixelpattern1 : std_logic_vector(13 downto 0);
 	variable pixelpattern2 : std_logic_vector(13 downto 0);
-	variable matrixpattern : std_logic_vector(11 downto 0);
+	variable matrixaddr0 : std_logic_vector(5 downto 0);
+	variable matrixaddr1 : std_logic_vector(5 downto 0);
+	variable matrixaddr2 : std_logic_vector(5 downto 0);
+	variable matrixaddr3 : std_logic_vector(5 downto 0);
+	variable matrixaddr4 : std_logic_vector(5 downto 0);
+	variable matrixaddr5 : std_logic_vector(5 downto 0);
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
@@ -178,12 +182,7 @@ begin
 				out_color :=  backgroundcolor0;
 				tmp_isforeground := false;
 				tmp_hscroll := to_integer(unsigned(XSCROLL));
-	
-				-- main screen area color processing
-				if ((phase/2)+1) mod 8 = tmp_hscroll then
-					matrixpattern := matrixq;
-				end if;
-				
+
 				-- extract relevant bit or 2 bits from bitmap data
 				tmp_bit := pixelpattern(13);
 				tmp_2bit(0) := pixelpattern2(13);
@@ -196,13 +195,13 @@ begin
 				case tmp_3bit is  
 				when "000" =>   -- standard text mode
 					if tmp_bit='1' then
-						out_color := matrixpattern(11 downto 8);
+						out_color := matrixq(11 downto 8);
 						tmp_isforeground := true;
 					end if;
 				when "001" =>   -- multicolor text mode
-					if matrixpattern(11)='0' then
+					if matrixq(11)='0' then
 						if tmp_bit='1' then
-							out_color := "0" & matrixpattern(10 downto 8);
+							out_color := "0" & matrixq(10 downto 8);
 							tmp_isforeground := true;
 						end if;
 					else
@@ -211,32 +210,32 @@ begin
 						when "01" => out_color := backgroundcolor1;
 						when "10" => out_color := backgroundcolor2;
 										 tmp_isforeground := true;
-						when "11" => out_color := "0" & matrixpattern(10 downto 8);
+						when "11" => out_color := "0" & matrixq(10 downto 8);
 										 tmp_isforeground := true;
 						end case;
 					end if;
 				when "010" =>  -- standard bitmap mode
 					if tmp_bit='0' then
-						out_color := matrixpattern(3 downto 0);
+						out_color := matrixq(3 downto 0);
 					else
-						out_color := matrixpattern(7 downto 4);
+						out_color := matrixq(7 downto 4);
 						tmp_isforeground := true;
 					end if;
 				when "011" =>  -- multicolor bitmap mode
 					case tmp_2bit is
 					when "00" => out_color := backgroundcolor0;
-					when "01" => out_color := matrixpattern(7 downto 4);
-					when "10" => out_color := matrixpattern(3 downto 0);
+					when "01" => out_color := matrixq(7 downto 4);
+					when "10" => out_color := matrixq(3 downto 0);
 									 tmp_isforeground := true;
-					when "11" => out_color := matrixpattern(11 downto 8);
+					when "11" => out_color := matrixq(11 downto 8);
 									 tmp_isforeground := true;
 					end case;
 				when "100" =>  -- ECM text mode
 					if tmp_bit='1' then
-						out_color := matrixpattern(11 downto 8);
+						out_color := matrixq(11 downto 8);
 						tmp_isforeground := true;
 					else
-						case matrixpattern(7 downto 6) is
+						case matrixq(7 downto 6) is
 						when "00" => out_color := backgroundcolor0;
 						when "01" => out_color := backgroundcolor1;
 						when "10" => out_color := backgroundcolor2;
@@ -245,7 +244,7 @@ begin
 					end if;
 				when "101" =>  -- Invalid text mode
 					out_color := "0000";
-					if matrixpattern(11)='0' then
+					if matrixq(11)='0' then
 						if tmp_bit='1' then
 							tmp_isforeground := true;
 						end if;
@@ -290,6 +289,10 @@ begin
 				if mainborderflipflop='1' then
 					out_color := bordercolor;
 				end if;
+				
+--				if xcoordinate<20 then
+--					if displayline mod 8 = 0 then out_color := "0111"; end if;
+--				end if;
 				
 				-- override with blankings and sync signals 
 				if PAL='1' then
@@ -339,8 +342,22 @@ begin
 					end if;		
 				end if;
 				
+				-- check the vertical line hit conditions			
+				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
+					if DEN='1' then verticalborderflipflop:='0'; end if;
+				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
+					verticalborderflipflop:='1'; 
+				end if;
+				-- check the horizontal conditions 
+				if (CSEL='0' and xcoordinate=31) or (CSEL='1' and xcoordinate=24) then
+					if verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
+				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
+					mainborderflipflop:='1';
+				end if;
+				
 				-- shift pixels along through buffers
-				if cycle>=17 and cycle<57 and (phase/2) = to_integer(unsigned(XSCROLL)) then
+				if cycle>=17 and cycle<17+40 and (phase/2) = to_integer(unsigned(XSCROLL)) 
+				and verticalborderflipflop='0' then
 					pixelpattern := pixelpattern(12 downto 7) & pixelfetcher2;
 					pixelpattern1 := pixelpattern1(12 downto 7) 
 						& pixelfetcher2(7) & pixelfetcher2(7) 
@@ -357,29 +374,21 @@ begin
 					pixelpattern1 := pixelpattern1(12 downto 0) & '0';
 					pixelpattern2 := pixelpattern2(12 downto 0) & '0';
 				end if;
-				
-				-- handle the the matrix adressing
-				if phase=12 then 
-					if cycle>=57 then
-						matrixraddress <= std_logic_vector(to_unsigned(39,6));
-					elsif cycle>=17 then
-						matrixraddress <= std_logic_vector(to_unsigned(cycle-17,6));
-					else
-						matrixraddress <= std_logic_vector(to_unsigned(63,6));
+				-- handle the the video matrix read adressing
+				matrixraddress <= matrixaddr5;
+				matrixaddr5 := matrixaddr4;
+				matrixaddr4 := matrixaddr3;
+				matrixaddr3 := matrixaddr2;
+				matrixaddr2 := matrixaddr1;
+				matrixaddr1 := matrixaddr0;
+				if verticalborderflipflop='0' then
+					if cycle>=17 and cycle<17+40 and (phase/2) = tmp_hscroll  then
+						if RC<8 then
+							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
+						else
+							matrixaddr0 := "111111";   -- unused, contains all zeroes
+						end if;
 					end if;
-				end if;
-				
-				-- check the vertical line hit conditions			
-				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
-					if DEN='1' then verticalborderflipflop:='0'; end if;
-				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
-					verticalborderflipflop:='1'; 
-				end if;
-				-- check the horizontal conditions 
-				if (CSEL='0' and xcoordinate=31) or (CSEL='1' and xcoordinate=24) then
-					if verticalborderflipflop='0' then mainborderflipflop:='0'; end if;
-				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
-					mainborderflipflop:='1';
 				end if;
 				
 				-- progress sprite rendering on every pixel 
@@ -424,14 +433,11 @@ begin
 			end if;
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- video matrix read
-				if cycle>=15 and cycle<55 then
-					if not displaystate then
-						matrixdata <= "100000000000";
-						matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
-					elsif in_aec='0' then
-						matrixdata <= DB; -- in_db; 
-						matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
-					end if;
+				matrixdata <= DB; -- in_db; 
+				if cycle>=15 and cycle<55 and in_aec='0' then
+					matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+				else
+					matrixwaddress <= "111110"; -- write to unused address
 				end if;
 				-- reset the dma flags
 				if spritecycle=2 then
@@ -473,35 +479,23 @@ begin
 				end loop;
 			end if;
 			
+			-- handle display activity and row counter (RC) 
 			if phase=15 then
-			-- memorize if DEN was set during line $30
-				if displayline=48 then
-					if DEN='1' then 
-						DENinline30:=true; 
-					end if;
+				-- check if DEN was set during line 48 and set display to active until end screen
+				if displayline=48 and DEN='1' then
+					displayactive:=true; 
+				elsif displayline=251 then
+					displayactive:=false;
 				end if;
-				-- bad line condition detected
-				if DENinline30 and displayline<251 and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
-					-- enter display state and force row counter to 0
-					if cycle=14 then
-						displaystate := true;
-						RC := 0; 
+				-- start displaying a set of 8 rows 
+				if cycle=14 and displayactive and displayline<248 
+					and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
+					RC := 0; 
+				-- process row counter until reached 8 
+				elsif cycle=58 then
+					if RC<8 then
+						RC := RC+1;
 					end if;
-					if cycle=58 then
-						RC:= RC+1;
-					end if;
-				-- no bad line condition
-				else
-					if cycle=58 then
-						if RC=7 then
-							displaystate := false;
-						else
-							RC:=RC+1;
-						end if;
-					end if;
-				end if;
-				if displayline>=251 then 
-					displaystate := false;
 				end if;
 			end if;
 						
@@ -600,7 +594,6 @@ begin
 					cycle := 1;
 					if (displayline=262 and PAL='0') or displayline=311 then
 						displayline := 0;
-						DENinline30 := false;
 					else
 						displayline := displayline+1;
 					end if;

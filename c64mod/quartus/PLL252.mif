@@ -18,7 +18,7 @@
 --    Device Speed Grade: -
 --    PLL Scan Chain: Fast PLL (144 bits)
 --    File Name: C:/Users/Reinhard/Documents/GitHub/A-VideoBoard/c64mod/quartus//PLL252.mif
---    Generated: Fri Feb 15 22:34:07 2019
+--    Generated: Mon Jun 10 22:05:03 2019
 
 WIDTH=1;
 DEPTH=144;
