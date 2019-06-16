@@ -59,7 +59,7 @@ architecture immediate of VIC2Emulation is
 begin
 	videomatrix: ram_dual generic map(data_width => 12, addr_width => 6)
 		port map (
-			matrixdata,
+			matrixdata, 
 			matrixraddress,
 			matrixwaddress,
 			'1',
@@ -120,6 +120,7 @@ begin
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
 	
 	variable displayactive : boolean := false;
+	variable lineactive : boolean := false;
 	variable RC : integer range 0 to 8 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
@@ -354,10 +355,15 @@ begin
 				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
 					mainborderflipflop:='1';
 				end if;
+				if cycle=0 and phase=0 then 
+					lineactive := false;
+				else
+					lineactive := lineactive or verticalborderflipflop='0';
+				end if;
 				
 				-- shift pixels along through buffers
 				if cycle>=17 and cycle<17+40 and (phase/2) = to_integer(unsigned(XSCROLL)) 
-				and verticalborderflipflop='0' then
+				and lineactive then
 					pixelpattern := pixelpattern(12 downto 7) & pixelfetcher2;
 					pixelpattern1 := pixelpattern1(12 downto 7) 
 						& pixelfetcher2(7) & pixelfetcher2(7) 
@@ -381,7 +387,7 @@ begin
 				matrixaddr3 := matrixaddr2;
 				matrixaddr2 := matrixaddr1;
 				matrixaddr1 := matrixaddr0;
-				if verticalborderflipflop='0' then
+				if lineactive then
 					if cycle>=17 and cycle<17+40 and (phase/2) = tmp_hscroll  then
 						if RC<8 then
 							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
@@ -479,26 +485,6 @@ begin
 				end loop;
 			end if;
 			
-			-- handle display activity and row counter (RC) 
-			if phase=15 then
-				-- check if DEN was set during line 48 and set display to active until end screen
-				if displayline=48 and DEN='1' then
-					displayactive:=true; 
-				elsif displayline=251 then
-					displayactive:=false;
-				end if;
-				-- start displaying a set of 8 rows 
-				if cycle=14 and displayactive and displayline<248 
-					and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
-					RC := 0; 
-				-- process row counter until reached 8 
-				elsif cycle=58 then
-					if RC<8 then
-						RC := RC+1;
-					end if;
-				end if;
-			end if;
-						
 			-- detect if a register write should happen in this cycle
 			if phase=11 then
 				register_writeaddress := in_a;
@@ -579,6 +565,28 @@ begin
 				end case;
 			end if;
 
+			-- handle display activity and row counter (RC) 
+			-- this processing will already use the DEN value that was set in just this
+			-- cycle (processing happens after register sets)
+			-- check if DEN was set during line 48 and set display to active until end screen
+			if displayline=48 and DEN='1' then
+				displayactive:=true; 
+			elsif displayline=251 then
+				displayactive:=false;
+			end if;
+			if phase=15 then
+				-- start displaying a set of 8 rows 
+				if cycle=14 and displayactive and displayline<248 
+					and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
+					RC := 0; 
+				-- process row counter until reached 8 
+				elsif cycle=58 then
+					if RC<8 then
+						RC := RC+1;
+					end if;
+				end if;
+			end if;
+						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
 				if PAL='1' and cycle=14 and phase=10 then
