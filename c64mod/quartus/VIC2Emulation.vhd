@@ -355,7 +355,7 @@ begin
 				elsif (CSEL='0' and xcoordinate=335) or (CSEL='1' and xcoordinate=344) then 
 					mainborderflipflop:='1';
 				end if;
-				if cycle=0 and phase=0 then 
+				if cycle=16 and phase=0 then 
 					lineactive := false;
 				else
 					lineactive := lineactive or verticalborderflipflop='0';
