@@ -83,7 +83,7 @@ begin
 	variable CSEL:             std_logic := '1';
 	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
-	variable YSCROLL:          std_logic_vector(2 downto 0) := "000";
+	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
 	variable spritemulticolor: std_logic_vector(7 downto 0) := "00000000";
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
@@ -121,7 +121,8 @@ begin
 	
 	variable displayactive : boolean := false;
 	variable lineactive : boolean := false;
-	variable RC : integer range 0 to 8 := 0;
+	variable idlestate : boolean := false;
+	variable RC : integer range 0 to 7 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(13 downto 0);
@@ -170,10 +171,14 @@ begin
 	variable tmp_8bit1 : std_logic_vector(7 downto 0);
 	variable tmp_8bit2 : std_logic_vector(7 downto 0);
 	variable tmp_half : integer range 250 to 280;
+	variable tmp_badline : boolean;
 
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then	
+				-- test for bad line condition 
+				tmp_badline := displayline<248 and displayactive
+					   and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
 		
 			-- generate pixel output
 			if (phase mod 2) = 0 then   
@@ -291,8 +296,8 @@ begin
 					out_color := bordercolor;
 				end if;
 				
---				if xcoordinate<20 then
---					if displayline mod 8 = 0 then out_color := "0111"; end if;
+--				if xcoordinate<20 and tmp_badline then
+--					out_color := "0111";
 --				end if;
 				
 				-- override with blankings and sync signals 
@@ -389,10 +394,10 @@ begin
 				matrixaddr1 := matrixaddr0;
 				if lineactive then
 					if cycle>=17 and cycle<17+40 and (phase/2) = tmp_hscroll  then
-						if RC<8 then
-							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
-						else
+						if idlestate then
 							matrixaddr0 := "111111";   -- unused, contains all zeroes
+						else
+							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
 						end if;
 					end if;
 				end if;
@@ -434,17 +439,16 @@ begin
 					spritedatabyte1 := in_db(7 downto 0);
 				end if;
 			end if;
-			if phase=15 then
-				pixelfetcher2 := pixelfetcher;
+			-- video matrix read
+			if phase=15 and cycle>=15 and cycle<55 and tmp_badline then -- in_aec='0' then
+				matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+				matrixdata <= in_db;
+			else
+				matrixwaddress <= "111110"; -- write to unused address
 			end if;
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
-				-- video matrix read
-				matrixdata <= DB; -- in_db; 
-				if cycle>=15 and cycle<55 and in_aec='0' then
-					matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
-				else
-					matrixwaddress <= "111110"; -- write to unused address
-				end if;
+				-- take pixel data into buffer to pick at correct time to implement scrolling
+				pixelfetcher2 := pixelfetcher;
 				-- reset the dma flags
 				if spritecycle=2 then
 					spritedmaactive := SPRITEACTIVE;
@@ -483,6 +487,24 @@ begin
 						end if;
 					end if;
 				end loop;
+			end if;
+
+			-- handle display activity and row counter (RC) 
+			if phase=15 then
+				if tmp_badline then
+					idlestate := false;
+				end if;
+				if cycle=14 and tmp_badline then
+					RC := 0;
+				end if;
+				if cycle=58 then
+					if RC=7 and not tmp_badline then
+						idlestate := true;
+					end if;
+					if not idlestate then
+						RC := RC+1;
+					end if;
+				end if;
 			end if;
 			
 			-- detect if a register write should happen in this cycle
@@ -565,26 +587,11 @@ begin
 				end case;
 			end if;
 
-			-- handle display activity and row counter (RC) 
-			-- this processing will already use the DEN value that was set in just this
-			-- cycle (processing happens after register sets)
-			-- check if DEN was set during line 48 and set display to active until end screen
+			-- detect DEN activity in first line
 			if displayline=48 and DEN='1' then
 				displayactive:=true; 
 			elsif displayline=251 then
 				displayactive:=false;
-			end if;
-			if phase=15 then
-				-- start displaying a set of 8 rows 
-				if cycle=14 and displayactive and displayline<248 
-					and to_integer(unsigned(YSCROLL)) = (displayline mod 8) then
-					RC := 0; 
-				-- process row counter until reached 8 
-				elsif cycle=58 then
-					if RC<8 then
-						RC := RC+1;
-					end if;
-				end if;
 			end if;
 						
 			-- progress horizontal and vertical counters
