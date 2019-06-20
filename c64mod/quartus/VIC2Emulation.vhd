@@ -546,8 +546,6 @@ begin
 					when 21 => SPRITEACTIVE := register_writedata;
 					when 22 => CSEL := register_writedata(3);
 								  XSCROLL := register_writedata(2 downto 0);
-					when 27 => spritepriority := register_writedata;
-					when 28 => spritemulticolor := register_writedata;
 					when 32 => bordercolor := register_writedata(3 downto 0);
 					when 33 => backgroundcolor0 := register_writedata(3 downto 0);
 					when 34 => backgroundcolor1 := register_writedata(3 downto 0);
@@ -573,6 +571,8 @@ begin
 			if phase=9 then
 				case to_integer(unsigned(register_writeaddress2)) is
 					when 22 => MCM := register_writedata2(4);
+					when 27 => spritepriority := register_writedata2;
+					when 28 => spritemulticolor := register_writedata2;
 					when 29 => doublewidth := register_writedata2;								  
 					when others => null;
 				end case;
