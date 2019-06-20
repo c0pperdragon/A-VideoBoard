@@ -163,8 +163,10 @@ begin
 	variable hcounter : integer range 0 to 1023;      -- pixel in current scan line
 	variable vcounter : integer range 0 to 1023;      -- current scan line 
 	variable tmp_isforeground : boolean;
+	variable tmp_spritevisible : boolean;
+	variable tmp_spriteforeground : boolean;
+	variable tmp_spritecolor : std_logic_vector(3 downto 0);
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
-	variable tmp_hscroll : integer range 0 to 7;
 	variable tmp_bit : std_logic;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
@@ -187,8 +189,7 @@ begin
 				out_csync := '1';
 				out_color :=  backgroundcolor0;
 				tmp_isforeground := false;
-				tmp_hscroll := to_integer(unsigned(XSCROLL));
-
+				
 				-- extract relevant bit or 2 bits from bitmap data
 				tmp_bit := pixelpattern(13);
 				tmp_2bit(0) := pixelpattern2(13);
@@ -270,26 +271,43 @@ begin
 						tmp_isforeground := true;
 					end if;
 				end case;						
-				
-				-- overlay with sprite graphics
+
+				-- compute the sprite color and decide if there is now a sprite in foreground
+				tmp_spritevisible := false;
+				tmp_spriteforeground := false;
 				for SP in 7 downto 0 loop
-					if spriterendering(SP)='1' and ((not tmp_isforeground) or spritepriority(SP)='0') then
+					if spriterendering(SP)='1' then
 						if spritemulticolor(SP)='1' then								
 							tmp_2bit(1) := spritedata(SP)(spritecursor(SP)/2*2 + 1);
 							tmp_2bit(0) := spritedata(SP)(spritecursor(SP)/2*2);
 							case tmp_2bit is
 							when "00" => 
-							when "01" => out_color := spritemulticolor0;
-							when "10" => out_color := spritecolor(SP);
-							when "11" => out_color := spritemulticolor1;
+							when "01" => tmp_spritecolor := spritemulticolor0;
+											 tmp_spritevisible := true;
+											 tmp_spriteforeground := spritepriority(SP)='0';
+							when "10" => tmp_spritecolor := spritecolor(SP);
+											 tmp_spritevisible := true;
+											 tmp_spriteforeground := spritepriority(SP)='0';
+							when "11" => tmp_spritecolor := spritemulticolor1;
+											 tmp_spritevisible := true;
+							             tmp_spriteforeground := spritepriority(SP)='0';
 							end case;
 						else
 							if spritedata(SP)(spritecursor(SP))='1' then
-								out_color := spritecolor(SP);						
+								tmp_spritecolor := spritecolor(SP);					
+								tmp_spritevisible := true;
+								tmp_spriteforeground := spritepriority(SP)='0';
 							end if;
 						end if;
 					end if;
 				end loop;
+				-- merge sprite and pixel data
+				if tmp_spritevisible then
+					if tmp_spriteforeground or not tmp_isforeground then
+						out_color := tmp_spritecolor;
+					end if;
+				end if;
+				
 				
 				-- overlay with border 
 				if mainborderflipflop='1' then
@@ -385,6 +403,7 @@ begin
 					pixelpattern1 := pixelpattern1(12 downto 0) & '0';
 					pixelpattern2 := pixelpattern2(12 downto 0) & '0';
 				end if;
+
 				-- handle the the video matrix read adressing
 				matrixraddress <= matrixaddr5;
 				matrixaddr5 := matrixaddr4;
@@ -393,7 +412,7 @@ begin
 				matrixaddr2 := matrixaddr1;
 				matrixaddr1 := matrixaddr0;
 				if lineactive then
-					if cycle>=17 and cycle<17+40 and (phase/2) = tmp_hscroll  then
+					if cycle>=17 and cycle<17+40 and (phase/2) = to_integer(unsigned(XSCROLL)) then
 						if idlestate then
 							matrixaddr0 := "111111";   -- unused, contains all zeroes
 						else
