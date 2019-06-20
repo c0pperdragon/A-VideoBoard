@@ -137,7 +137,8 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
-	variable spritedmaactive : std_logic_vector(7 downto 0);
+	variable spritedmaactive : boolean;
+	variable spriteactive_buffer : std_logic_vector(7 downto 0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
@@ -456,6 +457,9 @@ begin
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					spritedatabyte1 := in_db(7 downto 0);
+					if in_aec/='0' then 
+						spritedmaactive := false;
+					end if;	
 				end if;
 			end if;
 			-- video matrix read
@@ -468,44 +472,53 @@ begin
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- take pixel data into buffer to pick at correct time to implement scrolling
 				pixelfetcher2 := pixelfetcher;
-				-- reset the dma flags
+				
+				-- check on the critical cycle if the sprites should be active at all
 				if spritecycle=2 then
-					spritedmaactive := SPRITEACTIVE;
+					spriteactive_buffer := SPRITEACTIVE;
 				end if;
-				for SP in 0 to 7 loop
-					-- potential sprite DMA read
-					if spritecycle=4+2*SP then
-						spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
-						if in_aec/='0' then 
-							spritedmaactive(SP) := '0';
-						end if;
+				
+				-- read the first databyte for a sprite
+				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
+				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
+					spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
+					if in_aec/='0' then 
+						spritedmaactive := false;
 					end if;
+				end if;
 					-- read the last byte for a sprite and check if it is indeed valid data
-					if spritecycle=5+SP*2 then
-						if spritedmaactive(SP)='1' and in_aec='0' then
-							spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
-						else
-							spritedata(SP) := "000000000000000000000000";
+				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
+				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
+					for SP in 0 to 7 loop
+						if spritecycle=5+SP*2 then
+							if spritedmaactive and in_aec='0' then
+								spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
+							else
+								spritedata(SP) := "000000000000000000000000";
+							end if;
 						end if;
-					end if;
-				end loop;
+					end loop;
+				end if;
 			end if;
 			
 			-- detect if there was a real sprite read (when the
 			-- read address did change between individual bytes)
 			-- (very short time slot were address is stable)
+			-- and reset the sprite dma detection flag
 			if phase=11 then
+			
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
+					spritedmaactive := spriteactive_buffer((spritecycle-4)/2) = '1';
 					firstspritereadaddress := in2_a(1 downto 0);
 				end if;
-				for SP in 0 to 7 loop
-					if spritecycle=5+2*SP then
-						if in_aec/='0' or firstspritereadaddress=in2_a(1 downto 0) then
-							spritedmaactive(SP) := '0';
-						end if;
+				
+				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
+				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
+					if firstspritereadaddress=in2_a(1 downto 0) then
+						spritedmaactive := false;
 					end if;
-				end loop;
+				end if;
 			end if;
 
 			-- handle display activity and row counter (RC) 
