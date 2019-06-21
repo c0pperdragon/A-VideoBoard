@@ -78,7 +78,7 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable MCM:              std_logic := '0';
-	variable DEN:              std_logic := '0';  -- '1';
+	variable DEN:              std_logic := '1';
 	variable RSEL:             std_logic := '1';
 	variable CSEL:             std_logic := '1';
 	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
@@ -523,7 +523,7 @@ begin
 
 			-- handle display activity and row counter (RC) 
 			if phase=15 then
-				if cycle=14 then
+				if cycle<=14 then
 					if tmp_badline then
 						RC := 0;
 						idlestate := false;
