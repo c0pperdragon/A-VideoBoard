@@ -118,11 +118,14 @@ begin
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
 	variable xcoordinate : integer range 0 to 511;     -- x-position in sprite coordinates
 	variable spritecycle : integer range 0 to 31;      -- cycle in the sprite dma sequence 
-	
+
 	variable displayactive : boolean := false;
+	variable badline : boolean;	
 	variable lineactive : boolean := false;
+	variable prev_idlestate : boolean := false;
 	variable idlestate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
+	variable matrixdmacursor : integer range 0 to 63;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(13 downto 0);
@@ -174,14 +177,10 @@ begin
 	variable tmp_8bit1 : std_logic_vector(7 downto 0);
 	variable tmp_8bit2 : std_logic_vector(7 downto 0);
 	variable tmp_half : integer range 250 to 280;
-	variable tmp_badline : boolean;
 
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then	
-				-- test for bad line condition 
-				tmp_badline := displayline<248 and displayactive
-					   and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
 		
 			-- generate pixel output
 			if (phase mod 2) = 0 then   
@@ -414,7 +413,7 @@ begin
 				matrixaddr1 := matrixaddr0;
 				if lineactive then
 					if cycle>=17 and cycle<17+40 and (phase/2) = to_integer(unsigned(XSCROLL)) then
-						if idlestate then
+						if prev_idlestate then
 							matrixaddr0 := "111111";   -- unused, contains all zeroes
 						else
 							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
@@ -463,12 +462,17 @@ begin
 				end if;
 			end if;
 			-- video matrix read
-			if phase=15 and cycle>=15 and cycle<55 and tmp_badline then -- in_aec='0' then
-				matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6));
+			if phase=15 and cycle>=15 and cycle<55 and badline then 
+				matrixwaddress <= std_logic_vector(to_unsigned(matrixdmacursor,6)); -- cycle-15,6));
 				matrixdata <= in_db;
+				matrixdmacursor := matrixdmacursor+1;
 			else
 				matrixwaddress <= "111110"; -- write to unused address
+				if cycle=1 then
+					matrixdmacursor := 0;
+				end if;
 			end if;
+			
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- take pixel data into buffer to pick at correct time to implement scrolling
 				pixelfetcher2 := pixelfetcher;
@@ -523,22 +527,23 @@ begin
 
 			-- handle display activity and row counter (RC) 
 			if phase=15 then
-				if cycle<=14 then
-					if tmp_badline then
-						RC := 0;
-						idlestate := false;
-					end if;
+				prev_idlestate := idlestate;
+				
+				if badline then
+					idlestate := false;
+				end if; 
+				if cycle=14 and badline then  
+					RC := 0;
 				end if;
 				if cycle=58 then
-					if RC=7 and not tmp_badline then
+					if RC=7 and not badline then
 						idlestate := true;
-					end if;
-					if not idlestate then
+					elsif not idlestate then
 						RC := RC+1;
 					end if;
 				end if;
 			end if;
-			
+
 			-- detect if a register write should happen in this cycle
 			if phase=11 then
 				register_writeaddress := in_a;
@@ -579,6 +584,7 @@ begin
 				-- memorize for delayed action
 				register_writedata2 := register_writedata;
 				register_writeaddress2 := register_writeaddress;
+
 			end if;
 			-- some registers need delayed write
 			if phase=9 then
@@ -625,6 +631,11 @@ begin
 			elsif displayline=251 then
 				displayactive:=false;
 			end if;
+
+			-- test for bad line condition to be present in next cycle
+			badline := displayline<248 and displayactive 
+				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
+			
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
@@ -654,8 +665,6 @@ begin
 				end if;
 			end if;
 			
-			
-
 			-- try to find the dram refresh pattern to sync the output 
 			if phase=3 then
 				case syncdetect_cycle is
