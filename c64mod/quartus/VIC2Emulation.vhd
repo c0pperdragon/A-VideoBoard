@@ -124,6 +124,9 @@ begin
 	variable prev_idlestate : boolean := false;
 	variable idlestate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
+	variable VMLI : integer range 0 to 63 := 0;
+	variable VMLI_prev : integer range 0 to 63 := 0;
+	variable VMLI_pprev : integer range 0 to 63 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(13 downto 0);
@@ -406,7 +409,7 @@ begin
 						if prev_idlestate then
 							matrixaddr0 := "111111";   -- unused, contains all zeroes
 						else
-							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
+							matrixaddr0 := std_logic_vector(to_unsigned(VMLI_pprev,6));
 						end if;
 					end if;
 				end if;
@@ -453,7 +456,7 @@ begin
 			end if;
 			-- video matrix read
 			if phase=15 and cycle>=15 and cycle<55 and badline then 
-				matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6)); 
+				matrixwaddress <= std_logic_vector(to_unsigned(VMLI,6)); 
 				if in_aec='0' then         -- correct data is present on bus
 					matrixdata <= in_db;   
 				else             -- take in the mangled data that is on the bus by accident
@@ -510,10 +513,11 @@ begin
 				end if;
 			end if;
 
-			-- handle display activity and row counter (RC) 
+			-- handle display activity and row counter (RC) and video matrix index (VMLI)
 			if phase=15 then
+
 				prev_idlestate := idlestate;
-				
+
 				if badline then
 					idlestate := false;
 				end if; 
@@ -527,6 +531,15 @@ begin
 						RC := RC+1;
 					end if;
 				end if;
+
+				VMLI_pprev := VMLI_prev;
+				VMLI_prev := VMLI;				
+				if cycle=14 then
+					VMLI := 0;
+				elsif (not idlestate) and VMLI<60 then
+					VMLI := VMLI+1;
+				end if;
+				
 			end if;
 
 			-- detect if a register write should happen in this cycle
@@ -540,13 +553,13 @@ begin
 					register_writeaddress := "111111"; -- no write
 				end if;
 			end if;
+
 			if phase=15 then
 				-- write the new value through to the registers before next cycle
 				case to_integer(unsigned(register_writeaddress)) is 
 					when 17 => DEN := register_writedata(4);
 								  RSEL:= register_writedata(3);
 								  YSCROLL := register_writedata(2 downto 0);
---					when 21 => SPRITEACTIVE := register_writedata;
 					when 22 => CSEL := register_writedata(3);
 								  XSCROLL := register_writedata(2 downto 0);
 					when 32 => bordercolor := register_writedata(3 downto 0);
@@ -569,7 +582,6 @@ begin
 				-- memorize for delayed action
 				register_writedata2 := register_writedata;
 				register_writeaddress2 := register_writeaddress;
-
 			end if;
 			-- some registers need delayed write
 			if phase=9 then
