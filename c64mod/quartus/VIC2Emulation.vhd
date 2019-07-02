@@ -78,7 +78,7 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable MCM:              std_logic := '0';
-	variable DEN:              std_logic := '1'; -- '0'; 
+	variable DEN:              std_logic := '0'; -- '1'; 
 	variable RSEL:             std_logic := '1';
 	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
@@ -179,7 +179,10 @@ begin
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then	
-		
+			-- compute bad line condition
+			badline := displayline<248 and displayactive 
+				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
+				
 			-- generate pixel output
 			if (phase mod 2) = 0 then   
 			
@@ -449,9 +452,13 @@ begin
 				end if;
 			end if;
 			-- video matrix read
-			if phase=15 and cycle>=15 and cycle<55 and badline and in_aec='0' then 
+			if phase=15 and cycle>=15 and cycle<55 and badline then 
 				matrixwaddress <= std_logic_vector(to_unsigned(cycle-15,6)); 
-				matrixdata <= in_db;
+				if in_aec='0' then         -- correct data is present on bus
+					matrixdata <= in_db;   
+				else             -- take in the mangled data that is on the bus by accident
+					matrixdata <= in_db(3 downto 0) & "11111111";
+				end if;
 			else
 				matrixwaddress <= "111110"; -- write to unused address
 			end if;
@@ -459,11 +466,6 @@ begin
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- take pixel data into buffer to pick at correct time to implement scrolling
 				pixelfetcher2 := pixelfetcher;
-				
-				-- check on the critical cycle if the sprites should be active at all
---				if spritecycle=2 then
---					spriteactive_buffer := SPRITEACTIVE;
---				end if;
 				
 				-- read the first databyte for a sprite
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
@@ -613,12 +615,7 @@ begin
 				displayactive:=true; 
 			elsif displayline=251 then
 				displayactive:=false;
-			end if;
-
-			-- test for bad line condition to be present in next cycle
-			badline := displayline<248 and displayactive 
-				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
-			
+			end if;			
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
