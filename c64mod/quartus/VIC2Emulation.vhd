@@ -78,10 +78,9 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable MCM:              std_logic := '0';
-	variable DEN:              std_logic := '0'; -- '1';
+	variable DEN:              std_logic := '0'; -- '1'; 
 	variable RSEL:             std_logic := '1';
 	variable CSEL:             std_logic := '1';
-	variable SPRITEACTIVE:     std_logic_vector(7 downto 0) := "00000000";
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
 	variable YSCROLL:          std_logic_vector(2 downto 0) := "011";
 	variable spritepriority:   std_logic_vector(7 downto 0) := "00000000";
@@ -125,7 +124,9 @@ begin
 	variable prev_idlestate : boolean := false;
 	variable idlestate : boolean := false;
 	variable RC : integer range 0 to 7 := 0;
-	variable matrixdmacursor : integer range 0 to 63;
+	variable VMLI : integer range 0 to 63 := 0;
+	variable VMLI_prev : integer range 0 to 63 := 0;
+	variable VMLI_pprev : integer range 0 to 63 := 0;
 	variable pixelfetcher : std_logic_vector(7 downto 0);
 	variable pixelfetcher2 : std_logic_vector(7 downto 0);
 	variable pixelpattern : std_logic_vector(13 downto 0);
@@ -141,7 +142,7 @@ begin
 	variable verticalborderflipflop : std_logic := '0';
 	
 	variable spritedmaactive : boolean;
-	variable spriteactive_buffer : std_logic_vector(7 downto 0);
+--	variable spriteactive_buffer : std_logic_vector(7 downto 0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
@@ -181,7 +182,10 @@ begin
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then	
-		
+			-- compute bad line condition
+			badline := displayline<248 and displayactive 
+				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
+				
 			-- generate pixel output
 			if (phase mod 2) = 0 then   
 			
@@ -207,7 +211,7 @@ begin
 					end if;
 				when "001" =>   -- multicolor text mode
 					if matrixq(11)='0' then
-						if tmp_bit='1' then
+						if tmp_2bit(0)='1' then
 							out_color := "0" & matrixq(10 downto 8);
 							tmp_isforeground := true;
 						end if;
@@ -251,14 +255,8 @@ begin
 					end if;
 				when "101" =>  -- Invalid text mode
 					out_color := "0000";
-					if matrixq(11)='0' then
-						if tmp_bit='1' then
-							tmp_isforeground := true;
-						end if;
-					else
-						if tmp_2bit="10" or tmp_2bit="11" then	
-							tmp_isforeground := true;
-						end if;
+					if tmp_2bit(1)='1' then	
+						tmp_isforeground := true;
 					end if;							
 				when "110" =>  -- Invalid bitmap mode 1
 					out_color := "0000";
@@ -267,7 +265,7 @@ begin
 					end if;
 				when "111" =>  -- Invalid bitmap mode 2
 					out_color := "0000";
-					if tmp_2bit="10" or tmp_2bit="11" then
+					if tmp_2bit(1)='1' then
 						tmp_isforeground := true;
 					end if;
 				end case;						
@@ -308,20 +306,15 @@ begin
 					end if;
 				end if;
 				
-				
 				-- overlay with border 
 				if mainborderflipflop='1' then
 					out_color := bordercolor;
 				end if;
 				
---				if xcoordinate<20 and tmp_badline then
---					out_color := "0111";
---				end if;
-				
 				-- override with blankings and sync signals 
 				if PAL='1' then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
-					vcounter := displayline + 10;
+					vcounter := displayline + 13;  -- 10;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
 						vcounter := vcounter+1;
@@ -404,7 +397,7 @@ begin
 					pixelpattern2 := pixelpattern2(12 downto 0) & '0';
 				end if;
 
-				-- handle the the video matrix read adressing
+				-- handle the video matrix read adressing
 				matrixraddress <= matrixaddr5;
 				matrixaddr5 := matrixaddr4;
 				matrixaddr4 := matrixaddr3;
@@ -416,7 +409,7 @@ begin
 						if prev_idlestate then
 							matrixaddr0 := "111111";   -- unused, contains all zeroes
 						else
-							matrixaddr0 := std_logic_vector(to_unsigned(cycle-17,6));
+							matrixaddr0 := std_logic_vector(to_unsigned(VMLI_pprev,6));
 						end if;
 					end if;
 				end if;
@@ -463,24 +456,19 @@ begin
 			end if;
 			-- video matrix read
 			if phase=15 and cycle>=15 and cycle<55 and badline then 
-				matrixwaddress <= std_logic_vector(to_unsigned(matrixdmacursor,6)); -- cycle-15,6));
-				matrixdata <= in_db;
-				matrixdmacursor := matrixdmacursor+1;
+				matrixwaddress <= std_logic_vector(to_unsigned(VMLI,6)); 
+				if in_aec='0' then         -- correct data is present on bus
+					matrixdata <= in_db;   
+				else             -- take in the mangled data that is on the bus by accident
+					matrixdata <= in_db(3 downto 0) & "11111111";
+				end if;
 			else
 				matrixwaddress <= "111110"; -- write to unused address
-				if cycle=1 then
-					matrixdmacursor := 0;
-				end if;
 			end if;
 			
 			if phase=15 then   -- receive during a CPU-blocking second half of a cycle
 				-- take pixel data into buffer to pick at correct time to implement scrolling
 				pixelfetcher2 := pixelfetcher;
-				
-				-- check on the critical cycle if the sprites should be active at all
-				if spritecycle=2 then
-					spriteactive_buffer := SPRITEACTIVE;
-				end if;
 				
 				-- read the first databyte for a sprite
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
@@ -513,7 +501,7 @@ begin
 			
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					spritedmaactive := spriteactive_buffer((spritecycle-4)/2) = '1';
+					spritedmaactive := true; -- spriteactive_buffer((spritecycle-4)/2) = '1';
 					firstspritereadaddress := in2_a(1 downto 0);
 				end if;
 				
@@ -525,10 +513,11 @@ begin
 				end if;
 			end if;
 
-			-- handle display activity and row counter (RC) 
+			-- handle display activity and row counter (RC) and video matrix index (VMLI)
 			if phase=15 then
+
 				prev_idlestate := idlestate;
-				
+
 				if badline then
 					idlestate := false;
 				end if; 
@@ -542,6 +531,15 @@ begin
 						RC := RC+1;
 					end if;
 				end if;
+
+				VMLI_pprev := VMLI_prev;
+				VMLI_prev := VMLI;				
+				if cycle=14 then
+					VMLI := 0;
+				elsif (not idlestate) and VMLI<60 then
+					VMLI := VMLI+1;
+				end if;
+				
 			end if;
 
 			-- detect if a register write should happen in this cycle
@@ -555,13 +553,13 @@ begin
 					register_writeaddress := "111111"; -- no write
 				end if;
 			end if;
+
 			if phase=15 then
 				-- write the new value through to the registers before next cycle
 				case to_integer(unsigned(register_writeaddress)) is 
 					when 17 => DEN := register_writedata(4);
 								  RSEL:= register_writedata(3);
 								  YSCROLL := register_writedata(2 downto 0);
-					when 21 => SPRITEACTIVE := register_writedata;
 					when 22 => CSEL := register_writedata(3);
 								  XSCROLL := register_writedata(2 downto 0);
 					when 32 => bordercolor := register_writedata(3 downto 0);
@@ -584,7 +582,6 @@ begin
 				-- memorize for delayed action
 				register_writedata2 := register_writedata;
 				register_writeaddress2 := register_writeaddress;
-
 			end if;
 			-- some registers need delayed write
 			if phase=9 then
@@ -630,12 +627,7 @@ begin
 				displayactive:=true; 
 			elsif displayline=251 then
 				displayactive:=false;
-			end if;
-
-			-- test for bad line condition to be present in next cycle
-			badline := displayline<248 and displayactive 
-				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
-			
+			end if;			
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
