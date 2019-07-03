@@ -211,7 +211,7 @@ begin
 					end if;
 				when "001" =>   -- multicolor text mode
 					if matrixq(11)='0' then
-						if tmp_2bit(0)='1' then
+						if tmp_bit='1' then
 							out_color := "0" & matrixq(10 downto 8);
 							tmp_isforeground := true;
 						end if;
