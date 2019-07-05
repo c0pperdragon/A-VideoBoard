@@ -660,11 +660,11 @@ begin
 			-- try to find the dram refresh pattern to sync the output 
 			if phase=3 then
 				case syncdetect_cycle is
-				when 0 => ramrefreshpattern(9 downto 8) := in_a(1 downto 0);
-				when 1 => ramrefreshpattern(7 downto 6) := in_a(1 downto 0);
-				when 2 => ramrefreshpattern(5 downto 4) := in_a(1 downto 0);
-				when 3 => ramrefreshpattern(3 downto 2) := in_a(1 downto 0);
-				when 4 => ramrefreshpattern(1 downto 0) := in_a(1 downto 0);
+				when 0 => ramrefreshpattern(9 downto 8) := in2_a(1 downto 0);
+				when 1 => ramrefreshpattern(7 downto 6) := in2_a(1 downto 0);
+				when 2 => ramrefreshpattern(5 downto 4) := in2_a(1 downto 0);
+				when 3 => ramrefreshpattern(3 downto 2) := in2_a(1 downto 0);
+				when 4 => ramrefreshpattern(1 downto 0) := in2_a(1 downto 0);
 				when 5 => 
 					if ramrefreshpattern = "1110010011" 
 					or ramrefreshpattern = "1001001110"
