@@ -13,7 +13,7 @@ entity Settings is
 		WRITEEN : in std_logic;
 		
 		-- color palette conversion
-		QUERYREGISTER : in std_logic_vector(7 downto 0);
+		QUERYREGISTER : in std_logic_vector(8 downto 0);
 		REGISTERDATA : out std_logic_vector(15 downto 0)
 	);	
 end entity;
@@ -23,7 +23,7 @@ architecture immediate of Settings is
 	component ram_dual is
 	generic
 	(
-		data_width : integer := 8;
+		data_width : integer := 9;
 		addr_width : integer := 16
 	); 
 	port 
@@ -59,10 +59,10 @@ architecture immediate of Settings is
 	end component;	
 
 	-- communicate with the ram
-	signal ram_rdaddress : std_logic_vector(7 downto 0);
+	signal ram_rdaddress : std_logic_vector(8 downto 0);
 	signal ram_rddata : std_logic_vector(15 downto 0);
 	signal ram_wrdata : std_logic_vector(15 downto 0);
-	signal ram_wraddress : std_logic_vector(7 downto 0);
+	signal ram_wraddress : std_logic_vector(8 downto 0);
 	signal ram_we : std_logic;
 	
 	-- communicate with the flash memory controller
@@ -86,7 +86,7 @@ architecture immediate of Settings is
 
 begin
 
-	ram: ram_dual generic map(data_width => 16, addr_width => 8)
+	ram: ram_dual generic map(data_width => 16, addr_width => 9)
 		port map (
 			ram_wrdata,
 			ram_rdaddress,
@@ -125,13 +125,15 @@ begin
 	(	POWERUP, READING, WAITFORDATA, IDLE,
       ENABLEWRITE, CLEAR, AFTERCLEAR, WAITFORCLEARFINISHED,
 		FETCHFORWRITE, WRITING, AFTERWRITE, WAITFORWRITEFINISHED,
-		DISABLEWRITE, AFTERDISABLEWRITE
+		DISABLEWRITE, AFTERDISABLEWRITE,
+		SETREGISTERBANK1
 	);  
 	variable state: state_type := POWERUP;
 
 	variable startdelay : integer range 0 to 2000 := 0;
-	variable readcursor : integer range 0 to 255 := 0;	
-	variable writecursor : integer range 0 to 255 := 0;	
+	variable readcursor : integer range 0 to 511 := 0;	
+	variable writecursor : integer range 0 to 511 := 0;
+	variable enablebank: std_logic_vector(1 downto 0) := "11";
 
 	variable out_reset : std_logic := '0';
 	variable out_csr_addr : std_logic := '0';
@@ -144,7 +146,7 @@ begin
 	variable out_data_write : std_logic := '0';
 	
 	variable overridequery : boolean := false;
-	variable overridequeryaddress : std_logic_vector(7 downto 0) := "00000000";
+	variable overridequeryaddress : std_logic_vector(8 downto 0) := "000000000";
 	
 	begin
 		if rising_edge(CLK) then
@@ -190,11 +192,11 @@ begin
 					out_data_read := '0';
 					if avmm_data_readdatavalid='1' then
 						state := READING;
-						ram_wraddress <= std_logic_vector(to_unsigned(readcursor,8));
+						ram_wraddress <= std_logic_vector(to_unsigned(readcursor,9));
 						ram_wrdata <= avmm_data_readdata(15 downto 0);
 							
 						ram_we <= '1';
-						if readcursor = 255 then
+						if readcursor = 511 then
 							state := IDLE;
 						else
 							readcursor := readcursor+1;
@@ -202,6 +204,7 @@ begin
 					end if;
 						
 				when IDLE => -- wait for request from CPU
+				when SETREGISTERBANK1 => -- this is handled in a seperate state flow
 					
 				-- clear page 0 of the flash
 				when ENABLEWRITE =>
@@ -240,7 +243,7 @@ begin
 		
 				when FETCHFORWRITE =>
 					overridequery := true;
-					overridequeryaddress := std_logic_vector(to_unsigned(writecursor,8));
+					overridequeryaddress := std_logic_vector(to_unsigned(writecursor,9));
 					state := WRITING;
 					
 				when WRITING =>
@@ -261,7 +264,7 @@ begin
 				when WAITFORWRITEFINISHED =>
 					if avmm_csr_readdata(1 downto 0) = "00" then
 						out_csr_read := '0';
-						if writecursor=255 then 
+						if writecursor=511 then 
 							state := DISABLEWRITE;
 						else
 							writecursor := writecursor+1;
@@ -305,22 +308,38 @@ begin
 			
 
 			-- CPU wants to write into registers 
-			if WRITEEN='1' then  
+			if WRITEEN='1' and state=IDLE then  
 				case to_integer(unsigned(WRITEADDR)) is 
 					when 60 => 
 						ram_wrdata(7 downto 0) <= WRITEDATA;
 					when 61 => 
 						ram_wrdata(15 downto 8) <= WRITEDATA;
 					when 62 => 
-						ram_wraddress <= WRITEDATA;
-						ram_we <= '1';			
+						ram_wraddress <= "0" & WRITEDATA;
+						ram_we <= enablebank(0);			
+						state := SETREGISTERBANK1;
+						
 					when 63 =>
+						-- enable to write to bank 0 only
+						if WRITEDATA="00000000" then   
+							enablebank := "01";
+						-- enable to write to bank 1 only
+						elsif WRITEDATA="00000001" then   
+							enablebank := "10";
+						-- write to both banks again (magic number 137)
+						elsif WRITEDATA="10001001" then   
+							enablebank := "11";
 						-- start storing data (after clearing the sector)
-						if WRITEDATA="10001010" and state=IDLE then   -- store command : 138
+						elsif WRITEDATA="10001010" then   -- store command : 138
 							state := ENABLEWRITE;
 						end if;
 					when others => null;
 				end case;
+			-- do second write for second register bank
+			elsif state = SETREGISTERBANK1 then
+				ram_wraddress(8) <= '1';
+				ram_we <= enablebank(1);			
+				state := IDLE;
 			end if;		
 			
 		end if;	

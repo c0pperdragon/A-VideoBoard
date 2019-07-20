@@ -33,6 +33,7 @@ architecture immediate of C64Mod is
 	signal CLK     : std_logic;         -- 16 times CPU clock
 	
 	-- SDTV signals
+	signal ODDLINE : std_logic;
 	signal COLOR : std_logic_vector(3 downto 0);
 	signal DELAYEDCOLOR  : std_logic_vector(3 downto 0);	
 	signal CSYNC   : std_logic;
@@ -121,7 +122,7 @@ architecture immediate of C64Mod is
 		WRITEEN : in std_logic;
 		
 		-- color palette conversion
-		QUERYREGISTER : in std_logic_vector(7 downto 0);
+		QUERYREGISTER : in std_logic_vector(8 downto 0);
 		REGISTERDATA : out std_logic_vector(15 downto 0)
 	);	
 	end component;
@@ -173,7 +174,7 @@ begin
 			settings_writeaddr,
 			settings_writedata,
 			settings_writeen,
-			COLOR & DELAYEDCOLOR,
+			ODDLINE & COLOR & DELAYEDCOLOR,
 			YPBPR
 		);
 	
@@ -336,6 +337,11 @@ begin
 					needvsync := false;
 				elsif vcnt<511 then
 					vcnt := vcnt+1;
+				end if;
+				if vcnt mod 2 = 0 then
+					ODDLINE <= '0';
+				else
+					ODDLINE <= '1';
 				end if;
 			elsif hcnt<2047 then
 				-- a sync in the middle of a scanline: starts the vsync sequence
