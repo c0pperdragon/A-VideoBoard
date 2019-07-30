@@ -544,7 +544,7 @@ begin
 
 			-- detect if a register write should happen in this cycle
 			if phase=11 then
-				register_writeaddress := in_a;
+				register_writeaddress := in2_a;
 			end if;
 			if phase=14 then
 				if in_aec='1' and in_cs='0' and in_rw='0' then
