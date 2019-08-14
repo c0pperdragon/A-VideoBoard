@@ -30,7 +30,7 @@ If you want to build your own adapter board, you need to have a PCB manufactured
 IC socket into the big holes. Use the socket type with round pins (the more expensive ones).
 Solder from below and remove as much excess solder as possible. Then install the ribbon cable connector.
 Take special care when installing the voltage regulator, as this small package always gave me the most trouble.
-For your convenience, I have set up a parts list at 
+For your convenience, I have set up a [BOM](adapterboard_bom.ods) and a parts list at 
 [mouser](https://www.mouser.com/ProjectManager/ProjectDetail.aspx?AccessID=2b75b16750)
 containing everything to build the board.
 
