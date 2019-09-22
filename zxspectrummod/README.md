@@ -63,13 +63,13 @@ is in sync with the incoming stream of video data.
 ## Output
 
 The mod can be used to create three different output formats:
-* 288p
-* 576p (default)
+* 288p (default)
+* 576p
 * 576p with scanlines
 
 Selecting the output can be done by jumper connectors or an external switch:
-* Connect GPIO1_15 to GPIO1_17 (or GND): 288p
-* Connect GPIO1_18 to GPIO1_17 (or GND): 576p with scanlines
+* Connect GPIO1_18 to GPIO1_17 (or GND): 576p without scanlines
+* Connect GPIO1_15 to GPIO1_17 (or GND): 576p with scanlines 
 
 ## Images
 ![alt text](doc/assembly.jpg "Overview over the whole system")

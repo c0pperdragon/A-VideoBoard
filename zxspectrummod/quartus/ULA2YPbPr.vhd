@@ -18,9 +18,9 @@ entity ULA2YPbPr is
 		IOREQ : in std_logic;
 		WR : in std_logic;
 
-		GPIO2_4: out std_logic;
-		GPIO2_6: out std_logic;
-		GPIO2_8: out std_logic;
+--		GPIO2_4: out std_logic;
+--		GPIO2_6: out std_logic;
+--		GPIO2_8: out std_logic;
 		GPIO1_15: in std_logic;
 		GPIO1_17: out std_logic;
 		GPIO1_18: in std_logic
@@ -348,8 +348,8 @@ begin
 		variable usescanlines : std_logic;	
 	begin
 		GPIO1_17 <= '0';    -- provide GND on pin 17
-		uselowres := not GPIO1_15;
-		usescanlines := not GPIO1_18;
+		uselowres := GPIO1_15 and GPIO1_18;
+		usescanlines := GPIO1_18;
 
 		
 		if rising_edge(CLK14) then
@@ -523,9 +523,9 @@ begin
 		speedadjustment <= out_speedadjustment;		
 
 		-- debug output	
-		GPIO2_4 <= inframetrigger;
-		GPIO2_6 <= out_outframetrigger;
-		GPIO2_8 <= '0';
+--		GPIO2_4 <= inframetrigger;
+--		GPIO2_6 <= out_outframetrigger;
+--		GPIO2_8 <= '0';
 	end process;
 	
 
