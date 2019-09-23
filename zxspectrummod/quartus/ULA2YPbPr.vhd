@@ -35,7 +35,7 @@ architecture immediate of ULA2YPbPr is
 	signal CLK112B : std_logic;
 	signal CLK112C : std_logic;
 	signal CLK112D : std_logic;
-	signal CLK122TUNABLE : std_logic;
+	signal CLK112TUNABLE : std_logic;
 	
 	signal CLK14   : std_logic;	
 	-- when toggled, trigger a CLK122/8 slowdown or speedup 
@@ -103,7 +103,7 @@ begin
 		variable previn_slowdown : std_logic;	
 	begin
 		-- asynchronously generate the output clock with the enabled phases
-		CLK122TUNABLE <= 
+		CLK112TUNABLE <= 
 				(CLK112A and phaseenable(0))
 		   or (CLK112B and phaseenable(1))
 		   or (CLK112C and phaseenable(2))
@@ -151,12 +151,12 @@ begin
 		end if;	
 	end process;
 	
-	-- divide down the tuneable 122 Mhz to a tunable 14 Mhz
-	process (CLK122TUNABLE)
+	-- divide down the tuneable 112 Mhz to a tunable 14 Mhz
+	process (CLK112TUNABLE)
 		variable cnt: integer range 0 to 7 := 0;
 		variable tmp_cnt: std_logic_vector(2 downto 0);
 	begin
-		if rising_edge(CLK122TUNABLE) then
+		if rising_edge(CLK112TUNABLE) then
 			cnt := cnt+1;
 		end if;			
 		tmp_cnt := std_logic_vector(to_unsigned(cnt,3));
@@ -308,11 +308,12 @@ begin
 		constant sync:   integer := 0 + 16*32 + 16;
 		type T_zxpalette is array (0 to 15) of integer range 0 to 65535;
 		constant zxpalette : T_zxpalette := (
-			-- black  -- blue   -- red    -- purple -- green  -cyan     -- yellow -- white
-			16#8210#,16#8b4e#,16#99ba#,16#a2d8#,16#ad48#,16#b666#,16#c0d2#,16#ce10#,   -- dim
-			16#8210#,16#93ed#,16#a57f#,16#b77d#,16#c8a3#,16#daa0#,16#ec13#,16#fe10#    -- bright
-		);	
-	
+			-- black -- blue  -- red   -- purple - green -- cyan  -- yellow - white
+			16#8210#,16#976d#,16#ad9b#,16#bab8#,16#bd66#,16#c684#,16#d8f1#,16#e610#,   -- dim
+			16#8210#,16#9bac#,16#b57d#,16#c6fa#,16#cd23#,16#daa1#,16#f092#,16#fe10#    -- bright
+--			16#8210#,16#8b4e#,16#99ba#,16#a2d8#,16#ad48#,16#b666#,16#c0d2#,16#ce10#,   -- dim
+--			16#8210#,16#93ed#,16#a57f#,16#b77d#,16#c8a3#,16#daa0#,16#ec13#,16#fe10#    -- bright
+		);
 		constant w: integer := 448;    -- (64.00 microseconds -> 15.625kHz)
 		constant h: integer := 312;      -- (19968 microseconds -> 50.0801Hz)
 		constant vheight: integer := 192;

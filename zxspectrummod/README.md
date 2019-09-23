@@ -75,5 +75,5 @@ Selecting the output can be done by jumper connectors or an external switch:
 ![alt text](doc/assembly.jpg "Overview over the whole system")
 ![alt text](doc/modboard.jpg "Installation of A-Video with daughter board")
 ![alt text](doc/connectors.jpg "Closed machine with YPbPr sockets")
-![alt text](doc/game288p.jpg "288p video output on my TV")
-![alt text](doc/closeup288p.jpg "Closeup of video output")
+![alt text](doc/game.jpg "576p video output on my TV")
+![alt text](doc/closeup.jpg "Closeup of video output")
