@@ -1,0 +1,70 @@
+library ieee;
+use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+
+-- Test circuit to simulate the signals of a VIC in the C64 to drive
+-- and test a C64 video enhancement board in PAL mode.
+
+
+entity TestSignal is	
+	port (
+		-- reference clock
+		CLK100:  in std_logic;
+		
+		-- generated signals
+		DB:    out std_logic_vector(11 downto 0);
+		A:     out std_logic_vector(5 downto 0);
+		CS:    out std_logic;
+		RW:    out std_logic; 
+		BA:    out std_logic;
+		AEC:   out std_logic;
+		PHI0:  out std_logic;
+	);	
+end entity;
+
+
+architecture immediate of TestSignal is
+begin		
+	process 
+	begin
+		DB <= "000000000000";
+		A  <= "000000";
+		CS <= '1';
+		RW <= '1'; 
+		BA <= '1';
+		AEC <= '1';
+	end process;
+
+	process (CLK100)
+		variable displayline : integer range 0 to 311 := 0;
+		variable cycle : integer range 1 to 63 := 0;
+		variable tick : integer range 0 to 127;
+	begin	
+		if rising_edge(CLK100) then
+			-- generate output signal depending on counter positions
+			if counter<50 then
+				PHI0 <= '1';
+			else
+				PHI1 <= '0';
+			end if;
+		
+			-- progress the counters 
+			if tick<101 then 
+				tick := tick+1;
+			else
+				tick := 1;
+				
+				if cycle<63 then
+					cycle := cycle+1;
+				else
+					cycle := 0;
+					if displayline<311 then
+						displayline := displayline +1;
+					else
+						displayline := 0;
+					end if;
+				end if;
+			end if;
+		end if;
+	end process;		
+end immediate;
