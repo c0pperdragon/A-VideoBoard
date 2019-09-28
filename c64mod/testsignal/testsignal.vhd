@@ -39,7 +39,7 @@ begin
 		variable tmp_needreset : boolean;
 		variable tmp_tick : std_logic_vector(3 downto 0);
 		
-		variable compensationsequence : integer range 0 to 503 := 0;
+		variable compensationsequence : integer range 0 to 255 := 0;
 		variable longclock : boolean := false;
 		 
 	begin 
@@ -63,7 +63,7 @@ begin
 					or ((compensationsequence mod 16) = 3)
 					or ((compensationsequence mod 16) = 7)
 					or ((compensationsequence mod 16) = 11);
-			if compensationsequence/=503 then
+			if compensationsequence/=251 then
 				compensationsequence := compensationsequence+1;
 			else
 				compensationsequence := 0;
