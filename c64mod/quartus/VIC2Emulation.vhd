@@ -78,7 +78,7 @@ begin
 	variable ECM:              std_logic := '0';
 	variable BMM:              std_logic := '0';
 	variable MCM:              std_logic := '0';
-	variable DEN:              std_logic := '0'; -- '1'; 
+	variable DEN:              std_logic := '0'; -- '1'; --
 	variable RSEL:             std_logic := '1';
 	variable CSEL:             std_logic := '1';
 	variable XSCROLL:          std_logic_vector(2 downto 0) := "000";
@@ -88,10 +88,10 @@ begin
 	variable doublewidth:      std_logic_vector(7 downto 0) := "00000000";
 	variable bordercolor:      std_logic_vector(3 downto 0) := "0000"; -- "1110"; --
 	variable backgroundcolor0: std_logic_vector(3 downto 0) := "0000"; -- "0110"; --
-	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0001"; --
-	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0010"; --
-	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0011"; --
-	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0100"; --
+	variable backgroundcolor1: std_logic_vector(3 downto 0) := "0000"; -- "0001"; --
+	variable backgroundcolor2: std_logic_vector(3 downto 0) := "0000"; -- "0010"; --
+	variable backgroundcolor3: std_logic_vector(3 downto 0) := "0000"; -- "0011"; --
+	variable spritemulticolor0:std_logic_vector(3 downto 0) := "0000"; -- "0100"; --
 	variable spritemulticolor1:std_logic_vector(3 downto 0) := "0000";
 	type T_spritecolor is array (0 to 7) of std_logic_vector(3 downto 0);
 	variable spritecolor: T_spritecolor := ( "0000", "0000", "0000", "0000", "0000", "0000", "0000", "0000" );

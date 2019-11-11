@@ -15,7 +15,10 @@ entity ClockMultiplier is
 		PAL: in std_logic;
 		
 		-- x16 times output clock
-		CLK: out std_logic
+		CLK: out std_logic;
+		
+		-- auxilary pixel clock
+		AUXPIXELCLOCK : out std_logic
 	);	
 end entity;
 
@@ -249,6 +252,17 @@ begin
 		CONFIGUPDATE <= out_configupdate;
 		SCANCLKENA <= out_scanclkena;
 		SCANDATA <= out_scandata;
+	end process;
+	
+	-- generate a pixel clock that can be used to drive the VIC instead of the shaky 
+	-- built-in oscillator (very special use only)
+	process (CLKA)
+		variable counter : unsigned(4 downto 0) := "00000";
+	begin
+		if rising_edge(CLKA) then
+			counter := counter+1;
+		end if;
+		AUXPIXELCLOCK <= counter(4);
 	end process;
 	
 	

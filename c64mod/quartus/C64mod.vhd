@@ -18,11 +18,10 @@ entity C64Mod is
 		-- read output mode settings 
 		GPIO2_4: in std_logic;
 		GPIO2_5: in std_logic;
-		GPIO2_6: in std_logic
+		GPIO2_6: in std_logic;
 		
---		-- debug output
---		GPIO2_8: out std_logic;
---		GPIO2_10: out std_logic
+		-- pixel clock output to drive the VIC if necessary
+		AUXPIXELCLOCK : out std_logic
 	);	
 end entity;
 
@@ -66,7 +65,10 @@ architecture immediate of C64Mod is
 		PAL: in std_logic;
 		
 		-- x16 times output clock
-		CLK: out std_logic
+		CLK: out std_logic;
+		
+		-- auxilary pixel clock
+		AUXPIXELCLOCK : out std_logic
 	);	
 	end component;
 	
@@ -129,7 +131,7 @@ architecture immediate of C64Mod is
 	
 	
 begin		
-	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), PAL, CLK );
+	clkmulti: ClockMultiplier port map ( CLK25, GPIO1(20), PAL, CLK, AUXPIXELCLOCK );
 	
 	vic: VIC2Emulation port map (
 		COLOR,
