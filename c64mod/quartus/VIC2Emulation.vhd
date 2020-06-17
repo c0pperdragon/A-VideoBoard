@@ -112,6 +112,7 @@ begin
 	variable register_writedata2 : std_logic_vector(7 downto 0);
 	
 	-- variables for synchronious operation
+	variable LINES312 : boolean := true;               -- VIC is running with 312 lines per frame
 	variable displayline: integer range 0 to 511 := 0; -- VIC-II line numbering
 	variable cycle : integer range 0 to 127 := 1;      -- cpu cycle in line
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
@@ -159,7 +160,8 @@ begin
 	variable syncdetect_ok : boolean := false;
 	variable syncdetect_cycle : integer range 0 to 127 := 0;
 	variable ramrefreshpattern : std_logic_vector(9 downto 0) := "0000000000";
-		
+	variable prevrefreshpatternlikeline310 : boolean := true;
+	
 	-- registered output 
 	variable out_color  : std_logic_vector(3 downto 0) := "0000";
 	variable out_csync : std_logic := '0';
@@ -312,34 +314,36 @@ begin
 				end if;
 				
 				-- override with blankings and sync signals 
+				if LINES312 then
+					vcounter := displayline + 13; 
+				else
+					vcounter := displayline+253-4;				
+				end if;
 				if PAL='1' then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
-					vcounter := displayline + 13;  -- 10;
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
 						vcounter := vcounter+1;
 					end if;
-					if vcounter>=312 then
-						vcounter := vcounter-312;
-					end if;
 					tmp_half := 252;
 				else
 					hcounter := (cycle-1)*8 + phase/2; 
-					vcounter := displayline+253-4;
 					if hcounter>=7 then
 						hcounter := hcounter-7;
 					else
 						hcounter := hcounter+(520-7);
 						vcounter := vcounter-1;
 					end if;					
-					if vcounter>=263 then
-						vcounter := vcounter-263;
-					end if;
 					tmp_half := 260;
 				end if;
+				if LINES312 and vcounter>=312 then
+					vcounter := vcounter-312;
+				elsif (not LINES312) and vcounter>=263 then
+					vcounter := vcounter-263;
+				end if;
 				if hcounter<286-200 or hcounter>=286+200
-				or (PAL='0' and (vcounter<141-120 or vcounter>=141+120))
-				or (PAL='1' and (vcounter<166-144 or vcounter>=166+144))
+				or ((not LINES312) and (vcounter<141-120 or vcounter>=141+120))
+				or (LINES312 and (vcounter<166-144 or vcounter>=166+144))
 				then
 					out_color := "0000";
 	
@@ -642,7 +646,7 @@ begin
 			if phase=15 then
 				if cycle=65 or (cycle=63 and PAL='1') then
 					cycle := 1;
-					if (displayline=262 and PAL='0') or displayline=311 then
+					if (displayline=262 and not LINES312) or displayline=311 then
 						displayline := 0;
 					else
 						displayline := displayline+1;
@@ -672,15 +676,18 @@ begin
 					or ramrefreshpattern = "0011100100"
 					then
 						syncdetect_ok := true;  -- have detected the refresh pattern
+						prevrefreshpatternlikeline310 := (ramrefreshpattern = "0100111001");
 					elsif syncdetect_ok then
 						syncdetect_ok := false; -- not detected for 1. time 
 						-- detect the bottom of the frame anomaly (when in sync)
 						if ramrefreshpattern = "1111111111" then
 							cycle := 16;	
-							if PAL='1' then
+							if prevrefreshpatternlikeline310 then 
 								displayline := 311;
-							else
+								LINES312 := true;
+							else							
 								displayline := 262;
+								LINES312 := false;
 							end if;
 						end if;
 					else 
