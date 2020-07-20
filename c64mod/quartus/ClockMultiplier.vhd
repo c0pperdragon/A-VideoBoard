@@ -17,7 +17,7 @@ entity ClockMultiplier is
 		-- x16 times output clock
 		CLK: out std_logic;
 		
-		-- auxilary pixel clock
+		-- auxilary pixel and subcarrier clock
 		AUXPIXELCLOCK : out std_logic
 	);	
 end entity;
@@ -254,8 +254,8 @@ begin
 		SCANDATA <= out_scandata;
 	end process;
 	
-	-- generate a pixel clock that can be used to drive the VIC instead of the shaky 
-	-- built-in oscillator (very special use only)
+	-- generate a pixel clock and a subcarrier clock that can be used to drive the VIC
+	-- instead of the shaky built-in oscillator (very special use only)
 	process (CLKA)
 		variable counter : unsigned(4 downto 0) := "00000";
 	begin
