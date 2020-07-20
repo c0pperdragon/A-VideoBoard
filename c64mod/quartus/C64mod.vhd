@@ -20,6 +20,12 @@ entity C64Mod is
 		GPIO2_5: in std_logic;
 		GPIO2_6: in std_logic;
 		
+		-- multi-purpose use for the JTAG signals (a bit dangerous, but should work)
+		TMS : in std_logic;   -- keep the pin working so JTAG is possible
+		TCK : in std_logic;   -- keep the pin working so JTAG is possible
+		TDI : in std_logic;   -- external jumper to force high-contrast palette 
+		TDO : out std_logic;  -- keep the pin working so JTAG is possible
+		
 		-- pixel clock output to drive the VIC if necessary
 		AUXPIXELCLOCK : out std_logic
 	);	
@@ -191,6 +197,12 @@ begin
 			DELAYEDCOLOR		
 		);
 	
+	--- drive the TDO pin to a known state
+	process (TDI)
+	begin
+		TDO <= '1';
+	end process;
+	
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
 		variable in_phi0 : std_logic_vector(3 downto 0);
@@ -243,7 +255,9 @@ begin
 		variable val1 : integer range 0 to 31;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
+		variable usehighcontrast : boolean;
 		variable lpixel : integer range 0 to 2047;
+		variable prevcol : integer range 0 to 15;
 		
 		type T_lumadjustment is array (0 to 31) of integer range 0 to 31;
 		constant scanlineboost : T_lumadjustment := 
@@ -259,9 +273,10 @@ begin
 	
 		if rising_edge(CLK) then
 			-- jumper configuration
-			usehighres := GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0';
-			usescanlines := GPIO2_5='0' or GPIO2_6='0';
-
+			usehighcontrast := TDI='0' and (GPIO2_5='0' or GPIO2_6='0');
+			usehighres := (GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
+			usescanlines := (GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
+			
 			-- determine hsync position
 			lpixel := 504;
 			if PAL='0' then
@@ -278,6 +293,30 @@ begin
 				Y(4 downto 0) <= YPBPR(14 downto 10);
 				Pb <= YPBPR(9 downto 5);
 				Pr <= YPBPR(4 downto 0);
+				
+				-- override palette usage to force high-contrast
+				if usehighcontrast then 
+					case prevcol is  
+					when 0 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="10000";  -- black
+					when 6 =>  Y(4 downto 0)<="00000"; Pb<="11111"; Pr<="10000";  -- blue
+					when 9 =>  Y(4 downto 0)<="00000"; Pb<="00000"; Pr<="10000";  -- brown
+					when 2 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="11111";  -- red
+					when 11 => Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="00000";  -- d.gray
+					
+					when 4 =>  Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="11111";  -- purple
+					when 8 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="11111";  -- orange
+					when 12 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="10000";  -- m.gray
+					when 14 => Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="10000";  -- l.blue
+					when 5 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="00000";  -- green
+					when 10 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="11111";  -- l.red
+					
+					when 3 =>  Y(4 downto 0)<="11111"; Pb<="11111"; Pr<="00000";  -- cyan
+					when 15 => Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="00000";  -- l.gray					
+					when 7 =>  Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="10000";  -- yellow
+					when 13 => Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="00000";  -- l.green
+					when 1 =>  Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="10000";  -- white
+					end case;
+				end if;
 				
 			-- generate EDTV output signal (with syncs and all)
 			else 
@@ -352,6 +391,9 @@ begin
 				end if;
 				hcnt := hcnt+1;
 			end if;
+			
+			-- memorize color for the case to bypass the palette subsystem
+			prevcol := to_integer(unsigned(COLOR));
 			
 		end if;
 		
