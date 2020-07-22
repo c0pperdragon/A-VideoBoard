@@ -12,7 +12,8 @@ entity TestPattern is
 		Pb: out std_logic_vector(4 downto 0);
 		Pr: out std_logic_vector(4 downto 0);
 		
-		TEST : out std_logic
+		-- mode switch input
+		GPIO2_4 : in std_logic
 	);	
 end entity;
 
@@ -80,13 +81,14 @@ begin
 	constant sync : integer := 0 + 16*32 + 16;
 	
 	constant w: integer := 460;  
-	constant h: integer := 624; -- 625;  	
+	constant h: integer := 624;   	
 	constant vstart:  integer := 2*32-1;
 	constant hstart: integer := 82;	
 	
 	variable cx: integer range 0 to w-1 := 0;
 	variable cy: integer range 0 to h-1 := 0;
 	variable framecounter : integer range 0 to 255 := 0;
+	variable clocktoggle : boolean := false;
 	
 	variable out_ypbpr: integer range 0 to 65535 := 0;
 	
@@ -96,8 +98,12 @@ begin
 	variable py: integer range 0 to 511;
 	variable vis: std_logic_vector(7 downto 0);
 	variable tmp_ypbpr: std_logic_vector(15 downto 0);
+	variable useedtv : boolean;
+	
 	begin
 		if rising_edge(CLKPIXEL) then
+			-- query mode switch
+			useedtv := GPIO2_4 = '0';
 		
 			-- idle black
 			out_ypbpr := ataripalette(0);
@@ -167,26 +173,31 @@ begin
 			end if; 
 			
 			-- progress horizontal and vertical counters
-			if cx<w-1 then
-				cx:=cx+1;
-			else
-				cx:=0;
-				if cy<h-1 then
-					cy:=cy+1;
+			if useedtv or clocktoggle then -- when SDTV only clock at half speed
+				if cx<w-1 then
+					cx:=cx+1;
 				else
-					cy:=0;
-					framecounter := framecounter+1;
+					cx:=0;
+					if (not useedtv) and (cy<h-1) then   -- in SDTV mode, skip every other line
+						cy := cy+1;
+					end if;
+					if cy<h-1 then
+						cy:=cy+1;
+					else
+						cy:=0;
+						framecounter := framecounter+1;
+					end if;
 				end if;
 			end if;
+			-- create a toggle bit to be able to run at half speed
+			clocktoggle := not clocktoggle;
+			
 		end if;
 
 		tmp_ypbpr := std_logic_vector(to_unsigned(out_ypbpr,16));
 		Y  <= tmp_ypbpr(15 downto 10);
 		PB <= tmp_ypbpr(9 downto 5);
 		PR <= tmp_ypbpr(4 downto 0);
-		
-		vis := std_logic_vector(to_unsigned(framecounter,8));
-		TEST <= vis(7);
 	end process;
 
 
