@@ -1,15 +1,9 @@
-Reference, Value, Footprint, Datasheet
-IC1,74HC14D,Housings_SOIC:SOIC-14_3.9x8.7mm_Pitch1.27mm,
-C4,100nF,Capacitors_SMD:C_0603_HandSoldering,
-IC2,74HC14D,Housings_SOIC:SOIC-14_3.9x8.7mm_Pitch1.27mm,
-C3,100nF,Capacitors_SMD:C_0603_HandSoldering,
-C6,100nF,Capacitors_SMD:C_0603_HandSoldering,
-IC4,74HC14D,Housings_SOIC:SOIC-14_3.9x8.7mm_Pitch1.27mm,
-C5,100nF,Capacitors_SMD:C_0603_HandSoldering,
-IC3,74HC14D,Housings_SOIC:SOIC-14_3.9x8.7mm_Pitch1.27mm,
-U2,APE8865N-33-HF-3,TO_SOT_Packages_SMD:SOT-23,
-C1,10uF,Capacitors_SMD:C_0805_HandSoldering,
-C2,10uF,Capacitors_SMD:C_0805_HandSoldering,
-P2,CONN_02X10,Pin_Headers:Pin_Header_Angled_2x10_Pitch2.54mm,
-R10,100,Resistors_SMD:R_0805_HandSoldering,
-P1,CONN_02X20,Pin_Headers:Pin_Header_Straight_2x20_Pitch2.54mm,
+References       Type                                 Value/Part Number      Size
+
+C1,C2            Ceramic Capacitor                    1 uF                   2012 metric
+C3,C4,C5,C6      Ceramic Capacitor                    100 nF                 1608 metric
+IC1,IC2,IC3,IC4  Schmitt-Trigger Inverter             SN74LVC14ADBR          SSOP-14
+P1               40-pin IC precision socket           111-93-640-41-001000   DIP 40
+P2               Pinheader/Ribbon cable connector     any                    2x20, 2.54mm 
+R10              SMD Resistor                         100 ohm                2012 metric
+U2               LDO Voltage Regulator 3.3V           RT9166-33GVL           SOT-23

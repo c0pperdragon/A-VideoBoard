@@ -1,6 +1,6 @@
 Pin assignments for the Atari mod
 
-Mod board in  Mod board out   A-Video board     MAX 10 pin
+GTIA pin      Mod board out   A-Video board     MAX 10 pin
 A1            P2 1            GPIO1 1           74
 A2            P2 2            GPIO1 2           75 
 A0            P2 3            GPIO1 3           76
@@ -21,3 +21,4 @@ AN2           P2 17           GPIO1 17         101
 CS            P2 18           GPIO1 18         103
 PHI2          P2 19           GPIO1 19         105
 HALT          P2 20           GPIO1 20         106
+
