@@ -214,7 +214,25 @@ begin
 		'0','0','0','0','0','0','0','0','0','0',
 		'0','0','0','0' 
 	);
+	constant CONFIG252 : config_t :=  
+	(	'0','0','0','0','0','1','0','0','0','1',
+		'0','0','0','0','0','0','0','1','0','0',
+		'0','0','0','0','0','1','1','1','0','0',
+		'0','0','0','0','1','0','0','0','1','1',
+		'1','1','1','1','0','0','0','1','1','1',
+		'1','1','1','0','0','0','0','0','0','0',
+		'0','1','1','1','0','0','0','0','0','0',
+		'1','0','0','0','0','0','0','0','0','1',
+		'1','1','0','0','0','0','0','0','1','0',
+		'0','0','0','0','0','0','0','1','1','1',
+		'0','0','0','0','0','0','1','0','0','0',
+		'0','0','0','0','0','1','1','1','0','0',
+		'0','0','0','0','1','0','1','0','0','0',
+		'0','0','0','0','0','0','0','0','0','0',
+		'0','0','0','0' 
+	);
 	variable checkdelay:integer range 0 to 100000 := 0;
+	variable programmedPAL : std_logic := '1';
 	variable programcounter:integer range 0 to 255 := 0;
 	variable out_configupdate : std_logic := '0';
 	variable out_scanclkena : std_logic := '0';
@@ -230,22 +248,31 @@ begin
 				checkdelay := checkdelay+1;
 				
 			-- when re-programming has not started, keep a watch on the 
-			-- PAL mode signal and start programming if NTSC
+			-- PAL mode signal and start programming if needed
 			elsif programcounter=0 then
-				if PAL='0' then
+				if PAL/=programmedPAL then
+					programmedPAL := PAL;
 					out_scanclkena := '1';
-					out_scandata := CONFIG262(143);
+					if programmedPAL='0' then
+						out_scandata := CONFIG262(143);
+					else
+						out_scandata := CONFIG252(143);
+					end if;
 					programcounter := 1;
 				end if;			
 			elsif programcounter<=143 then
 				out_scanclkena := '1';
-				out_scandata := CONFIG262(143-programcounter);
+				if programmedPAL='0' then
+					out_scandata := CONFIG262(143-programcounter);
+				else
+					out_scandata := CONFIG252(143-programcounter);	
+				end if;
 				programcounter := programcounter+1;				
 			elsif programcounter<150 then
 				programcounter := programcounter+1;				
 			elsif programcounter=150 then
 				out_configupdate := '1';
-				programcounter := programcounter+1;				
+				programcounter := 0;				
 			end if;
 		end if;
 		
