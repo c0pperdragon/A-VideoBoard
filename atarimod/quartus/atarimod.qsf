@@ -42,7 +42,7 @@ set_global_assignment -name DEVICE 10M02SCE144C8G
 set_global_assignment -name TOP_LEVEL_ENTITY AtariMod
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.0.0
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "22:46:18  FEBRUARY 07, 2018"
-set_global_assignment -name LAST_QUARTUS_VERSION "18.0.0 Lite Edition"
+set_global_assignment -name LAST_QUARTUS_VERSION "18.1.0 Lite Edition"
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 256
 set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (VHDL)"
@@ -157,4 +157,23 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_4
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_6
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_4
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_6
+set_location_assignment PIN_39 -to GPIO2_5
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to GPIO2_5
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO2_5
+set_location_assignment PIN_15 -to TMS
+set_location_assignment PIN_16 -to TCK
+set_location_assignment PIN_17 -to TDI
+set_location_assignment PIN_18 -to TDO
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TCK
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TDI
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TDO
+set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to TMS
+set_global_assignment -name ENABLE_OCT_DONE OFF
+set_global_assignment -name ENABLE_JTAG_PIN_SHARING ON
+set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name CRC_ERROR_OPEN_DRAIN OFF
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

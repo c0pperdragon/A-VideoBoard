@@ -19,7 +19,14 @@ entity AtariMod is
 		
 		-- read jumper settings
 		GPIO2_4: in std_logic;
-		GPIO2_6: in std_logic
+		GPIO2_5: in std_logic;
+		GPIO2_6: in std_logic;
+		
+		-- multi-purpose use for the JTAG signals (a bit dangerous, but should work)
+		TMS : in std_logic;   -- keep the pin working so JTAG is possible
+		TCK : in std_logic;   -- keep the pin working so JTAG is possible
+		TDI : in std_logic;   -- external jumper to force high-contrast palette 
+		TDO : out std_logic  -- keep the pin working so JTAG is possible
 	);	
 end entity;
 
@@ -130,6 +137,11 @@ begin
 		vramq1
 	);
 	
+   --- drive the TDO pin to a known state
+	process (TDI)
+	begin
+		TDO <= '1';
+	end process;
 	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper)
 	process (CLK,GPIO2_4,GPIO2_6) 
@@ -139,12 +151,14 @@ begin
 		
 		variable val0 : integer range 0 to 63;
 		variable val1 : integer range 0 to 63;
-		variable uselowres : std_logic; 
-		variable usenoscanlines : std_logic;
+		variable usehighcontrast : boolean;
+		variable usehighres : boolean; 
+		variable usescanlines : boolean;
 	begin
 		-- handle jumper configuration
-		uselowres := GPIO2_4 and GPIO2_6;
-		usenoscanlines := GPIO2_6;
+		usehighcontrast := TDI='0' and (GPIO2_5='0' or GPIO2_6='0');
+		usehighres := (GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
+		usescanlines := (GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
 	
 		if rising_edge(CLK) then
 		
@@ -162,7 +176,7 @@ begin
 				Pb <= vramq0(9 downto 5);
 				Pr <= vramq0(4 downto 0);
 				 -- construct scanline darkening from both adjacent lines
-				if hcnt>=2*228 and usenoscanlines='0' then  
+				if hcnt>=2*228 and usescanlines then  
 					val0 := to_integer(unsigned(vramq0(14 downto 10)));
 					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
 					Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
@@ -202,7 +216,7 @@ begin
 	
 	
 			-- if selected, fall back to plain SDTV
-			if uselowres='1' then
+			if not usehighres then
 				Y  <= SDTV_Y;
 				Pb <= SDTV_Pb;
 				Pr <= SDTV_Pr;

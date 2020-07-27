@@ -110,6 +110,7 @@ begin
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
 	variable prevrw: std_logic := '0';
 	variable prevhalt: std_logic := '0';
+	variable pprevhalt: std_logic := '0';
 	
 	-- variables for player and missile display
 	variable ticker_p0 : integer range 0 to 15 := 15;
@@ -526,7 +527,7 @@ begin
 				prevrw := in_RW; 
 
 
-				if prevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
+				if pprevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
 					tmp_odd := (vcounter mod 2) = 0;
 				
 					-- transfer dma player/missile data into registers
@@ -590,6 +591,7 @@ begin
 					end if;
 				end if;
 				 
+				pprevhalt := prevhalt;
 				prevhalt := in_HALT;
 			end if;		
 		
