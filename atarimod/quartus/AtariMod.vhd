@@ -46,6 +46,9 @@ architecture immediate of AtariMod is
 	signal vramwraddress : std_logic_vector (9 downto 0);
 	signal vramq0        : std_logic_vector (14 downto 0);
 	signal vramq1        : std_logic_vector (14 downto 0);
+
+	-- configuration for special palette
+	signal HIGHCONTRAST : boolean;
 	
    component GTIA2YPbPr is
 	port (
@@ -64,7 +67,10 @@ architecture immediate of AtariMod is
 		AN          : in std_logic_vector(2 downto 0);
 		RW          : in std_logic;
 		CS          : in std_logic;
-		HALT        : in std_logic
+		HALT        : in std_logic;
+		
+		-- select high-contrast palette
+		HIGHCONTRAST : in boolean
 	);	
 	end component;
 
@@ -117,7 +123,8 @@ begin
 		& GPIO1(13)),          -- AN0
 		NOT GPIO1(16),			  -- RW
 		NOT GPIO1(18),         -- CS
-		NOT GPIO1(20) 			  -- HALT
+		NOT GPIO1(20), 		  -- HALT
+		HIGHCONTRAST
 	);	
 
 	vram0: VideoRAM port map (
@@ -159,6 +166,7 @@ begin
 		usehighcontrast := TDI='0' and (GPIO2_5='0' or GPIO2_6='0');
 		usehighres := (GPIO2_4='0' or GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
 		usescanlines := (GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
+		HiGHCONTRAST <= usehighcontrast;
 	
 		if rising_edge(CLK) then
 		

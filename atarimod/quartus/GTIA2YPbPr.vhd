@@ -24,10 +24,12 @@ entity GTIA2YPbPr is
 		AN          : in std_logic_vector(2 downto 0);
 		RW          : in std_logic;
 		CS          : in std_logic;
-		HALT        : in std_logic
+		HALT        : in std_logic;
+		
+		-- select high-contrast palette
+		HIGHCONTRAST : in boolean
 	);	
 end entity;
-
 
 architecture immediate of GTIA2YPbPr is
 begin
@@ -165,6 +167,21 @@ begin
 			when "11" => return x=hpos(1 downto 0); -- 4 times size
 			end case;
 		end needpixelstep;			
+
+		-- helper function to compute encoding of 2 bits into an analog output signal (5 bit precision)
+		subtype T_5bits is std_logic_vector(4 downto 0);
+		function encode2bits(hi:std_logic; lo:std_logic) return T_5bits is
+		begin
+			if hi='0' then
+				if lo='0' then return "00000";
+				else           return "01010";
+ 			end if;
+			else
+				if lo='0' then return "10100";
+				else           return "11111";
+				end if;
+			end if;
+		end encode2bits;
 
 	begin
 		if rising_edge(CLK) then
@@ -430,15 +447,17 @@ begin
 				if tmp_y>=312 then
 					tmp_y := tmp_y-312;
 				end if;
-				if (tmp_y=0 or tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- short syncs
+				if (tmp_y=0) and (tmp_x<16 or (tmp_x>=114 and tmp_x<114+8)) then                       -- normal sync, short sync
+					csync := '0';				
+				elsif (tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- 2x 2 short syncs
 					csync := '0';
-				elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then          -- vsyncs
+				elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then    -- 2x 2 vsyncs
 					csync := '0';
-				elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                      -- one vsync, one short sync
+				elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                -- one vsync, one short sync
 					csync := '0';
-				elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then                -- short syncs
+				elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then          -- 2x 2 short syncs
 					csync := '0';
-				elsif (tmp_y>=8) and (tmp_x<16) then                                                         -- normal line syncs
+				elsif (tmp_y>=8) and (tmp_x<16) then                                                   -- normal line syncs
 					csync := '0';
 				else
 					csync := '1';
@@ -471,6 +490,11 @@ begin
 					out_y := "000000";
 					out_pb := "10000";
 					out_pr := "10000";
+					
+					if HIGHCONTRAST then
+						out_pb := encode2bits('0','0');
+						out_pr := encode2bits('0','0');
+					end if;
 				else			
 					tmp_color := color;
 					if (PHASE=1 and overridelum(0)='1') or (PHASE=3 and overridelum(1)='1')  then
@@ -481,6 +505,16 @@ begin
 					out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
 					out_pb := tmp_ypbpr(9 downto 5);
 					out_pr := tmp_ypbpr(4 downto 0);
+
+					-- produce signals that can be postprocessed by the RGBtoHDMI upscaler 
+					if HIGHCONTRAST then
+						out_y(4 downto 0) := encode2bits(tmp_color(3), tmp_color(2));	
+						if (PHASE=3) then 
+							tmp_color(7 downto 6) := tmp_color(5 downto 4);
+						end if;
+						out_pb := encode2bits(tmp_color(7), tmp_color(1) );
+						out_pr := encode2bits(tmp_color(6), tmp_color(0) );
+					end if;
 				end if;
 			end if;		
 			
