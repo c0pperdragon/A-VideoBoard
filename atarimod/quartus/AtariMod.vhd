@@ -213,7 +213,7 @@ begin
 			-- progress counters and detect sync
 			if SDTV_Y(5)='0' and hcnt>4*220 then
 				hcnt := 0;
-				if shortsyncs=3 then 
+				if shortsyncs=2 and vcnt>100 then 
 					vcnt := 0;
 				elsif vcnt<511 then
 					vcnt := vcnt+1;
