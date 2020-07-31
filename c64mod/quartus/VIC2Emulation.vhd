@@ -24,8 +24,10 @@ entity VIC2Emulation is
 		CS          : in std_logic; 
 		AEC         : in std_logic;
 		
-		-- selector to choose PAL(=1) or NTSC(=0) variant
-		PAL         : in std_logic
+		-- selector to choose VIC variant
+		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
+		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
 	);	
 end entity;
 
@@ -143,7 +145,6 @@ begin
 	variable verticalborderflipflop : std_logic := '0';
 	
 	variable spritedmaactive : boolean;
---	variable spriteactive_buffer : std_logic_vector(7 downto 0);
 	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
@@ -319,7 +320,7 @@ begin
 				else
 					vcounter := displayline+253-4;				
 				end if;
-				if PAL='1' then
+				if CLOCKS63 then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
@@ -347,7 +348,7 @@ begin
 				then
 					out_color := "0000";
 	
-					-- generate csync for PAL or NTSC
+					-- generate csync 
 					if (vcounter=0) and (hcounter<37 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then                       -- normal sync, short sync
 						out_csync := '0';
 					elsif (vcounter=1 or vcounter=2) and (hcounter<18 or (hcounter>=tmp_half and hcounter<tmp_half+18)) then      -- 2x 2 short syncs
@@ -635,16 +636,16 @@ begin
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
-				if PAL='1' and cycle=14 and phase=10 then
+				if CLOCKS63 and cycle=14 and phase=10 then
 					xcoordinate := 0;
-				elsif PAL='0' and cycle=10 and phase=10 then
+				elsif (not CLOCKS63) and cycle=10 and phase=10 then
 					xcoordinate := 480;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
 			end if;
 			if phase=15 then
-				if cycle=65 or (cycle=63 and PAL='1') then
+				if cycle=65 or (cycle=63 and CLOCKS63) then
 					cycle := 1;
 					if (displayline=262 and not LINES312) or displayline=311 then
 						displayline := 0;
@@ -654,7 +655,7 @@ begin
 				else
 					cycle := cycle+1;
 				end if;
-				if (PAL='1' and cycle=54) or (PAL='0' and cycle=55) then
+				if (CLOCKS63 and cycle=54) or ((NOT CLOCKS63) and cycle=55) then
 					spritecycle := 0;
 				elsif spritecycle/=31 then
 					spritecycle := spritecycle+1;
@@ -695,7 +696,7 @@ begin
 					end if;
 				when others =>
 				end case;
-				if (syncdetect_cycle=62 and PAL='1') or syncdetect_cycle=64 then 
+				if (syncdetect_cycle=62 and CLOCKS63) or syncdetect_cycle=64 then 
 					syncdetect_cycle := 0;
 				else
 					syncdetect_cycle := syncdetect_cycle+1;

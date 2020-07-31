@@ -95,8 +95,9 @@ architecture immediate of C64Mod is
 		CS          : in std_logic; 
 		AEC         : in std_logic;
 		
-		-- selector to choose PAL(=1) or NTSC(=0) variant
-		PAL         : in std_logic
+		-- selector to choose VIC variant
+		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
+		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
 	);	
 	end component;
 	
@@ -152,7 +153,8 @@ begin
 		GPIO1(16),                                   -- RW 
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
-      PAL
+      (PAL='1'),                                   -- 65 clocks per line
+		((PAL='0') and (TMS='0'))                    -- 64 clocks per line
 	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
