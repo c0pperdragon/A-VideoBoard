@@ -478,7 +478,7 @@ begin
 				-- read the first databyte for a sprite
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					spritedatabyte0 := DB(7 downto 0); -- in_db(7 downto 0);
+					spritedatabyte0 := DB(7 downto 0); 
 					if in_aec/='0' then 
 						spritedmaactive := false;
 					end if;
@@ -502,17 +502,20 @@ begin
 			-- read address did change between individual bytes)
 			-- (very short time slot were address is stable)
 			-- and reset the sprite dma detection flag
-			if phase=11 then
+--			if phase=11 then
+			if phase=12 then
 			
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					spritedmaactive := true; -- spriteactive_buffer((spritecycle-4)/2) = '1';
-					firstspritereadaddress := in2_a(1 downto 0);
+					spritedmaactive := true; 
+--					firstspritereadaddress := in2_a(1 downto 0);
+					firstspritereadaddress := in_a(1 downto 0);
 				end if;
 				
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
-					if firstspritereadaddress=in2_a(1 downto 0) then
+--					if firstspritereadaddress = in2_a(1 downto 0) then
+					if firstspritereadaddress = in_a(1 downto 0) then
 						spritedmaactive := false;
 					end if;
 				end if;
