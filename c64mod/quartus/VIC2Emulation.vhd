@@ -502,8 +502,8 @@ begin
 			-- read address did change between individual bytes)
 			-- (very short time slot were address is stable)
 			-- and reset the sprite dma detection flag
---			if phase=11 then
-			if phase=12 then
+			if phase=11 then
+--			if phase=12 then
 			
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
