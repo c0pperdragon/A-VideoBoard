@@ -26,8 +26,11 @@ entity VIC2Emulation is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
 		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
+		-- timing tweak options
+		EARLYSPRITEDMA : in boolean
+										 
 	);	
 end entity;
 
@@ -503,20 +506,27 @@ begin
 			-- (very short time slot were address is stable)
 			-- and reset the sprite dma detection flag
 			if phase=11 then
---			if phase=12 then
 			
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
 					spritedmaactive := true; 
---					firstspritereadaddress := in2_a(1 downto 0);
-					firstspritereadaddress := in_a(1 downto 0);
+					if EARLYSPRITEDMA then
+						firstspritereadaddress := in_a(1 downto 0);
+					else
+						firstspritereadaddress := in2_a(1 downto 0);
+					end if;
 				end if;
 				
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
---					if firstspritereadaddress = in2_a(1 downto 0) then
-					if firstspritereadaddress = in_a(1 downto 0) then
-						spritedmaactive := false;
+					if EARLYSPRITEDMA then
+						if firstspritereadaddress = in_a(1 downto 0) then
+							spritedmaactive := false;
+						end if;
+					else
+						if firstspritereadaddress = in2_a(1 downto 0) then
+							spritedmaactive := false;
+						end if;					
 					end if;
 				end if;
 			end if;

@@ -26,6 +26,9 @@ entity C64Mod is
 		TDI : in std_logic;   -- external jumper to force high-contrast palette 
 		TDO : out std_logic;  -- keep the pin working so JTAG is possible
 		
+		-- configuation pins for very special purposes
+		PIN95 : in std_logic;  -- when pulled to '0', use early sprite DMA
+		
 		-- pixel clock output to drive the VIC if necessary
 		AUXPIXELCLOCK : out std_logic
 	);	
@@ -97,7 +100,10 @@ architecture immediate of C64Mod is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
+		-- timing tweak options
+		EARLYSPRITEDMA : in boolean
 	);	
 	end component;
 	
@@ -154,7 +160,8 @@ begin
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
       (PAL='1'),                                   -- 65 clocks per line
-		((PAL='0') and (TMS='0'))                    -- 64 clocks per line
+		((PAL='0') and (TMS='0')),                   -- 64 clocks per line
+		PIN95='0'                                    -- early sprite DMA
 	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
