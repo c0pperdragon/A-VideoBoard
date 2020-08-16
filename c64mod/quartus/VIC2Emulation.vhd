@@ -26,11 +26,8 @@ entity VIC2Emulation is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
-		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
-		-- timing tweak options
-		EARLYSPRITEDMA : in boolean
-										 
+		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M									 
 	);	
 end entity;
 
@@ -147,8 +144,9 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
-	variable spritedmaactive : boolean;
-	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
+--	variable spritedmaactive : boolean;
+--	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
+	variable addressactivity : boolean;
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
 	type T_spritedata is array (0 to 7) of std_logic_vector(23 downto 0);
@@ -457,9 +455,6 @@ begin
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					spritedatabyte1 := in_db(7 downto 0);
-					if in_aec/='0' then 
-						spritedmaactive := false;
-					end if;	
 				end if;
 			end if;
 			-- video matrix read
@@ -482,16 +477,13 @@ begin
 				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
 					spritedatabyte0 := DB(7 downto 0); 
-					if in_aec/='0' then 
-						spritedmaactive := false;
-					end if;
 				end if;
 					-- read the last byte for a sprite and check if it is indeed valid data
 				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					for SP in 0 to 7 loop
 						if spritecycle=5+SP*2 then
-							if spritedmaactive and in_aec='0' then
+							if addressactivity and in_aec='0' then
 								spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
 							else
 								spritedata(SP) := "000000000000000000000000";
@@ -501,34 +493,15 @@ begin
 				end if;
 			end if;
 			
-			-- detect if there was a real sprite read (when the
-			-- read address did change between individual bytes)
-			-- (very short time slot were address is stable)
-			-- and reset the sprite dma detection flag
-			if phase=11 then
-			
-				if spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
-				or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18 then
-					spritedmaactive := true; 
-					if EARLYSPRITEDMA then
-						firstspritereadaddress := in_a(1 downto 0);
-					else
-						firstspritereadaddress := in2_a(1 downto 0);
-					end if;
-				end if;
-				
-				if spritecycle=5 or spritecycle=7 or spritecycle=9 or spritecycle=11
-				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
-					if EARLYSPRITEDMA then
-						if firstspritereadaddress = in_a(1 downto 0) then
-							spritedmaactive := false;
-						end if;
-					else
-						if firstspritereadaddress = in2_a(1 downto 0) then
-							spritedmaactive := false;
-						end if;					
-					end if;
-				end if;
+			-- detect if there was some activity on the address line 0 during the 
+			-- time slot assigned to sprite DMA. 
+			if phase=5 and 
+				(spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
+			  	 or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18)
+			then
+					addressactivity := false;
+			elsif in_a(0)='0' or in2_a(0)='0' then
+				addressactivity := true;
 			end if;
 
 			-- handle display activity and row counter (RC) and video matrix index (VMLI)

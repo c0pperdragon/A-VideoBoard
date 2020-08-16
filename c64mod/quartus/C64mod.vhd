@@ -26,9 +26,6 @@ entity C64Mod is
 		TDI : in std_logic;   -- external jumper to force high-contrast palette 
 		TDO : out std_logic;  -- keep the pin working so JTAG is possible
 		
-		-- configuation pins for very special purposes
-		PIN95 : in std_logic;  -- when pulled to '0', use early sprite DMA
-		
 		-- pixel clock output to drive the VIC if necessary
 		AUXPIXELCLOCK : out std_logic
 	);	
@@ -100,10 +97,8 @@ architecture immediate of C64Mod is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
 		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
-		-- timing tweak options
-		EARLYSPRITEDMA : in boolean
 	);	
 	end component;
 	
@@ -160,8 +155,7 @@ begin
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
       (PAL='1'),                                   -- 65 clocks per line
-		((PAL='0') and (TMS='0')),                   -- 64 clocks per line
-		PIN95='0'                                    -- early sprite DMA
+		((PAL='0') and (TMS='0'))                    -- 64 clocks per line
 	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
@@ -311,20 +305,19 @@ begin
 					when 9 =>  Y(4 downto 0)<="00000"; Pb<="00000"; Pr<="10000";  -- brown
 					when 2 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="11111";  -- red
 					when 11 => Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="00000";  -- d.gray
-					
 					when 4 =>  Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="11111";  -- purple
 					when 8 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="11111";  -- orange
 					when 12 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="10000";  -- m.gray
 					when 14 => Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="10000";  -- l.blue
 					when 5 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="00000";  -- green
 					when 10 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="11111";  -- l.red
-					
 					when 3 =>  Y(4 downto 0)<="11111"; Pb<="11111"; Pr<="00000";  -- cyan
 					when 15 => Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="00000";  -- l.gray					
 					when 7 =>  Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="10000";  -- yellow
 					when 13 => Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="00000";  -- l.green
 					when 1 =>  Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="10000";  -- white
 					end case;
+					Y(5) <= CSYNC;
 				end if;
 				
 			-- generate EDTV output signal (with syncs and all)
