@@ -41,7 +41,8 @@ architecture immediate of VIC2Emulation is
 	
 	-- address activity watcher interface
 	signal reset_addressactivity : std_logic;
-	signal detected_addressactivity : std_logic;
+	signal detected_address0activity : std_logic;
+	signal detected_address1activity : std_logic;
 
 	component ram_dual is
 	generic
@@ -80,7 +81,8 @@ begin
 			CLK,
 			matrixq	
 		);
-	addressactivitywatcher: RSFlipFlop port map (reset_addressactivity, A(0), detected_addressactivity);
+	address0activitywatcher: RSFlipFlop port map (reset_addressactivity, A(0), detected_address0activity);
+	address1activitywatcher: RSFlipFlop port map (reset_addressactivity, A(1), detected_address1activity);
 
 		
 	-- main signal processing and video logic
@@ -119,6 +121,7 @@ begin
 	variable in_rw: std_logic; 
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
+	variable prev_aec: std_logic; 
 	variable in_addressactivity : std_logic;
 	
 	-- memory requests to write into registers
@@ -472,7 +475,7 @@ begin
 			-- video matrix read
 			if phase=15 and cycle>=15 and cycle<55 and badline then 
 				matrixwaddress <= std_logic_vector(to_unsigned(VMLI,6)); 
-				if in_aec='0' then         -- correct data is present on bus
+				if prev_aec='0' then         -- correct data is present on bus
 					matrixdata <= in_db;   
 				else             -- take in the mangled data that is on the bus by accident
 					matrixdata <= in_db(3 downto 0) & "11111111";
@@ -495,7 +498,7 @@ begin
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					for SP in 0 to 7 loop
 						if spritecycle=5+SP*2 then
-							if in_addressactivity='1' and in_aec='0' then
+							if in_addressactivity='1' and prev_aec='0' then
 								spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
 							else
 								spritedata(SP) := "000000000000000000000000";
@@ -506,7 +509,7 @@ begin
 			end if;
 			
 			-- reset the address activity detector
-			if phase=5 and 
+			if phase=10 and 
 				(spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 			  	 or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18)
 			then
@@ -711,8 +714,9 @@ begin
 			in_a := A;
 			in_rw := RW; 
 			in_cs := CS; 
+			prev_aec := in_aec;
 			in_aec := AEC;			
-			in_addressactivity := detected_addressactivity;
+			in_addressactivity := detected_address0activity or detected_address1activity;
 		-- end of synchronous logic
 		end if;	
 		-- extra data sampling on falling edge 
