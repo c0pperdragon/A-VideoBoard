@@ -38,6 +38,10 @@ architecture immediate of VIC2Emulation is
 	signal matrixraddress : std_logic_vector (5 downto 0);
 	signal matrixwaddress : std_logic_vector (5 downto 0);
 	signal matrixq        : std_logic_vector (11 downto 0);
+	
+	-- address activity watcher interface
+	signal reset_addressactivity : std_logic;
+	signal detected_addressactivity : std_logic;
 
 	component ram_dual is
 	generic
@@ -56,7 +60,14 @@ architecture immediate of VIC2Emulation is
 		q		: out std_logic_vector(data_width-1 downto 0)
 	);	
 	end component;
-
+	
+	component RSFlipFlop is
+	port (
+		R: in std_logic;		
+		S: in std_logic;		
+		Q: out std_logic
+	);		
+	end component;
 	
 begin
 	videomatrix: ram_dual generic map(data_width => 12, addr_width => 6)
@@ -69,7 +80,9 @@ begin
 			CLK,
 			matrixq	
 		);
+	addressactivitywatcher: RSFlipFlop port map (reset_addressactivity, A(0), detected_addressactivity);
 
+		
 	-- main signal processing and video logic
 	process (CLK) 
 	
@@ -106,6 +119,7 @@ begin
 	variable in_rw: std_logic; 
 	variable in_cs: std_logic; 
 	variable in_aec: std_logic; 
+	variable in_addressactivity : std_logic;
 	
 	-- memory requests to write into registers
 	variable register_writeaddress : std_logic_vector(5 downto 0);
@@ -144,9 +158,6 @@ begin
 	variable mainborderflipflop : std_logic := '0';
 	variable verticalborderflipflop : std_logic := '0';
 	
---	variable spritedmaactive : boolean;
---	variable firstspritereadaddress : std_logic_vector(1 downto 0);	
-	variable addressactivity : boolean;
 	variable spritedatabyte0 : std_logic_vector(7 downto 0);
 	variable spritedatabyte1 : std_logic_vector(7 downto 0);
 	type T_spritedata is array (0 to 7) of std_logic_vector(23 downto 0);
@@ -157,7 +168,6 @@ begin
 	type T_spritecursor is array (0 to 7) of integer range 0 to 31;
 	variable spritecursor : T_spritecursor;
 	
-
    -- synchronizing the screen by detecing the DRAM refresh pattern	
 	variable syncdetect_ok : boolean := false;
 	variable syncdetect_cycle : integer range 0 to 127 := 0;
@@ -186,6 +196,8 @@ begin
 	begin
 		-- synchronous logic -------------------
 		if rising_edge(CLK) then	
+			reset_addressactivity <= '1';  -- by default do not reset the activity detector
+			
 			-- compute bad line condition
 			badline := displayline<248 and displayactive 
 				and to_integer(unsigned(YSCROLL)) = (displayline mod 8);
@@ -483,7 +495,7 @@ begin
 				or spritecycle=13 or spritecycle=15 or spritecycle=17 or spritecycle=19 then
 					for SP in 0 to 7 loop
 						if spritecycle=5+SP*2 then
-							if addressactivity and in_aec='0' then
+							if in_addressactivity='1' and in_aec='0' then
 								spritedata(SP) := spritedatabyte0 & spritedatabyte1 & DB(7 downto 0);
 							else
 								spritedata(SP) := "000000000000000000000000";
@@ -493,15 +505,12 @@ begin
 				end if;
 			end if;
 			
-			-- detect if there was some activity on the address line 0 during the 
-			-- time slot assigned to sprite DMA. 
+			-- reset the address activity detector
 			if phase=5 and 
 				(spritecycle=4 or spritecycle=6 or spritecycle=8 or spritecycle=10
 			  	 or spritecycle=12 or spritecycle=14 or spritecycle=16 or spritecycle=18)
 			then
-					addressactivity := false;
-			elsif in_a(0)='0' or in2_a(0)='0' then
-				addressactivity := true;
+				 reset_addressactivity <= '0';
 			end if;
 
 			-- handle display activity and row counter (RC) and video matrix index (VMLI)
@@ -703,8 +712,10 @@ begin
 			in_rw := RW; 
 			in_cs := CS; 
 			in_aec := AEC;			
+			in_addressactivity := detected_addressactivity;
 		-- end of synchronous logic
 		end if;	
+		-- extra data sampling on falling edge 
 	   if falling_edge(CLK) then
 			in2_a := A;
 		end if;
