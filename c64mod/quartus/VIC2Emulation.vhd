@@ -26,8 +26,8 @@ entity VIC2Emulation is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
-		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M									 
+		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		CLOCKS65 : in boolean    -- true for 65 clocks per line NTSC, PAL-N, PAL-M									 
 	);	
 end entity;
 
@@ -131,7 +131,7 @@ begin
 	variable register_writedata2 : std_logic_vector(7 downto 0);
 	
 	-- variables for synchronious operation
-	variable LINES312 : boolean := true;               -- VIC is running with 312 lines per frame
+	variable LINES312 : boolean := true;               -- can only be true when CLOCKS63 or CLOCKS65: 312 lines per frame
 	variable displayline: integer range 0 to 511 := 0; -- VIC-II line numbering
 	variable cycle : integer range 0 to 127 := 1;      -- cpu cycle in line
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
@@ -334,7 +334,7 @@ begin
 				if LINES312 then
 					vcounter := displayline + 13; 
 				else
-					vcounter := displayline+253-4;				
+					vcounter := displayline + 253-4;				
 				end if;
 				if CLOCKS63 then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
@@ -343,6 +343,13 @@ begin
 						vcounter := vcounter+1;
 					end if;
 					tmp_half := 252;
+				elsif CLOCKS64 then
+					hcounter := (cycle-1)*8 + phase/2 + (512-8);
+					if hcounter>=512 then
+						hcounter:=hcounter-512;
+						vcounter := vcounter+1;
+					end if;
+					tmp_half := 256;
 				else
 					hcounter := (cycle-1)*8 + phase/2; 
 					if hcounter>=7 then
@@ -353,10 +360,12 @@ begin
 					end if;					
 					tmp_half := 260;
 				end if;
-				if LINES312 and vcounter>=312 then
-					vcounter := vcounter-312;
-				elsif (not LINES312) and vcounter>=263 then
-					vcounter := vcounter-263;
+				if CLOCKS64 then
+					if vcounter>=262 then vcounter := vcounter-262; end if;
+				elsif LINES312 then
+					if vcounter>=312 then vcounter := vcounter-312; end if;
+				else
+					if vcounter>=263 then vcounter := vcounter-263; end if;
 				end if;
 				if hcounter<286-200 or hcounter>=286+200
 				or ((not LINES312) and (vcounter<141-120 or vcounter>=141+120))
@@ -630,22 +639,26 @@ begin
 				displayactive:=true; 
 			elsif displayline=251 then
 				displayactive:=false;
-			end if;			
+			end if;
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
 				if CLOCKS63 and cycle=14 and phase=10 then
 					xcoordinate := 0;
-				elsif (not CLOCKS63) and cycle=10 and phase=10 then
+				elsif CLOCKS64 and cycle=14 and phase=10 then
+					xcoordinate := 0;
+				elsif CLOCKS65 and cycle=10 and phase=10 then
 					xcoordinate := 480;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
 			end if;
 			if phase=15 then
-				if cycle=65 or (cycle=63 and CLOCKS63) then
+				if cycle=65 or (cycle=64 and CLOCKS64) or (cycle=63 and CLOCKS63) then
 					cycle := 1;
-					if (displayline=262 and not LINES312) or displayline=311 then
+					if (displayline=262 and not CLOCKS64 and not LINES312)
+					or (displayline=261 and CLOCKS64)
+					or displayline=311 then
 						displayline := 0;
 					else
 						displayline := displayline+1;
@@ -653,7 +666,7 @@ begin
 				else
 					cycle := cycle+1;
 				end if;
-				if (CLOCKS63 and cycle=54) or ((NOT CLOCKS63) and cycle=55) then
+				if (CLOCKS63 and cycle=54) or (CLOCKS64 and cycle=54) or (CLOCKS65 and cycle=55) then
 					spritecycle := 0;
 				elsif spritecycle/=31 then
 					spritecycle := spritecycle+1;
@@ -662,13 +675,9 @@ begin
 			
 			-- try to find the dram refresh pattern to sync the output 
 			if phase=3 then
-				case syncdetect_cycle is
-				when 0 => ramrefreshpattern(9 downto 8) := in2_a(1 downto 0);
-				when 1 => ramrefreshpattern(7 downto 6) := in2_a(1 downto 0);
-				when 2 => ramrefreshpattern(5 downto 4) := in2_a(1 downto 0);
-				when 3 => ramrefreshpattern(3 downto 2) := in2_a(1 downto 0);
-				when 4 => ramrefreshpattern(1 downto 0) := in2_a(1 downto 0);
-				when 5 => 
+				if syncdetect_cycle<=4 then
+					ramrefreshpattern := ramrefreshpattern(7 downto 0) & in2_a(1 downto 0);
+				elsif syncdetect_cycle=5 then
 					if ramrefreshpattern = "1110010011" 
 					or ramrefreshpattern = "1001001110"
 					or ramrefreshpattern = "0100111001"
@@ -681,7 +690,10 @@ begin
 						-- detect the bottom of the frame anomaly (when in sync)
 						if ramrefreshpattern = "1111111111" then
 							cycle := 16;	
-							if prevrefreshpatternlikeline310 then 
+							if CLOCKS64 then
+								displayline := 261;
+								LINES312 := false;
+							elsif prevrefreshpatternlikeline310 then 
 								displayline := 311;
 								LINES312 := true;
 							else							
@@ -692,9 +704,10 @@ begin
 					else 
 						syncdetect_cycle := 6;  -- two missdetecions: search for sync
 					end if;
-				when others =>
-				end case;
-				if (syncdetect_cycle=62 and CLOCKS63) or syncdetect_cycle=64 then 
+				end if;
+				if (syncdetect_cycle=62 and CLOCKS63) 
+				or (syncdetect_cycle=63 and CLOCKS64) 
+				or (syncdetect_cycle=64) then 
 					syncdetect_cycle := 0;
 				else
 					syncdetect_cycle := syncdetect_cycle+1;

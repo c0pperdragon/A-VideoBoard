@@ -21,7 +21,7 @@ entity C64Mod is
 		GPIO2_6: in std_logic;
 		
 		-- multi-purpose use for the JTAG signals (a bit dangerous, but should work)
-		TMS : in std_logic;   -- keep the pin working so JTAG is possible
+		TMS : in std_logic;   -- external jumper to support the 6567R56A
 		TCK : in std_logic;   -- keep the pin working so JTAG is possible
 		TDI : in std_logic;   -- external jumper to force high-contrast palette 
 		TDO : out std_logic;  -- keep the pin working so JTAG is possible
@@ -97,8 +97,8 @@ architecture immediate of C64Mod is
 		
 		-- selector to choose VIC variant
 		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean    -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
-		                         -- all other are 65 clocks per line - NTSC, PAL-N, PAL-M
+		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
+		CLOCKS65 : in boolean    -- true for 65 clocks per line NTSC, PAL-N, PAL-M									 
 	);	
 	end component;
 	
@@ -154,8 +154,9 @@ begin
 		GPIO1(16),                                   -- RW 
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
-      (PAL='1'),                                   -- 65 clocks per line
-		((PAL='0') and (TMS='0'))                    -- 64 clocks per line
+      (PAL='1'),                                   -- 63 clocks per line
+		((PAL='0') and (TMS='0')),                   -- 64 clocks per line
+		((PAL='0') and (TMS='1'))                    -- 65 clocks per line
 	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
