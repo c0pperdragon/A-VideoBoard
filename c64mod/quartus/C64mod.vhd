@@ -202,10 +202,10 @@ begin
 		);
 	
 	--- drive the TDO pin to a known state
-	process (TDI)
-	begin
-		TDO <= '1';
-	end process;
+--	process (TDI)
+--	begin
+--		TDO <= '1';
+--	end process;
 	
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
@@ -282,9 +282,12 @@ begin
 			usescanlines := (GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
 			
 			-- determine hsync position
-			lpixel := 504;
-			if PAL='0' then
-				lpixel := 520;
+			if PAL='1' then
+				lpixel := 504;
+			elsif TMS='0' then
+				lpixel := 512;
+			else
+				lpixel := 520;			
 			end if;
 		
 			-- if highres is not selected, just use plain SDTV
