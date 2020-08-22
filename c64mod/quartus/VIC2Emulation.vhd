@@ -666,7 +666,7 @@ begin
 				else
 					cycle := cycle+1;
 				end if;
-				if (CLOCKS63 and cycle=54) or (CLOCKS64 and cycle=54) or (CLOCKS65 and cycle=55) then
+				if (CLOCKS63 and cycle=54) or ((not CLOCKS63) and (cycle=55)) then
 					spritecycle := 0;
 				elsif spritecycle/=31 then
 					spritecycle := spritecycle+1;
