@@ -34,7 +34,7 @@ end entity;
 
 architecture immediate of VIC2Emulation is
 	-- video matrix RAM
-	signal matrixdata     : std_logic_vector(11 downto 0);
+--	signal matrixdata     : std_logic_vector(11 downto 0);
 	signal matrixraddress : std_logic_vector (5 downto 0);
 	signal matrixwaddress : std_logic_vector (5 downto 0);
 	signal matrixq        : std_logic_vector (11 downto 0);
@@ -484,11 +484,11 @@ begin
 			-- video matrix read
 			if phase=15 and cycle>=15 and cycle<55 and badline then 
 				matrixwaddress <= std_logic_vector(to_unsigned(VMLI,6)); 
-				if prev_aec='0' then         -- correct data is present on bus
-					matrixdata <= in_db;   
-				else             -- take in the mangled data that is on the bus by accident
-					matrixdata <= in_db(3 downto 0) & "11111111";
-				end if;
+--				if prev_aec='0' then         -- correct data is present on bus
+--					matrixdata <= in_db;   
+--				else             -- take in the mangled data that is on the bus by accident
+--					matrixdata <= in_db(3 downto 0) & "11111111";
+--				end if;
 			else
 				matrixwaddress <= "111110"; -- write to unused address
 			end if;
@@ -736,6 +736,9 @@ begin
 	   if falling_edge(CLK) then
 			in2_a := A;
 		end if;
+		
+		-- take matrix data if some is expected
+		matrixdata <= in_db;
 		
 		-------------------- output signals ---------------------		
 		COLOR <= out_color;
