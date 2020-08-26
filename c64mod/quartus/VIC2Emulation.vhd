@@ -1,6 +1,7 @@
 library ieee;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
+use work.VICTypes.all;
 
 -- Implement a VIC emulation that sniffs all relevant
 -- input/output pins of the VIC and emulates the internal 
@@ -25,16 +26,15 @@ entity VIC2Emulation is
 		AEC         : in std_logic;
 		
 		-- selector to choose VIC variant
-		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
-		CLOCKS65 : in boolean    -- true for 65 clocks per line NTSC, PAL-N, PAL-M									 
+		-- selector to choose VIC variant
+		VICType : in t_VICType									 
 	);	
 end entity;
 
 
 architecture immediate of VIC2Emulation is
 	-- video matrix RAM
---	signal matrixdata     : std_logic_vector(11 downto 0);
+	signal matrixdata     : std_logic_vector(11 downto 0);
 	signal matrixraddress : std_logic_vector (5 downto 0);
 	signal matrixwaddress : std_logic_vector (5 downto 0);
 	signal matrixq        : std_logic_vector (11 downto 0);
@@ -131,7 +131,7 @@ begin
 	variable register_writedata2 : std_logic_vector(7 downto 0);
 	
 	-- variables for synchronious operation
-	variable LINES312 : boolean := true;               -- can only be true when CLOCKS63 or CLOCKS65: 312 lines per frame
+	variable LINES312 : boolean := true;               -- only relevant when VICType=CLOCK63 or VICType=CLOCKS65 : 312 lines per frame
 	variable displayline: integer range 0 to 511 := 0; -- VIC-II line numbering
 	variable cycle : integer range 0 to 127 := 1;      -- cpu cycle in line
 	variable phase: integer range 0 to 15 := 0;        -- phase inside of the cycle
@@ -188,12 +188,9 @@ begin
 	variable tmp_spritevisible : boolean;
 	variable tmp_spriteforeground : boolean;
 	variable tmp_spritecolor : std_logic_vector(3 downto 0);
-	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_bit : std_logic;
 	variable tmp_2bit : std_logic_vector(1 downto 0);
 	variable tmp_3bit : std_logic_vector(2 downto 0);
-	variable tmp_8bit1 : std_logic_vector(7 downto 0);
-	variable tmp_8bit2 : std_logic_vector(7 downto 0);
 	variable tmp_half : integer range 250 to 280;
 
 	begin
@@ -292,6 +289,7 @@ begin
 				-- compute the sprite color and decide if there is now a sprite in foreground
 				tmp_spritevisible := false;
 				tmp_spriteforeground := false;
+				tmp_spritecolor := "0000";
 				for SP in 7 downto 0 loop
 					if spriterendering(SP)='1' then
 						if spritemulticolor(SP)='1' then								
@@ -331,39 +329,42 @@ begin
 				end if;
 				
 				-- override with blankings and sync signals 
-				if LINES312 then
+				case VICType is
+				when CLOCKS63 =>
 					vcounter := displayline + 13; 
-				else
-					vcounter := displayline + 253-4;				
-				end if;
-				if CLOCKS63 then
 					hcounter := (cycle-1)*8 + phase/2 + (504-8);
 					if hcounter>=504 then
 						hcounter:=hcounter-504;
 						vcounter := vcounter+1;
 					end if;
 					tmp_half := 252;
-				elsif CLOCKS64 then
+				when CLOCKS64 =>
+					vcounter := displayline + 253-6;
 					hcounter := (cycle-1)*8 + phase/2 + (512-8);
 					if hcounter>=512 then
 						hcounter:=hcounter-512;
 						vcounter := vcounter+1;
 					end if;
 					tmp_half := 256;
-				else
+				when CLOCKS65 =>
+					if LINES312 then
+						vcounter := displayline + 13;
+					else
+						vcounter := displayline + 253-4;
+					end if;
 					hcounter := (cycle-1)*8 + phase/2; 
 					if hcounter>=7 then
 						hcounter := hcounter-7;
 					else
 						hcounter := hcounter+(520-7);
 						vcounter := vcounter-1;
-					end if;					
+					end if;
 					tmp_half := 260;
-				end if;
-				if CLOCKS64 then
-					if vcounter>=262 then vcounter := vcounter-262; end if;
-				elsif LINES312 then
+				end case;
+				if LINES312 then
 					if vcounter>=312 then vcounter := vcounter-312; end if;
+				elsif VICType=CLOCKS64 then
+					if vcounter>=262 then vcounter := vcounter-262; end if;				
 				else
 					if vcounter>=263 then vcounter := vcounter-263; end if;
 				end if;
@@ -389,7 +390,7 @@ begin
 					end if;		
 				end if;
 				
-				-- check the vertical line hit conditions			
+				-- check the vertical line hit conditions
 				if (RSEL='0' and displayline=55) or (RSEL='1' and displayline=51) then
 					if DEN='1' then verticalborderflipflop:='0'; end if;
 				elsif (RSEL='0' and displayline=247) or (RSEL='1' and displayline=251) then
@@ -469,7 +470,7 @@ begin
 						end if;
 					end loop;
 				end if;				
-			end if;
+			end if;  -- pixel output generation
 			
 			-- data from memory
 			if phase=9 then                -- received in first half of cycle
@@ -484,11 +485,6 @@ begin
 			-- video matrix read
 			if phase=15 and cycle>=15 and cycle<55 and badline then 
 				matrixwaddress <= std_logic_vector(to_unsigned(VMLI,6)); 
---				if prev_aec='0' then         -- correct data is present on bus
---					matrixdata <= in_db;   
---				else             -- take in the mangled data that is on the bus by accident
---					matrixdata <= in_db(3 downto 0) & "11111111";
---				end if;
 			else
 				matrixwaddress <= "111110"; -- write to unused address
 			end if;
@@ -643,21 +639,21 @@ begin
 						
 			-- progress horizontal and vertical counters
 			if phase mod 2 = 0 then
-				if CLOCKS63 and cycle=14 and phase=10 then
+				if VICType=CLOCKS63 and cycle=14 and phase=10 then
 					xcoordinate := 0;
-				elsif CLOCKS64 and cycle=14 and phase=10 then
+				elsif VICType=CLOCKS64 and cycle=14 and phase=10 then
 					xcoordinate := 0;
-				elsif CLOCKS65 and cycle=10 and phase=10 then
+				elsif VICType=CLOCKS65 and cycle=10 and phase=10 then
 					xcoordinate := 480;
 				else
 					xcoordinate := xcoordinate+1;
 				end if;
 			end if;
 			if phase=15 then
-				if cycle=65 or (cycle=64 and CLOCKS64) or (cycle=63 and CLOCKS63) then
+				if cycle=65 or (cycle=64 and VICType=CLOCKS64) or (cycle=63 and VICType=CLOCKS63) then
 					cycle := 1;
-					if (displayline=262 and not CLOCKS64 and not LINES312)
-					or (displayline=261 and CLOCKS64)
+					if (displayline=262 and VICType=CLOCKS65 and not LINES312)
+					or (displayline=261 and VICType=CLOCKS64)
 					or displayline=311 then
 						displayline := 0;
 					else
@@ -666,7 +662,7 @@ begin
 				else
 					cycle := cycle+1;
 				end if;
-				if (CLOCKS63 and cycle=54) or ((not CLOCKS63) and (cycle=55)) then
+				if (VICType=CLOCKS63 and cycle=54) or ((VICType/=CLOCKS63) and (cycle=55)) then
 					spritecycle := 0;
 				elsif spritecycle/=31 then
 					spritecycle := spritecycle+1;
@@ -690,7 +686,7 @@ begin
 						-- detect the bottom of the frame anomaly (when in sync)
 						if ramrefreshpattern = "1111111111" then
 							cycle := 16;	
-							if CLOCKS64 then
+							if VICType=CLOCKS64 then
 								displayline := 261;
 								LINES312 := false;
 							elsif prevrefreshpatternlikeline310 then 
@@ -705,8 +701,8 @@ begin
 						syncdetect_cycle := 6;  -- two missdetecions: search for sync
 					end if;
 				end if;
-				if (syncdetect_cycle=62 and CLOCKS63) 
-				or (syncdetect_cycle=63 and CLOCKS64) 
+				if (syncdetect_cycle=62 and VICType=CLOCKS63) 
+				or (syncdetect_cycle=63 and VICType=CLOCKS64) 
 				or (syncdetect_cycle=64) then 
 					syncdetect_cycle := 0;
 				else
@@ -739,6 +735,11 @@ begin
 		
 		-- take matrix data if some is expected
 		matrixdata <= in_db;
+		if prev_aec='0' then         -- correct data is present on bus
+			matrixdata <= in_db;   
+		else             -- take in the mangled data that is on the bus by accident
+			matrixdata <= in_db(3 downto 0) & "11111111";
+		end if;
 		
 		-------------------- output signals ---------------------		
 		COLOR <= out_color;

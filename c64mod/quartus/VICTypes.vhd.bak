@@ -1,0 +1,14 @@
+package VICTypes is    -- untested...
+
+   type t_VICType is (CLOCK63, CLOCK64, CLOCK65);
+
+   -- (optional) useful tools
+   function to_slv (e : my_enum_type) return std_logic_vector;
+   function to_enum (s : std_logic_vector(my_enum'length downto 0)) 
+                    return my_enum_type;
+
+end VICTypes;
+
+package body VICTypes is
+   -- subprogram bodies here
+end VICTypes;

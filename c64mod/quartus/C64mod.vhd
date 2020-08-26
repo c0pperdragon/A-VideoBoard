@@ -1,6 +1,7 @@
 library ieee;
 use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
+use work.VICTypes.all;
 
 entity C64Mod is	
 	port (
@@ -33,9 +34,9 @@ end entity;
 
 
 architecture immediate of C64Mod is
-	-- synchronous clock for most of the circuit
 	signal PAL     : std_logic;         -- 0=NTSC, 1=PAL (detected by frequency)
 	signal CLK     : std_logic;         -- 16 times CPU clock
+	signal VICType : t_VICType;         -- Type if VIC as determined by frequency and jumpers
 	
 	-- SDTV signals
 	signal ODDLINE : std_logic;
@@ -96,9 +97,7 @@ architecture immediate of C64Mod is
 		AEC         : in std_logic;
 		
 		-- selector to choose VIC variant
-		CLOCKS63 : in boolean;   -- true for 63 clocks per line (PAL-B) 
-		CLOCKS64 : in boolean;   -- true	for 64 clocks per line (NTSC with the rare 6567R56A)	
-		CLOCKS65 : in boolean    -- true for 65 clocks per line NTSC, PAL-N, PAL-M									 
+		VICType : in t_VICType									 
 	);	
 	end component;
 	
@@ -154,9 +153,7 @@ begin
 		GPIO1(16),                                   -- RW 
 		GPIO1(15),                                   -- CS 
 		GPIO1(18),                                   -- AEC
-      (PAL='1'),                                   -- 63 clocks per line
-		((PAL='0') and (TMS='0')),                   -- 64 clocks per line
-		((PAL='0') and (TMS='1'))                    -- 65 clocks per line
+		VICType
 	);	 
 
 	vram0: ram_dual generic map(data_width => 15, addr_width => 10)
@@ -201,12 +198,7 @@ begin
 			DELAYEDCOLOR		
 		);
 	
-	--- drive the TDO pin to a known state
---	process (TDI)
---	begin
---		TDO <= '1';
---	end process;
-	
+
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
 	process (CLK25, GPIO1)
 		variable in_phi0 : std_logic_vector(3 downto 0);
@@ -234,19 +226,31 @@ begin
 		PAL <= out_pal;
 	end process;
 	
+	------ determine the type of the VIC depending on various factory
+	process (PAL,TMS)
+	begin
+      if PAL='1' then 
+			VICType <= CLOCKS63;
+		elsif (TMS='0') then 
+			VICType <= CLOCKS64;
+		else 
+			VICType <= CLOCKS65;
+		end if;
+	end process;
+	
 	--- control the read and write address of the color delay line
 	process (CLK, PAL)
 	variable p : integer range 0 to 2047;
 	begin
 		if rising_edge(CLK) then
 			p := p+1;		
+			case VICType is
+			when CLOCKS63 => delaywraddress <= std_logic_vector(to_unsigned(p+1007,11));	
+			when CLOCKS64 => delaywraddress <= std_logic_vector(to_unsigned(p+1023,11));	
+			when CLOCKS65 => delaywraddress <= std_logic_vector(to_unsigned(p+1039,11));
+			end case;
 		end if;
 		delayrdaddress <= std_logic_vector(to_unsigned(p,11));
-		if PAL='0' then
-			delaywraddress <= std_logic_vector(to_unsigned(p+1039,11));
-		else
-			delaywraddress <= std_logic_vector(to_unsigned(p+1007,11));		
-		end if;
 	end process;
 	
 	--------- transform the SDTV into a EDTV signal by line doubling (if selected by jumper) 
@@ -282,13 +286,11 @@ begin
 			usescanlines := (GPIO2_5='0' or GPIO2_6='0') and not usehighcontrast;
 			
 			-- determine hsync position
-			if PAL='1' then
-				lpixel := 504;
-			elsif TMS='0' then
-				lpixel := 512;
-			else
-				lpixel := 520;			
-			end if;
+			case VICType is
+			when CLOCKS63 => lpixel := 504;
+			when CLOCKS64 => lpixel := 512;
+			when CLOCKS65 => lpixel := 520;			
+			end case;
 		
 			-- if highres is not selected, just use plain SDTV
 			if not usehighres then
