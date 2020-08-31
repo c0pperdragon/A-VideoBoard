@@ -142,14 +142,15 @@ begin
 	variable tmp_odd : boolean;
 	variable tmp_x : integer range 0 to 255;
 	variable tmp_y : integer range 0 to 511;	
-	variable tmp_color : std_logic_vector(7 downto 0);	
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
+	variable tmp_overridelum : std_logic_vector(1 downto 0);
+	variable tmp_color: std_logic_vector(7 downto 0);
+
+   -- internal color and sync registers
+	variable csync : std_logic := '1';
+	variable color: std_logic_vector(11 downto 0) := "000000000000";  -- lum0 / hue / lum1
 	
 	-- registered output 
-	variable csync : std_logic := '1';
-	variable color : std_logic_vector(7 downto 0) := "00000000";
-	variable overridelum : std_logic_vector(1 downto 0) := "00";
-	
 	variable out_Y  : std_logic_vector(5 downto 0) := "000000";
 	variable out_Pb : std_logic_vector(4 downto 0) := "10000";
 	variable out_Pr : std_logic_vector(4 downto 0) := "10000";
@@ -168,28 +169,70 @@ begin
 			end case;
 		end needpixelstep;			
 
-		-- helper function to compute encoding of 2 bits into an analog output signal (5 bit precision)
+		-- helper function to expand a single bit to 5 identical bits
 		subtype T_5bits is std_logic_vector(4 downto 0);
-		function encode2bits(hi:std_logic; lo:std_logic) return T_5bits is
+		function expand(b:std_logic) return T_5bits is
 		begin
-			if hi='0' then
-				if lo='0' then return "00000";
-				else           return "01010";
- 			end if;
+			if b='0' then 
+				return "00000";
 			else
-				if lo='0' then return "10100";
-				else           return "11111";
-				end if;
+				return "11111";
 			end if;
-		end encode2bits;
+		end expand;
 
 	begin
 		if rising_edge(CLK) then
+
+			------------ select output color for both halves of the atari clock ---------
+			if (PHASE=3 or PHASE=1) then
+				if csync='0' then
+					out_y := "000000";
+					out_pb := "10000";
+					out_pr := "10000";
+				else			
+					if PHASE=3 then -- pixel 0
+						tmp_color := color(7 downto 4) & color(11 downto 8);
+					else            -- pixel 1
+						tmp_color := color(7 downto 0);
+					end if;
+					tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
+					out_y(5) := '1';
+					out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
+					out_pb := tmp_ypbpr(9 downto 5);
+					out_pr := tmp_ypbpr(4 downto 0);
+				end if;
+			end if;		
+
+			--------- serial color bit output for the highcontrast mode ----
+			if HIGHCONTRAST then
+				if csync='0' then
+					out_y := "000000";
+					out_pb := "00000";
+					out_pr := "00000";
+				elsif PHASE=3 then        -- output sample 0
+					out_y := "1" & expand(color(11));   
+					out_pb := expand(color(7)); -- HUE
+					out_pr := expand(color(6)); -- HUE
+				elsif PHASE=0 then        -- output sample 1
+					out_y := "1" & expand(color(10));
+					out_pb := expand(color(9));
+					out_pr := expand(color(8));
+				elsif PHASE=1 then        -- output sample 2
+					out_y := "1" & expand(color(3));
+					out_pb := expand(color(5));  -- HUE
+					out_pr := expand(color(4));  -- HUE
+				elsif PHASE=2 then        -- output sample 3
+					out_y := "1" & expand(color(2));
+					out_pb := expand(color(1));
+					out_pr := expand(color(0));
+				end if;
+			end if;
+			
 		
 			--------------------- logic for antic input -------------------
 			if PHASE=2 then
 				-- default color lines to show no color at all (only black)
-				overridelum := "00";
+				tmp_overridelum := "00";
 				tmp_colorlines := "000000000";
 							
 				-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
@@ -204,7 +247,6 @@ begin
 						tmp_4bitvalue := "1000";
 					end if;
 				end if;
-				
 				
 				-- chose proper background color for special color interpretation modes
 				case PRIOR(7 downto 6) is
@@ -229,7 +271,7 @@ begin
 							tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
 						else
 							tmp_colorlines(6) := '1';
-							overridelum := command(1 downto 0);				
+							tmp_overridelum := command(1 downto 0);				
 						end if;
 					when "01"  =>   -- single hue, 16 luminances, imposed on background
 						tmp_colorlines(8) := '1';
@@ -420,20 +462,27 @@ begin
 				
 				-- simulate the 'wired or' that mixes together all bits of 
 				-- all still selected color lines
-				color := "00000000";
+				color := "000000000000";
 				-- constrain color generation to screen boundaries
 				if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
-					if tmp_colorlines(0)='1' then	color := color or (COLPM0 & "0"); end if;
-					if tmp_colorlines(1)='1' then	color := color or (COLPM1 & "0"); end if;
-					if tmp_colorlines(2)='1' then	color := color or (COLPM2 & "0"); end if;
-					if tmp_colorlines(3)='1' then color := color or (COLPM3 & "0"); end if;
-					if tmp_colorlines(4)='1' then	color := color or (COLPF0 & "0"); end if;
-					if tmp_colorlines(5)='1' then	color := color or (COLPF1 & "0"); end if;
-					if tmp_colorlines(6)='1' then	color := color or (COLPF2 & "0"); end if;
-					if tmp_colorlines(7)='1' then	color := color or (COLPF3 & "0"); end if;
-					if tmp_colorlines(8)='1' then	color := color or tmp_bgcolor;    end if;
-				else
-					overridelum := "00";
+					if tmp_colorlines(0)='1' then	color := color or ("0000" & COLPM0 & "0"); end if;
+					if tmp_colorlines(1)='1' then	color := color or ("0000" & COLPM1 & "0"); end if;
+					if tmp_colorlines(2)='1' then	color := color or ("0000" & COLPM2 & "0"); end if;
+					if tmp_colorlines(3)='1' then color := color or ("0000" & COLPM3 & "0"); end if;
+					if tmp_colorlines(4)='1' then	color := color or ("0000" & COLPF0 & "0"); end if;
+					if tmp_colorlines(5)='1' then	color := color or ("0000" & COLPF1 & "0"); end if;
+					if tmp_colorlines(6)='1' then	color := color or ("0000" & COLPF2 & "0"); end if;
+					if tmp_colorlines(7)='1' then	color := color or ("0000" & COLPF3 & "0"); end if;
+					if tmp_colorlines(8)='1' then	color := color or ("0000" & tmp_bgcolor);  end if;
+					-- determine lum values for both pixels
+					if tmp_overridelum(1)='1' then
+						color(11 downto 8) := COLPF1(3 downto 1) & "0";	
+					else
+						color(11 downto 8) := color(3 downto 0);					
+					end if;
+					if tmp_overridelum(0)='1' then
+						color(3 downto 0) := COLPF1(3 downto 1) & "0";	
+					end if;
 				end if ;
 				
 				-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly alligned) 	
@@ -482,41 +531,6 @@ begin
 				prevcommand := command;
 				command := in_an;
 			end if;
-			
-			
-			------------ select output color for both halves of the atari clock ---------
-			if (PHASE=3 or PHASE=1) then
-				if csync='0' then
-					out_y := "000000";
-					out_pb := "10000";
-					out_pr := "10000";
-					
-					if HIGHCONTRAST then
-						out_pb := encode2bits('0','0');
-						out_pr := encode2bits('0','0');
-					end if;
-				else			
-					tmp_color := color;
-					if (PHASE=1 and overridelum(0)='1') or (PHASE=3 and overridelum(1)='1')  then
-						tmp_color(3 downto 0) := COLPF1(3 downto 1) & "0";  
-					end if;				
-					tmp_ypbpr := std_logic_vector(to_unsigned(ataripalette(to_integer(unsigned(tmp_color))), 15));			
-					out_y(5) := '1';
-					out_y(4 downto 0) := tmp_ypbpr(14 downto 10);
-					out_pb := tmp_ypbpr(9 downto 5);
-					out_pr := tmp_ypbpr(4 downto 0);
-
-					-- produce signals that can be postprocessed by the RGBtoHDMI upscaler 
-					if HIGHCONTRAST then
-						out_y(4 downto 0) := encode2bits(tmp_color(3), tmp_color(2));	
-						if (PHASE=3) then 
-							tmp_color(7 downto 6) := tmp_color(5 downto 4);
-						end if;
-						out_pb := encode2bits(tmp_color(7), tmp_color(1) );
-						out_pr := encode2bits(tmp_color(6), tmp_color(0) );
-					end if;
-				end if;
-			end if;		
 			
 			
 			--------------------- logic for the cpu/data bus -------------------			
