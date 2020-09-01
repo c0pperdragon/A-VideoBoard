@@ -1,9 +1,9 @@
-References       Type                                 Value/Part Number      Size
+References       Type                                                 Value/Part Number      Size
 
-C1,C2            Ceramic Capacitor                    1 uF                   2012 metric
-C3,C4,C5,C6      Ceramic Capacitor                    100 nF                 1608 metric
-IC1,IC2,IC3,IC4  Schmitt-Trigger Inverter             SN74LVC14ADBR          SSOP-14
-P1               40-pin IC precision socket           111-93-640-41-001000   DIP 40
-P2               Pinheader/Ribbon cable connector     any                    2x20, 2.54mm 
-R10              SMD Resistor                         100 ohm                2012 metric
-U2               LDO Voltage Regulator 3.3V           RT9166-33GVL           SOT-23
+C1,C2            Ceramic Capacitor                                    1 uF                   2012 metric
+C3,C4,C5,C6      Ceramic Capacitor                                    100 nF                 1608 metric
+IC1,IC2,IC3,IC4  Schmitt-Trigger Inverter                             SN74LVC14ADBR          SSOP-14
+P1               40-pin IC precision socket with long solder tails    111-93-640-41-001000   DIP 40
+P2               Pinheader/Ribbon cable connector                     any                    2x20, 2.54mm 
+R10              SMD Resistor                                         100 ohm                2012 metric
+U2               LDO Voltage Regulator 3.3V                           RT9166-33GVL           SOT-23
