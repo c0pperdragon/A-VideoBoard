@@ -113,6 +113,16 @@ begin
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
 	variable prevrw: std_logic := '0';
 	
+	-- variables for player and missile display
+	variable ticker_p0 : integer range 0 to 15 := 15;
+	variable ticker_p1 : integer range 0 to 15 := 15;
+	variable ticker_p2 : integer range 0 to 15 := 15;
+	variable ticker_p3 : integer range 0 to 15 := 15;
+	variable ticker_m0 : integer range 0 to 3 := 3;
+	variable ticker_m1 : integer range 0 to 3 := 3;
+	variable ticker_m2 : integer range 0 to 3 := 3;
+	variable ticker_m3 : integer range 0 to 3 := 3;
+	
 	-- temporary variables
 	variable tmp_colorlines : std_logic_vector(8 downto 0);
 	variable tmp_colorlines_res0 : std_logic_vector(8 downto 0);
@@ -137,7 +147,20 @@ begin
 	variable out_Pb : std_logic_vector(4 downto 0) := "10000";
 	variable out_Pr : std_logic_vector(4 downto 0) := "10000";
 	
-			-- helper function to expand a single bit to 5 identical bits
+		-- test, if it is now necessary to increment player/missile pixel counter
+		function needpixelstep (hpos:std_logic_vector(7 downto 0); size: std_logic_vector(1 downto 0)) return boolean is
+		variable x:std_logic_vector(1 downto 0);
+		begin
+			x := std_logic_vector(to_unsigned(hcounter,2));
+			case size is 
+			when "00" => return true;               -- single size
+			when "01" => return x(0)=hpos(0);       -- double size
+			when "10" => return true;               -- single size
+			when "11" => return x=hpos(1 downto 0); -- 4 times size
+			end case;
+		end needpixelstep;				
+		
+		-- helper function to expand a single bit to 5 identical bits
 		subtype T_5bits is std_logic_vector(4 downto 0);
 		function expand(b:std_logic) return T_5bits is
 		begin
@@ -148,32 +171,6 @@ begin
 			end if;
 		end expand;
 		
-		-- helper function to test if a sprite or missile is visible on a given point
-		function isvisible(pattern: std_logic_vector(7 downto 0); 
-								 hpos: std_logic_vector(7 downto 0); 
-								 size: std_logic_vector(1 downto 0)) return boolean is
-			variable hposi:integer range 0 to 255;
-			variable hcounteri:integer range 0 to 255;
-			variable x:integer range 0 to 255;
-		begin
-			hposi := to_integer(unsigned(hpos));
-			if hcounter>=1 and hcounter-1 >= hposi then 
-				x := (hcounter-1) - hposi;
-				case size is 
-				when "00" =>            -- single size
-				when "01" => x := x/2;	-- double size
-				when "10" =>            -- single size
-				when "11" => x := x/4;  -- 4 times size
-				end case;
-				if x<8 then
-					if pattern(7-x)='1' then
-						return true;
-					end if;
-				end if;	
-			end if;
-			return false;			
-		end isvisible;
-
 	begin
 	
 			-- capture sprite data at the right point
@@ -328,40 +325,40 @@ begin
 				end if;
 	
 				-- determine which part of players and missiles are visible
-				if isvisible(GRAFP0, HPOSP0, SIZEP0) then
+				if ticker_p0<8 and  GRAFP0(7-ticker_p0)='1' then
 					tmp_colorlines(0) := '1';
 				end if;
-				if isvisible(GRAFP1, HPOSP1, SIZEP1) then
+				if ticker_p1<8 and GRAFP1(7-ticker_p1)='1' then
 					tmp_colorlines(1) := '1';
 				end if;
-				if isvisible(GRAFP2, HPOSP2, SIZEP2) then
+				if ticker_p2<8 and GRAFP2(7-ticker_p2)='1' then
 					tmp_colorlines(2) := '1';
 				end if;
-				if isvisible(GRAFP3, HPOSP3, SIZEP3) then
+				if ticker_p3<8 and GRAFP3(7-ticker_p3)='1' then
 					tmp_colorlines(3) := '1';
 				end if;
-				if isvisible(GRAFM(1 downto 0)&"000000", HPOSM0, SIZEM(1 downto 0)) then
+				if ticker_m0<2 and GRAFM(0 + (1-ticker_m0))='1' then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(0) := '1';
 					end if;
 				end if;
-				if isvisible(GRAFM(3 downto 2)&"000000", HPOSM1, SIZEM(3 downto 2)) then
+				if ticker_m1<2 and GRAFM(2 + (1-ticker_m1))='1' then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(1) := '1';
 					end if;
 				end if;
-				if isvisible(GRAFM(5 downto 4)&"000000", HPOSM2, SIZEM(5 downto 4)) then
+				if ticker_m2<2 and GRAFM(4 + (1-ticker_m2))='1' then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(2) := '1';
 					end if;
 				end if;
-				if isvisible(GRAFM(7 downto 6)&"000000", HPOSM3, SIZEM(7 downto 6)) then
+				if ticker_m3<2 and GRAFM(6 + (1-ticker_m3))='1' then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
@@ -369,6 +366,47 @@ begin
 					end if;
 				end if;
 				
+				-- trigger start of display of players and missiles ---			
+				if hcounter=to_integer(unsigned(HPOSP0)) then 
+					ticker_p0 := 0;
+				elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0)) then 
+					ticker_p0 := ticker_p0 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP1)) then 
+					ticker_p1 := 0;
+				elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0)) then 
+					ticker_p1 := ticker_p1 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP2)) then 
+					ticker_p2 := 0;
+				elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0)) then 
+					ticker_p2 := ticker_p2 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSP3)) then 
+					ticker_p3 := 0;
+				elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0)) then 
+					ticker_p3 := ticker_p3 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM0)) then 
+					ticker_m0 := 0;
+				elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0)) then 
+					ticker_m0 := ticker_m0 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM1)) then 
+					ticker_m1 := 0;
+				elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2)) then 
+					ticker_m1 := ticker_m1 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM2)) then 
+					ticker_m2 := 0;
+				elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4)) then 
+					ticker_m2 := ticker_m2 + 1;
+				end if;
+				if hcounter=to_integer(unsigned(HPOSM3)) then 
+					ticker_m3 := 0;
+				elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6)) then 
+					ticker_m3 := ticker_m3 + 1;
+				end if;
 						
 				-- apply priorities by suppressing specific color lines
 	
