@@ -91,7 +91,7 @@ begin
 	variable COLBK  : std_logic_vector (7 downto 1) := "0000000";
 	variable PRIOR  : std_logic_vector (7 downto 0) := "00000000";
 	variable VDELAY : std_logic_vector (7 downto 0) := "00000000";
-	variable GRACTL : std_logic_vector (2 downto 0) := "000";
+	variable GRACTL : std_logic_vector (1 downto 0) := "00";
 
 	-- registered inputs
 	variable in_f0o         : std_logic;
@@ -100,8 +100,9 @@ begin
 	variable in_an          : std_logic_vector(2 downto 0);
 	variable in_rw          : std_logic;
 	variable in_cs          : std_logic;
-	variable in_halt        : std_logic;
 	variable in2_an : std_logic_vector(2 downto 0);
+	variable in_halt        : std_logic_vector(255 downto 0);
+	variable dma_data : std_logic_vector(7 downto 0);
 
 	-- variables for synchronious operation
 	variable phase : integer range 0 to 3 := 0;
@@ -111,25 +112,6 @@ begin
 	variable command : std_logic_vector(2 downto 0) := "000";
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
 	variable prevrw: std_logic := '0';
-	variable prevhalt: std_logic := '0';
-	variable pprevhalt: std_logic := '0';
-	
-	-- variables for player and missile display
-	variable ticker_p0 : integer range 0 to 15 := 15;
-	variable ticker_p1 : integer range 0 to 15 := 15;
-	variable ticker_p2 : integer range 0 to 15 := 15;
-	variable ticker_p3 : integer range 0 to 15 := 15;
-	variable ticker_m0 : integer range 0 to 3 := 3;
-	variable ticker_m1 : integer range 0 to 3 := 3;
-	variable ticker_m2 : integer range 0 to 3 := 3;
-	variable ticker_m3 : integer range 0 to 3 := 3;
-		
-	-- delayed p/m data
-	variable GRAFP0_DELAYED : std_logic_vector (7 downto 0) := "00000000";
-	variable GRAFP1_DELAYED : std_logic_vector (7 downto 0) := "00000000";
-	variable GRAFP2_DELAYED : std_logic_vector (7 downto 0) := "00000000";
-	variable GRAFP3_DELAYED : std_logic_vector (7 downto 0) := "00000000";
-	variable GRAFM_DELAYED  : std_logic_vector (7 downto 0) := "00000000";	
 	
 	-- temporary variables
 	variable tmp_colorlines : std_logic_vector(8 downto 0);
@@ -155,21 +137,7 @@ begin
 	variable out_Pb : std_logic_vector(4 downto 0) := "10000";
 	variable out_Pr : std_logic_vector(4 downto 0) := "10000";
 	
-	
-		-- test, if it is now necessary to increment player/missile pixel counter
-		function needpixelstep (hpos:std_logic_vector(7 downto 0); size: std_logic_vector(1 downto 0)) return boolean is
-		variable x:std_logic_vector(1 downto 0);
-		begin
-			x := std_logic_vector(to_unsigned(hcounter,2));
-			case size is 
-			when "00" => return true;               -- single size
-			when "01" => return x(0)=hpos(0);       -- double size
-			when "10" => return true;               -- single size
-			when "11" => return x=hpos(1 downto 0); -- 4 times size
-			end case;
-		end needpixelstep;			
-
-		-- helper function to expand a single bit to 5 identical bits
+			-- helper function to expand a single bit to 5 identical bits
 		subtype T_5bits is std_logic_vector(4 downto 0);
 		function expand(b:std_logic) return T_5bits is
 		begin
@@ -179,8 +147,41 @@ begin
 				return "11111";
 			end if;
 		end expand;
+		
+		-- helper function to test if a sprite or missile is visible on a given point
+		function isvisible(pattern: std_logic_vector(7 downto 0); 
+								 hpos: std_logic_vector(7 downto 0); 
+								 size: std_logic_vector(1 downto 0)) return boolean is
+			variable hposi:integer range 0 to 255;
+			variable hcounteri:integer range 0 to 255;
+			variable x:integer range 0 to 255;
+		begin
+			hposi := to_integer(unsigned(hpos));
+			if hcounter>=1 and hcounter-1 >= hposi then 
+				x := (hcounter-1) - hposi;
+				case size is 
+				when "00" =>            -- single size
+				when "01" => x := x/2;	-- double size
+				when "10" =>            -- single size
+				when "11" => x := x/4;  -- 4 times size
+				end case;
+				if x<8 then
+					if pattern(7-x)='1' then
+						return true;
+					end if;
+				end if;	
+			end if;
+			return false;			
+		end isvisible;
 
 	begin
+	
+			-- capture sprite data at the right point
+		if rising_edge(CLK) and phase=0 then
+			dma_data := D;			
+		end if;
+
+		
 		if rising_edge(CLK) then
 
 			------------ select output color for both halves of the atari clock ---------
@@ -327,87 +328,45 @@ begin
 				end if;
 	
 				-- determine which part of players and missiles are visible
-				if ticker_p0<8 and  GRAFP0(7-ticker_p0)='1' then
+				if isvisible(GRAFP0, HPOSP0, SIZEP0) then
 					tmp_colorlines(0) := '1';
 				end if;
-				if ticker_p1<8 and GRAFP1(7-ticker_p1)='1' then
+				if isvisible(GRAFP1, HPOSP1, SIZEP1) then
 					tmp_colorlines(1) := '1';
 				end if;
-				if ticker_p2<8 and GRAFP2(7-ticker_p2)='1' then
+				if isvisible(GRAFP2, HPOSP2, SIZEP2) then
 					tmp_colorlines(2) := '1';
 				end if;
-				if ticker_p3<8 and GRAFP3(7-ticker_p3)='1' then
+				if isvisible(GRAFP3, HPOSP3, SIZEP3) then
 					tmp_colorlines(3) := '1';
 				end if;
-				if ticker_m0<2 and GRAFM(0 + (1-ticker_m0))='1' then
+				if isvisible(GRAFM(1 downto 0)&"000000", HPOSM0, SIZEM(1 downto 0)) then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(0) := '1';
 					end if;
 				end if;
-				if ticker_m1<2 and GRAFM(2 + (1-ticker_m1))='1' then
+				if isvisible(GRAFM(3 downto 2)&"000000", HPOSM1, SIZEM(3 downto 2)) then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(1) := '1';
 					end if;
 				end if;
-				if ticker_m2<2 and GRAFM(4 + (1-ticker_m2))='1' then
+				if isvisible(GRAFM(5 downto 4)&"000000", HPOSM2, SIZEM(5 downto 4)) then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(2) := '1';
 					end if;
 				end if;
-				if ticker_m3<2 and GRAFM(6 + (1-ticker_m3))='1' then
+				if isvisible(GRAFM(7 downto 6)&"000000", HPOSM3, SIZEM(7 downto 6)) then
 					if PRIOR(4)='1' then
 						tmp_colorlines(7) := '1';
 					else 
 						tmp_colorlines(3) := '1';
 					end if;
-				end if;
-					
-				-- trigger start of display of players and missiles ---			
-				if hcounter=to_integer(unsigned(HPOSP0)) then 
-					ticker_p0 := 0;
-				elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0)) then 
-					ticker_p0 := ticker_p0 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSP1)) then 
-					ticker_p1 := 0;
-				elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0)) then 
-					ticker_p1 := ticker_p1 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSP2)) then 
-					ticker_p2 := 0;
-				elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0)) then 
-					ticker_p2 := ticker_p2 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSP3)) then 
-					ticker_p3 := 0;
-				elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0)) then 
-					ticker_p3 := ticker_p3 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSM0)) then 
-					ticker_m0 := 0;
-				elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0)) then 
-					ticker_m0 := ticker_m0 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSM1)) then 
-					ticker_m1 := 0;
-				elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2)) then 
-					ticker_m1 := ticker_m1 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSM2)) then 
-					ticker_m2 := 0;
-				elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4)) then 
-					ticker_m2 := ticker_m2 + 1;
-				end if;
-				if hcounter=to_integer(unsigned(HPOSM3)) then 
-					ticker_m3 := 0;
-				elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6)) then 
-					ticker_m3 := ticker_m3 + 1;
 				end if;
 				
 						
@@ -533,9 +492,8 @@ begin
 			end if;
 			
 			
-			--------------------- logic for the cpu/data bus -------------------			
-			if PHASE=0 then
 				----- let CPU write to the registers (at second clock where rw is asserted) --
+			if PHASE=0 then
 				if (in_CS='0') and (in_RW='0') and (prevrw='0') then
 					case in_A is
 						when "00000" => HPOSP0 := in_D;
@@ -567,80 +525,55 @@ begin
 						when "11010" => COLBK  := in_D(7 downto 1);
 						when "11011" => PRIOR  := in_D;
 						when "11100" => VDELAY := in_D;
-						when "11101" => GRACTL := in_D(2 downto 0);
+						when "11101" => GRACTL := in_D(1 downto 0);
 						when "11110" => 
 						when "11111" => 
 					end case;
 				end if;	
 				prevrw := in_RW; 
-
-
-				if pprevhalt='0' and vcounter>=topedge and vcounter<bottomedge then
+			end if;
+			
+			-- receive sprite DMA data -- 
+			if PHASE=1 and in_halt(9)='0' then 
+				if vcounter>=topedge and vcounter<bottomedge then
 					tmp_odd := (vcounter mod 2) = 0;
 				
 					-- transfer dma player/missile data into registers
-					if GRACTL(0)='1' and hcounter=3 then
+					if GRACTL(0)='1' and hcounter=2 then
 						if VDELAY(0)='0' or tmp_odd then
-							GRAFM(1 downto 0) := in_D(1 downto 0);
-						else
-							GRAFM(1 downto 0) := GRAFM_DELAYED(1 downto 0);
-							GRAFM_DELAYED(1 downto 0) := in_D(1 downto 0);
+							GRAFM(1 downto 0) := dma_data(1 downto 0);
 						end if;
 						if VDELAY(1)='0' or tmp_odd then
-							GRAFM(3 downto 2) := in_D(3 downto 2);
-						else
-							GRAFM(3 downto 2) := GRAFM_DELAYED(3 downto 2);
-							GRAFM_DELAYED(3 downto 2) := in_D(3 downto 2);
+							GRAFM(3 downto 2) := dma_data(3 downto 2);
 						end if;
 						if VDELAY(2)='0' or tmp_odd then
-							GRAFM(5 downto 4) := in_D(5 downto 4);
-						else
-							GRAFM(5 downto 4) := GRAFM_DELAYED(5 downto 4);
-							GRAFM_DELAYED(5 downto 4) := in_D(5 downto 4);
+							GRAFM(5 downto 4) := dma_data(5 downto 4);
 						end if;
 						if VDELAY(3)='0' or tmp_odd then
-							GRAFM(7 downto 6) := in_D(7 downto 6);
-						else
-							GRAFM(7 downto 6) := GRAFM_DELAYED(7 downto 6);
-							GRAFM_DELAYED(7 downto 6) := in_D(7 downto 6);
+							GRAFM(7 downto 6) := dma_data(7 downto 6);
 						end if;
 					end if;				
-					if GRACTL(1)='1' and hcounter=7 then
+					if GRACTL(1)='1' and hcounter=6 then
 						if VDELAY(4)='0' or tmp_odd then
-							GRAFP0 := in_D;
-						else  
-							GRAFP0 := GRAFP0_DELAYED;
-							GRAFP0_DELAYED := in_D;
+							GRAFP0 := dma_data;
 						end if;
 					end if;
-					if GRACTL(1)='1' and hcounter=9 then
+					if GRACTL(1)='1' and hcounter=8 then
 						if VDELAY(5)='0' or tmp_odd then 
-							GRAFP1 := in_D;
-						else  
-							GRAFP1 := GRAFP1_DELAYED;
-							GRAFP1_DELAYED := in_D;
+							GRAFP1 := dma_data;
 						end if;
 					end if;
-					if GRACTL(1)='1' and hcounter=11 then
+					if GRACTL(1)='1' and hcounter=10 then
 						if VDELAY(6)='0' or tmp_odd then
-							GRAFP2 := in_D;
-						else 
-							GRAFP2 := GRAFP2_DELAYED;
-							GRAFP2_DELAYED := in_D;
+							GRAFP2 := dma_data;
 						end if;
 					end if;
-					if GRACTL(1)='1' and hcounter=13 then
+					if GRACTL(1)='1' and hcounter=12 then
 						if VDELAY(7)='0' or tmp_odd then 
-							GRAFP3 := in_D;
-						else
-							GRAFP3 := GRAFP3_DELAYED;
-							GRAFP3_DELAYED := in_D;
+							GRAFP3 := dma_data;
 						end if;
 					end if;
 				end if;
-				 
-				pprevhalt := prevhalt;
-				prevhalt := in_HALT;
 			end if;		
 		
 			--- progress clock phase counter
@@ -658,8 +591,9 @@ begin
 			in2_an := AN;
 			in_rw := RW;
 			in_cs := CS;
-			in_halt := HALT;
+			in_halt := in_halt(254 downto 0) & HALT;
 		end if;
+		
 		
 		-------------------- output signals ---------------------		
 		SDTV_Y <= out_y;
