@@ -98,6 +98,8 @@ begin
 	variable	in_a           : std_logic_vector(4 downto 0);
 	variable in_d	         : std_logic_vector(7 downto 0);
 	variable in_an          : std_logic_vector(2 downto 0);
+	variable in2_an          : std_logic_vector(2 downto 0);
+	variable in3_an          : std_logic_vector(2 downto 0);
 	variable in_rw          : std_logic;
 	variable in_cs          : std_logic;
 	variable in_halt        : std_logic_vector(255 downto 0);
@@ -624,7 +626,9 @@ begin
 			in_f0o := F0O;
 			in_a := A;
 			in_d := D;
-			in_an := AN;
+			in_an := in2_an;
+			in2_an := in3_an;
+			in3_an := AN;
 			in_rw := RW;
 			in_cs := CS;
 			in_halt := in_halt(254 downto 0) & HALT;
