@@ -733,11 +733,12 @@ begin
 			in2_a := A;
 		end if;
 		
-		-- take matrix data if some is expected
-		matrixdata <= in_db;
+		-- prepare incomming video matrix data 
 		if prev_aec='0' then         -- correct data is present on bus
-			matrixdata <= in_db;   
-		else             -- take in the mangled data that is on the bus by accident
+			matrixdata <= in_db;  
+		elsif in_cs ='0' then		  -- take whatever data is on the bus by accident	
+			matrixdata <= in_db(3 downto 0) & in_db(7 downto 0);
+		else                         -- the data bus is closed, but the color signals are still open
 			matrixdata <= in_db(3 downto 0) & "11111111";
 		end if;
 		
