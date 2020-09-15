@@ -7,7 +7,7 @@ encoding utf-8
 Sheet 1 1
 Title "Atari GTIA adapter"
 Date ""
-Rev "3"
+Rev "4"
 Comp ""
 Comment1 ""
 Comment2 ""
@@ -143,17 +143,6 @@ F 3 "" H 5550 3150 60  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L atarimod-rescue:APE8865N-33-HF-3 U2
-U 1 1 5960D9B8
-P 1700 6550
-F 0 "U2" H 1400 6800 50  0000 C CNN
-F 1 "RT9166-33GVL" H 1700 6750 50  0000 C CNN
-F 2 "Package_TO_SOT_SMD:SOT-23" H 1700 6650 50  0000 C CIN
-F 3 "" H 1700 6550 50  0000 C CNN
-	1    1700 6550
-	1    0    0    -1  
-$EndComp
-$Comp
 L power:+3.3V #PWR01
 U 1 1 5960DAF2
 P 2250 6500
@@ -180,7 +169,7 @@ L Device:C_Small C1
 U 1 1 5960DC33
 P 1100 6750
 F 0 "C1" H 1110 6820 50  0000 L CNN
-F 1 "1uF" H 1110 6670 50  0000 L CNN
+F 1 "10uF" H 1110 6670 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 1100 6750 50  0001 C CNN
 F 3 "" H 1100 6750 50  0000 C CNN
 	1    1100 6750
@@ -191,7 +180,7 @@ L Device:C_Small C2
 U 1 1 5960E580
 P 2200 6750
 F 0 "C2" H 2210 6820 50  0000 L CNN
-F 1 "1uF" H 2210 6670 50  0000 L CNN
+F 1 "10uF" H 2210 6670 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 2200 6750 50  0001 C CNN
 F 3 "" H 2200 6750 50  0000 C CNN
 	1    2200 6750
@@ -420,15 +409,11 @@ $EndComp
 NoConn ~ 3200 3250
 NoConn ~ 3200 2950
 Wire Wire Line
-	2150 6500 2200 6500
-Wire Wire Line
 	2200 6650 2200 6500
 Connection ~ 2200 6500
 Wire Wire Line
 	1100 6500 1250 6500
 Connection ~ 1100 6500
-Wire Wire Line
-	1700 6850 1700 7200
 Wire Wire Line
 	2050 7200 2050 7250
 Wire Wire Line
@@ -845,4 +830,26 @@ F 3 "~" H 2900 2950 50  0001 C CNN
 	1    2900 2950
 	1    0    0    -1  
 $EndComp
+$Comp
+L Regulator_Linear:MIC5504-3.3YM5 U2
+U 1 1 5F623D94
+P 1700 6600
+F 0 "U2" H 1700 6967 50  0000 C CNN
+F 1 "MIC5504-3.3YM5" H 1700 6876 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23-5" H 1700 6200 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 1450 6850 50  0001 C CNN
+	1    1700 6600
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1250 6500 1250 6700
+Wire Wire Line
+	1250 6700 1300 6700
+Wire Wire Line
+	1250 6500 1300 6500
+Connection ~ 1250 6500
+Wire Wire Line
+	2100 6500 2200 6500
+Wire Wire Line
+	1700 7200 1700 6900
 $EndSCHEMATC

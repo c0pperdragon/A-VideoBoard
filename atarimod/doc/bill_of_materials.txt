@@ -6,4 +6,4 @@ IC1,IC2,IC3,IC4  Schmitt-Trigger Inverter                             SN74LVC14A
 P1               40-pin IC precision socket with long solder tails    111-93-640-41-001000   DIP 40
 P2               Pinheader/Ribbon cable connector                     any                    2x20, 2.54mm 
 R10              SMD Resistor                                         100 ohm                2012 metric
-U2               LDO Voltage Regulator 3.3V                           RT9166-33GVL           SOT-23
+U2               LDO Voltage Regulator 3.3V                           MIC5504-3.3YM5         SOT-23-5
