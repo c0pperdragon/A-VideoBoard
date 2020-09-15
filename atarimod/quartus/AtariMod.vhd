@@ -28,7 +28,7 @@ entity AtariMod is
 		TDI : in std_logic;   -- external jumper to force high-contrast palette 
 		TDO : out std_logic  -- keep the pin working so JTAG is possible
 	);	
-end entity;
+end entity; 
 
 
 architecture immediate of AtariMod is
@@ -161,6 +161,9 @@ begin
 		variable usehighcontrast : boolean;
 		variable usehighres : boolean; 
 		variable usescanlines : boolean;
+		
+		constant cropstart : integer := 89;
+		constant cropend : integer := cropstart+340;
 	begin
 		-- handle jumper configuration
 		usehighcontrast := TDI='0' and (GPIO2_5='0' or GPIO2_6='0');
@@ -171,30 +174,34 @@ begin
 		if rising_edge(CLK) then
 		
 			-- generate EDTV output signal (with syncs and all)
+			Y <= "100000";
+			Pb <= "10000";
+			Pr <= "10000";
+			
 			if vcnt<3 then			  -- 6 EDTV lines with sync	
-				Y <= "100000";
-				Pb <= "10000";
-				Pr <= "10000";
 				if hcnt<144*4-33 or (hcnt>=114*4 and hcnt<228*4-33) then  -- two EDTV vsyncs
 					Y(5) <= '0';
 				end if;
 			else
-				-- get color from buffer
-				Y <= "1" & vramq0(14 downto 10);
-				Pb <= vramq0(9 downto 5);
-				Pr <= vramq0(4 downto 0);
-				 -- construct scanline darkening from both adjacent lines
-				if hcnt>=2*228 and usescanlines then  
-					val0 := to_integer(unsigned(vramq0(14 downto 10)));
-					val1 := to_integer(unsigned(vramq1(14 downto 10)));					
-					Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
-					val0 := to_integer(unsigned(vramq0(9 downto 5)));
-					val1 := to_integer(unsigned(vramq1(9 downto 5)));										
-					Pb <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
-					val0 := to_integer(unsigned(vramq0(4 downto 0)));
-					val1 := to_integer(unsigned(vramq1(4 downto 0)));										
-					Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
-				end if;				
+				-- perfrom horizontal cropping in EDTV mode
+				if (hcnt>=cropstart and hcnt<cropend) or (hcnt>=2*228+cropstart and hcnt<2*228+cropend) then
+					-- get color from buffer
+					Y <= "1" & vramq0(14 downto 10);
+					Pb <= vramq0(9 downto 5);
+					Pr <= vramq0(4 downto 0);
+					 -- construct scanline darkening from both adjacent lines
+					if hcnt>=2*228 and usescanlines then  
+						val0 := to_integer(unsigned(vramq0(14 downto 10)));
+						val1 := to_integer(unsigned(vramq1(14 downto 10)));					
+						Y(4 downto 0) <= std_logic_vector(to_unsigned((val0+val1) / 4, 5));
+						val0 := to_integer(unsigned(vramq0(9 downto 5)));
+						val1 := to_integer(unsigned(vramq1(9 downto 5)));										
+						Pb <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+						val0 := to_integer(unsigned(vramq0(4 downto 0)));
+						val1 := to_integer(unsigned(vramq1(4 downto 0)));										
+						Pr <= std_logic_vector(to_unsigned((val0+val1) / 4 + 8, 5));
+					end if;				
+				end if;
 				-- two normal EDTV line syncs
 				if hcnt<33 or (hcnt>=114*4 and hcnt<114*4+33) then  
 					Y(5) <= '0';

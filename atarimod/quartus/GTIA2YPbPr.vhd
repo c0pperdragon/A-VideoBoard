@@ -54,12 +54,6 @@ begin
         16#09f2#,16#11d2#,16#19b2#,16#2193#,16#2573#,16#2d33#,16#3513#,16#3cf3#,16#40f3#,16#48d3#,16#50d3#,16#5cd3#,16#60d3#,16#68f3#,16#70f2#,16#7511#,
         16#09f4#,16#0dd4#,16#15b5#,16#1d95#,16#2575#,16#2d55#,16#3515#,16#3d15#,16#4115#,16#4915#,16#5115#,16#5935#,16#6135#,16#6934#,16#6d33#,16#7552#
     );	
-
-	-- visible screen area
-	constant topedge    : integer := 45;
-	constant bottomedge : integer := 285;
-	constant leftedge   : integer := 45; 
-	constant rightedge  : integer := 217;
 	
 	-- registers of the GTIA
 	variable HPOSP0 : std_logic_vector (7 downto 0) := "00000000";
@@ -133,11 +127,10 @@ begin
 	variable tmp_bgcolor : std_logic_vector(7 downto 0);
 	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
 	variable tmp_odd : boolean;
-	variable tmp_x : integer range 0 to 255;
-	variable tmp_y : integer range 0 to 511;	
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_overridelum : std_logic_vector(1 downto 0);
 	variable tmp_color: std_logic_vector(7 downto 0);
+	variable tmp_blanking : boolean;
 
    -- internal color and sync registers
 	variable csync : std_logic := '1';
@@ -233,7 +226,8 @@ begin
 				-- default color lines to show no color at all (only black)
 				tmp_overridelum := "00";
 				tmp_colorlines := "000000000";
-							
+				tmp_blanking := false;
+				
 				-- compose the 4bit pixel value that is used in GTIA modes (peeking ahead for next antic command)
 				if (hcounter mod 2) = 1 then
 					tmp_4bitvalue := command(1 downto 0) & in_an(1 downto 0);
@@ -298,8 +292,9 @@ begin
 					end case;
 				elsif command(1) = '1' then  -- blank command (setting/clearing highres)
 					highres := command(0);
+					tmp_blanking := true;
 				elsif  command(0) = '1' then  -- vsync command
-					-- has no effect here, will influence pixel counter 
+					tmp_blanking := true; 
 				else                          -- background color
 					if PRIOR(7 downto 6)="10" then 
 						case tmp_4bitvalue is
@@ -462,7 +457,7 @@ begin
 				-- all still selected color lines
 				color := "000000000000";
 				-- constrain color generation to screen boundaries
-				if hcounter>=leftedge and hcounter<rightedge and vcounter>=topedge and vcounter<bottomedge then
+				if not tmp_blanking then
 					if tmp_colorlines(0)='1' then	color := color or ("0000" & COLPM0 & "0"); end if;
 					if tmp_colorlines(1)='1' then	color := color or ("0000" & COLPM1 & "0"); end if;
 					if tmp_colorlines(2)='1' then	color := color or ("0000" & COLPM2 & "0"); end if;
@@ -482,29 +477,19 @@ begin
 						color(3 downto 0) := COLPF1(3 downto 1) & "0";	
 					end if;
 				end if ;
-				
-				-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly alligned) 	
-				if hcounter>0 then
-					tmp_x := hcounter - 1;
-					tmp_y := vcounter + 4;
-				else
-					tmp_x := 227;
-					tmp_y := vcounter + 4 - 1;
-				end if;
-				if tmp_y>=312 then
-					tmp_y := tmp_y-312;
-				end if;
-				if (tmp_y=0) and (tmp_x<16 or (tmp_x>=114 and tmp_x<114+8)) then                       -- normal sync, short sync
+				 
+				-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly aligned) 	
+				if (vcounter=0) and (hcounter<16 or (hcounter>=114 and hcounter<114+8)) then                       -- normal sync, short sync
 					csync := '0';				
-				elsif (tmp_y=1 or tmp_y=2) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then        -- 2x 2 short syncs
+				elsif (vcounter=1 or vcounter=2) and (hcounter<8 or (hcounter>=114 and hcounter<114+8)) then        -- 2x 2 short syncs
 					csync := '0';
-				elsif (tmp_y=3 or tmp_y=4) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<228-16)) then    -- 2x 2 vsyncs
+				elsif (vcounter=3 or vcounter=4) and (hcounter<114-16 or (hcounter>=114 and hcounter<228-16)) then    -- 2x 2 vsyncs
 					csync := '0';
-				elsif (tmp_y=5) and (tmp_x<114-16 or (tmp_x>=114 and tmp_x<114+8)) then                -- one vsync, one short sync
+				elsif (vcounter=5) and (hcounter<114-16 or (hcounter>=114 and hcounter<114+8)) then                -- one vsync, one short sync
 					csync := '0';
-				elsif (tmp_y=6 or tmp_y=7) and (tmp_x<8 or (tmp_x>=114 and tmp_x<114+8)) then          -- 2x 2 short syncs
+				elsif (vcounter=6 or vcounter=7) and (hcounter<8 or (hcounter>=114 and hcounter<114+8)) then          -- 2x 2 short syncs
 					csync := '0';
-				elsif (tmp_y>=8) and (tmp_x<16) then                                                   -- normal line syncs
+				elsif (vcounter>=8) and (hcounter<16) then                                                   -- normal line syncs
 					csync := '0';
 				else
 					csync := '1';
@@ -574,43 +559,41 @@ begin
 			
 			-- receive sprite DMA data -- 
 			if PHASE=1 and in_halt(9)='0' then 
-				if vcounter>=topedge and vcounter<bottomedge then
-					tmp_odd := (vcounter mod 2) = 0;
-				
-					-- transfer dma player/missile data into registers
-					if GRACTL(0)='1' and hcounter=2 then
-						if VDELAY(0)='0' or tmp_odd then
-							GRAFM(1 downto 0) := dma_data(1 downto 0);
-						end if;
-						if VDELAY(1)='0' or tmp_odd then
-							GRAFM(3 downto 2) := dma_data(3 downto 2);
-						end if;
-						if VDELAY(2)='0' or tmp_odd then
-							GRAFM(5 downto 4) := dma_data(5 downto 4);
-						end if;
-						if VDELAY(3)='0' or tmp_odd then
-							GRAFM(7 downto 6) := dma_data(7 downto 6);
-						end if;
-					end if;				
-					if GRACTL(1)='1' and hcounter=6 then
-						if VDELAY(4)='0' or tmp_odd then
-							GRAFP0 := dma_data;
-						end if;
+				tmp_odd := (vcounter mod 2) = 0;
+			
+				-- transfer dma player/missile data into registers
+				if GRACTL(0)='1' and hcounter=2 then
+					if VDELAY(0)='0' or tmp_odd then
+						GRAFM(1 downto 0) := dma_data(1 downto 0);
 					end if;
-					if GRACTL(1)='1' and hcounter=8 then
-						if VDELAY(5)='0' or tmp_odd then 
-							GRAFP1 := dma_data;
-						end if;
+					if VDELAY(1)='0' or tmp_odd then
+						GRAFM(3 downto 2) := dma_data(3 downto 2);
 					end if;
-					if GRACTL(1)='1' and hcounter=10 then
-						if VDELAY(6)='0' or tmp_odd then
-							GRAFP2 := dma_data;
-						end if;
+					if VDELAY(2)='0' or tmp_odd then
+						GRAFM(5 downto 4) := dma_data(5 downto 4);
 					end if;
-					if GRACTL(1)='1' and hcounter=12 then
-						if VDELAY(7)='0' or tmp_odd then 
-							GRAFP3 := dma_data;
-						end if;
+					if VDELAY(3)='0' or tmp_odd then
+						GRAFM(7 downto 6) := dma_data(7 downto 6);
+					end if;
+				end if;				
+				if GRACTL(1)='1' and hcounter=6 then
+					if VDELAY(4)='0' or tmp_odd then
+						GRAFP0 := dma_data;
+					end if;
+				end if;
+				if GRACTL(1)='1' and hcounter=8 then
+					if VDELAY(5)='0' or tmp_odd then 
+						GRAFP1 := dma_data;
+					end if;
+				end if;
+				if GRACTL(1)='1' and hcounter=10 then
+					if VDELAY(6)='0' or tmp_odd then
+						GRAFP2 := dma_data;
+					end if;
+				end if;
+				if GRACTL(1)='1' and hcounter=12 then
+					if VDELAY(7)='0' or tmp_odd then 
+						GRAFP3 := dma_data;
 					end if;
 				end if;
 			end if;		
