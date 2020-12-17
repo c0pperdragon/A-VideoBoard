@@ -198,45 +198,58 @@ begin
 			DELAYEDCOLOR		
 		);
 	
+		
 
 	--------- measure CPU frequency and detect if it is a PAL or NTSC machine -------
-	process (CLK25, GPIO1)
+	--------- also check what the TMS input is doing in general and infer the VIC type 
+	process (CLK25, GPIO1, TMS)
 		variable in_phi0 : std_logic_vector(3 downto 0);
 		variable out_pal : std_logic := '1';
+		variable out_victype : t_VICType := CLOCKS63;
 		variable countcpu : integer range 0 to 2000 := 0;
 		variable countclk25 : integer range 0 to 25000 := 0;
+		variable tms_waslow : boolean := false;
+		variable tms_washigh : boolean := false;
 	begin
 		if rising_edge(CLK25) then
-			if in_phi0="0011" then
-				countcpu := countcpu+1;
-			end if;
 			if countclk25/=24999 then
+				-- measure clock and TMS for 1 ms to figure out the environment
 				countclk25 := countclk25+1;
+				if in_phi0="0011" then
+					countcpu := countcpu+1;
+				end if;
+				if TMS='0' then
+					tms_waslow := true;
+				else
+					tms_washigh := true;
+				end if;
 			else
-				if countcpu<1004 then
-					out_pal := '1';
-				else 
+				-- detect NTSC frequency or force to NTSC by a toggling TMS input  
+				if tms_washigh and tms_waslow then   -- detected toggling TMS
 					out_pal := '0';
+					out_victype := CLOCKS65;
+				elsif countcpu>=1004 then            -- detected fast CPU clock				
+					out_pal := '0';
+					if TMS='0' then
+						out_victype := CLOCKS64;
+					else
+						out_victype := CLOCKS65;
+					end if;
+				else 
+					out_pal := '1';                   -- detected slow CPU clock
+					out_victype := CLOCKS63;
 				end if;
 				countclk25 := 0;			
 				countcpu := 0;
+				tms_waslow := false;
+				tms_washigh := false;
 			end if;
 			in_phi0 := in_phi0(2 downto 0) & GPIO1(20);
 		end if;
 		PAL <= out_pal;
+		VICType <= out_victype;
 	end process;
 	
-	------ determine the type of the VIC depending on various factory
-	process (PAL,TMS)
-	begin
-      if PAL='1' then 
-			VICType <= CLOCKS63;
-		elsif (TMS='0') then 
-			VICType <= CLOCKS64;
-		else 
-			VICType <= CLOCKS65;
-		end if;
-	end process;
 	
 	--- control the read and write address of the color delay line
 	process (CLK, PAL)
