@@ -224,19 +224,18 @@ begin
 					tms_washigh := true;
 				end if;
 			else
-				-- detect NTSC frequency or force to NTSC by a toggling TMS input  
-				if tms_washigh and tms_waslow then   -- detected toggling TMS
+				-- decide which mode to operate in
+				if tms_washigh and tms_waslow then   -- detected toggling TMS: force standard NTSC
 					out_pal := '0';
 					out_victype := CLOCKS65;
-				elsif countcpu>=1004 then            -- detected fast CPU clock				
+				elsif tms_waslow then                -- permanently low TMS: force to 656756A 
 					out_pal := '0';
-					if TMS='0' then
-						out_victype := CLOCKS64;
-					else
-						out_victype := CLOCKS65;
-					end if;
+					out_victype := CLOCKS64;				
+				elsif countcpu>=1004 then            -- detected fast CPU clock: standard NTSC				
+					out_pal := '0';
+					out_victype := CLOCKS65;
 				else 
-					out_pal := '1';                   -- detected slow CPU clock
+					out_pal := '1';                   -- detected slow CPU cloc: PAL
 					out_victype := CLOCKS63;
 				end if;
 				countclk25 := 0;			
