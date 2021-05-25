@@ -550,19 +550,18 @@ begin
 				
 			end if;
 
-			-- detect if a register write should happen in this cycle
+			-- fetch in register address in case a write should happen (will be deteced later)
 			if phase=11 then
 				register_writeaddress := in2_a;
 			end if;
-			if phase=14 then
+			if phase=15 then
+				-- receive register data and check if write should happen
 				if in_aec='1' and in_cs='0' and in_rw='0' then
 					register_writedata := in_db(7 downto 0);
 				else
 					register_writeaddress := "111111"; -- no write
-				end if;
-			end if;
-
-			if phase=15 then
+				end if;			
+			
 				-- write the new value through to the registers before next cycle
 				case to_integer(unsigned(register_writeaddress)) is 
 					when 17 => DEN := register_writedata(4);
