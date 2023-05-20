@@ -433,7 +433,7 @@ begin
 			in2_an := AN;
 		end if;
 
-		--- cpu cycle calculation for use at the falling PHI2  
+		--- cpu cycle calculation for later use at the falling PHI2  
 		if falling_edge(FO0) then
 			cycle := (hcounter+2) / 2;
 		end if;
