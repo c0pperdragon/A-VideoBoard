@@ -75,6 +75,7 @@ begin
 	variable highres : std_logic := '0';
 	variable command : std_logic_vector(2 downto 0) := "000";
 	variable prevcommand : std_logic_vector(2 downto 0) := "000";
+	variable cycle : integer range 0 to 127;
 	
 	-- variables for player and missile display
 	variable ticker_p0 : integer range 0 to 15 := 15;
@@ -95,12 +96,10 @@ begin
 	variable tmp_bgcolor : std_logic_vector(7 downto 0);
 	variable tmp_4bitvalue : std_logic_vector(3 downto 0);
 	variable tmp_odd : boolean;
-	variable tmp_cycle : integer range 0 to 127;
 	variable tmp_ypbpr : std_logic_vector(14 downto 0);
 	variable tmp_overridelum : std_logic_vector(1 downto 0);
 	variable tmp_color: std_logic_vector(7 downto 0);
 	variable tmp_blanking : boolean;
-	variable color: std_logic_vector(11 downto 0);
 	variable tmp_address : std_logic_vector(4 downto 0);
 	variable tmp_data : std_logic_vector(7 downto 0);
 	
@@ -172,7 +171,8 @@ begin
 						tmp_colorlines(4 + to_integer(unsigned(command(1 downto 0)))) := '1';
 					else
 						tmp_colorlines(6) := '1';
-						tmp_overridelum := command(1 downto 0);				
+						tmp_overridelum(0) := command(1);				
+						tmp_overridelum(1) := command(0);				
 					end if;
 				when "01"  =>   -- single hue, 16 luminances, imposed on background
 					tmp_colorlines(8) := '1';
@@ -361,33 +361,38 @@ begin
 				if tmp_colorlines(2)/='0' then tmp_colorlines(3) := '0'; end if;
 			end if;
 			
-			-- simulate the 'wired or' that mixes together all bits of 
-			-- all still selected color lines
-			color := "000000000000";
 			-- constrain color generation to screen boundaries
 			if not tmp_blanking then
-				if tmp_colorlines(0)='1' then	color := color or ("0000" & COLPM0 & "0"); end if;
-				if tmp_colorlines(1)='1' then	color := color or ("0000" & COLPM1 & "0"); end if;
-				if tmp_colorlines(2)='1' then	color := color or ("0000" & COLPM2 & "0"); end if;
-				if tmp_colorlines(3)='1' then color := color or ("0000" & COLPM3 & "0"); end if;
-				if tmp_colorlines(4)='1' then	color := color or ("0000" & COLPF0 & "0"); end if;
-				if tmp_colorlines(5)='1' then	color := color or ("0000" & COLPF1 & "0"); end if;
-				if tmp_colorlines(6)='1' then	color := color or ("0000" & COLPF2 & "0"); end if;
-				if tmp_colorlines(7)='1' then	color := color or ("0000" & COLPF3 & "0"); end if;
-				if tmp_colorlines(8)='1' then	color := color or ("0000" & tmp_bgcolor);  end if;
+				-- simulate the 'wired or' that mixes together all bits of 
+				-- all still selected color lines
+				tmp_color := "00000000";
+				if tmp_colorlines(0)='1' then	tmp_color := tmp_color or (COLPM0 & "0"); end if;
+				if tmp_colorlines(1)='1' then	tmp_color := tmp_color or (COLPM1 & "0"); end if;
+				if tmp_colorlines(2)='1' then	tmp_color := tmp_color or (COLPM2 & "0"); end if;
+				if tmp_colorlines(3)='1' then tmp_color := tmp_color or (COLPM3 & "0"); end if;
+				if tmp_colorlines(4)='1' then	tmp_color := tmp_color or (COLPF0 & "0"); end if;
+				if tmp_colorlines(5)='1' then	tmp_color := tmp_color or (COLPF1 & "0"); end if;
+				if tmp_colorlines(6)='1' then	tmp_color := tmp_color or (COLPF2 & "0"); end if;
+				if tmp_colorlines(7)='1' then	tmp_color := tmp_color or (COLPF3 & "0"); end if;
+				if tmp_colorlines(8)='1' then	tmp_color := tmp_color or (tmp_bgcolor);  end if;
 				-- determine lum values for both pixels
-				if tmp_overridelum(1)='1' then
-					color(11 downto 8) := COLPF1(3 downto 1) & "0";	
-				else
-					color(11 downto 8) := color(3 downto 0);					
-				end if;
 				if tmp_overridelum(0)='1' then
-					color(3 downto 0) := COLPF1(3 downto 1) & "0";	
+					lum0 <= COLPF1(3 downto 1) & "0";	
+				else
+					lum0 <= tmp_color(3 downto 0);
 				end if;
+				if tmp_overridelum(1)='1' then
+					lum1 <= COLPF1(3 downto 1) & "0";	
+				else
+					lum1 <= tmp_color(3 downto 0);
+				end if;
+				-- hue is same for both pixels
+				hue <= tmp_color(7 downto 4);
+			else
+				lum0 <= "0000";
+				hue <= "0000"; 
+				lum1 <= "0000";
 			end if ;
-			lum0 <= color(11 downto 8);
-			hue <= color(7 downto 4);
-			lum1 <= color(3 downto 0);
 			 
 			-- generate csync for PAL 288p signal (adjusting timing a bit to get screen correctly aligned) 	
 			if (vcounter=0) and (hcounter<16 or (hcounter>=114 and hcounter<114+8)) then                       -- normal sync, short sync
@@ -427,11 +432,17 @@ begin
 			in_an := in2_an;
 			in2_an := AN;
 		end if;
+
+		--- cpu cycle calculation for use at the falling PHI2  
+		if falling_edge(FO0) then
+			cycle := (hcounter+2) / 2;
+		end if;
 		
-			------ get address bus early --
+		-- access address bus early 
 		if rising_edge(PHI2) then
 			in_a := A;
 		end if;
+		
 		-- process data from the system bus
 		if falling_edge(PHI2) then
 			-- by default no write 
@@ -444,9 +455,8 @@ begin
 			-- possible write by DMA
 			elsif in_halt='0' then	
 				tmp_odd := (vcounter mod 2) = 0;
-				tmp_cycle := (hcounter+1) / 2;
 				-- is intended for missiles
-				if GRACTL(0)='1' and tmp_cycle=1 then
+				if GRACTL(0)='1' and cycle=1 then
 					tmp_address := "10001";
 					tmp_data := GRAFM;
 					if VDELAY(0)='0' or tmp_odd then
@@ -463,13 +473,13 @@ begin
 					end if;
 				-- is intended for player
 				elsif GRACTL(1)='1' then
-					if tmp_cycle=3 and (VDELAY(4)='0' or tmp_odd) then
+					if cycle=3 and (VDELAY(4)='0' or tmp_odd) then
 						tmp_address := "01101";
-					elsif tmp_cycle=4 and (VDELAY(5)='0' or tmp_odd) then
+					elsif cycle=4 and (VDELAY(5)='0' or tmp_odd) then
 						tmp_address := "01110";
-					elsif tmp_cycle=5 and (VDELAY(6)='0' or tmp_odd) then
+					elsif cycle=5 and (VDELAY(6)='0' or tmp_odd) then
 						tmp_address := "01111";
-					elsif tmp_cycle=6 and (VDELAY(7)='0' or tmp_odd) then
+					elsif cycle=6 and (VDELAY(7)='0' or tmp_odd) then
 						tmp_address := "10000";
 					end if;
 				end if;
