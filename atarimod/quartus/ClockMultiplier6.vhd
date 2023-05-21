@@ -43,14 +43,14 @@ begin
 	process (F0O, CLK171A, CLK171B, CLK171C, CLK171D)
 		-- having 8 versions of the circuit running slightly 
 		-- time-shifted
-		variable counter0 : integer range 0 to 15 := 0;
-		variable counter1 : integer range 0 to 15 := 0;
-		variable counter2 : integer range 0 to 15 := 0;
-		variable counter3 : integer range 0 to 15 := 0;
-		variable counter4 : integer range 0 to 15 := 0;
-		variable counter5 : integer range 0 to 15 := 0;
-		variable counter6 : integer range 0 to 15 := 0;
-		variable counter7 : integer range 0 to 15 := 0;
+		variable counter0 : integer range 0 to 63 := 0;
+		variable counter1 : integer range 0 to 63 := 0;
+		variable counter2 : integer range 0 to 63 := 0;
+		variable counter3 : integer range 0 to 63 := 0;
+		variable counter4 : integer range 0 to 63 := 0;
+		variable counter5 : integer range 0 to 63 := 0;
+		variable counter6 : integer range 0 to 63 := 0;
+		variable counter7 : integer range 0 to 63 := 0;
 		variable in0_clk : std_logic := '0'; 
 		variable in1_clk : std_logic := '0'; 		
 		variable in2_clk : std_logic := '0'; 		
@@ -69,76 +69,77 @@ begin
 		variable prev7_clk : std_logic := '0';	
 			
 		variable bits : std_logic_vector(3 downto 0);
-		constant reset: integer := 4;
+		constant reset : integer := 2;
+		constant stop : integer := reset+47;
 	begin
 	
 		if rising_edge(CLK171A) then
-			if in0_clk='0' and prev0_clk='1' then 
+			if in0_clk='1' and prev0_clk='0' then 
 				counter0 := reset; 
-			else
+			elsif counter0<stop then
 				counter0 := counter0+1;
 			end if;
 			prev0_clk := in0_clk;
 			in0_clk := F0O;  
 		end if;
 		if rising_edge(CLK171B) then
-			if in1_clk='0' and prev1_clk='1' then 
+			if in1_clk='1' and prev1_clk='0' then 
 				counter1 := reset; 
-			else
+			elsif counter1<stop then
 				counter1 := counter1+1;
 			end if;
 			prev1_clk := in1_clk;
 			in1_clk := F0O;  
 		end if;
 		if rising_edge(CLK171C) then
-			if in2_clk='0' and prev2_clk='1' then 
+			if in2_clk='1' and prev2_clk='0' then 
 				counter2 := reset; 
-			else
+			elsif counter2<stop then
 				counter2 := counter2+1;
 			end if;
 			prev2_clk := in2_clk;
 			in2_clk := F0O;  
 		end if;
 		if rising_edge(CLK171D) then
-			if in3_clk='0' and prev3_clk='1' then 
+			if in3_clk='1' and prev3_clk='0' then 
 				counter3 := reset; 
-			else
+			elsif counter3<stop then
 				counter3 := counter3+1;
 			end if;
 			prev3_clk := in3_clk;
 			in3_clk := F0O;  
 		end if;
 		if falling_edge(CLK171A) then
-			if in4_clk='0' and prev4_clk='1' then 
+			if in4_clk='1' and prev4_clk='0' then 
 				counter4 := reset; 
-			else
+			elsif counter4<stop then
 				counter4 := counter4+1;
 			end if;
 			prev4_clk := in4_clk;
 			in4_clk := F0O;  
 		end if;
 		if falling_edge(CLK171B) then
-			if in5_clk='0' and prev5_clk='1' then 
+			if in5_clk='1' and prev5_clk='0' then 
 				counter5 := reset; 
-			else
+			elsif counter5<stop then
 				counter5 := counter5+1;
 			end if;
 			prev5_clk := in5_clk;
 			in5_clk := F0O;  
 		end if;
 		if falling_edge(CLK171C) then
-			if in6_clk='0' and prev6_clk='1' then 
+			if in6_clk='1' and prev6_clk='0' then 
 				counter6 := reset; 
-			else
+			elsif counter6<stop then
 				counter6 := counter6+1;
 			end if;
 			prev6_clk := in6_clk;
 			in6_clk := F0O;  
 		end if;
 		if falling_edge(CLK171D) then
-			if in7_clk='0' and prev7_clk='1' then 
+			if in7_clk='1' and prev7_clk='0' then 
 				counter7 := reset; 
-			else
+			elsif counter7<stop then
 				counter7 := counter7+1;
 			end if;
 			prev7_clk := in7_clk;
