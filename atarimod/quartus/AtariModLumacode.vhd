@@ -165,7 +165,7 @@ begin
 				in_hue := HUE;
 				in_lum0 := LUM0;
 				in_lum1 := LUM1;
-			elsif counter<7 then
+			elsif counter<5 then
 				counter := counter+1;
 			end if;	
 			in_fo0 := in2_fo0;
