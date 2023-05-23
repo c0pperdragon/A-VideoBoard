@@ -104,15 +104,15 @@ begin
 	variable tmp_data : std_logic_vector(7 downto 0);
 	
 		-- test, if it is now necessary to increment player/missile pixel counter
-		function needpixelstep (hpos:std_logic_vector(7 downto 0); size: std_logic_vector(1 downto 0)) return boolean is
+		function needpixelstep (hpos:std_logic_vector(7 downto 0); size: std_logic_vector(1 downto 0); hc:integer range 0 to 227) return boolean is
 		variable x:std_logic_vector(1 downto 0);
 		begin
-			x := std_logic_vector(to_unsigned(hcounter,2));
+			x := std_logic_vector(to_unsigned(hc,2));
 			case size is 
-			when "00" => return true;               -- single size
-			when "01" => return x(0)=hpos(0);       -- double size
-			when "10" => return true;               -- single size
-			when "11" => return x=hpos(1 downto 0); -- 4 times size
+			when "00" =>   return true;                -- single size
+			when "01" =>   return x(0)=hpos(0);       -- double size
+			when "10" =>   return true;                -- single size
+			when others => return x=hpos(1 downto 0); -- 4 times size
 			end case;
 		end needpixelstep;				
 		
@@ -157,7 +157,7 @@ begin
 				tmp_bgcolor(3 downto 0) := (COLBK(3 downto 1) & '0') or tmp_4bitvalue;
 			when "10" =>   -- indexed color look up 
 				tmp_bgcolor := COLBK & "0";
-			when "11" =>   -- 16 hues, single luminance
+			when others =>   -- 16 hues, single luminance
 				tmp_bgcolor(7 downto 4) := COLBK(7 downto 4) or tmp_4bitvalue;
 				tmp_bgcolor(3 downto 0) := COLBK(3 downto 1) & "1";
 			end case;
@@ -193,9 +193,9 @@ begin
 					when "1100" => tmp_colorlines(4) := '1';
 					when "1101" => tmp_colorlines(5) := '1';
 					when "1110" => tmp_colorlines(6) := '1';
-					when "1111" => tmp_colorlines(7) := '1';
+					when others => tmp_colorlines(7) := '1';
 					end case;
-				when "11"  =>   -- 16 hues, single luminance, imposed on background
+				when others  =>   -- 16 hues, single luminance, imposed on background
 					tmp_colorlines(8) := '1';
 				end case;
 			elsif command(1) = '1' then  -- blank command (setting/clearing highres)
@@ -221,7 +221,7 @@ begin
 					when "1100" => tmp_colorlines(4) := '1';
 					when "1101" => tmp_colorlines(5) := '1';
 					when "1110" => tmp_colorlines(6) := '1';
-					when "1111" => tmp_colorlines(7) := '1';
+					when others => tmp_colorlines(7) := '1';
 					end case;
 				else
 					tmp_colorlines(8) := '1';					
@@ -273,42 +273,42 @@ begin
 			-- trigger start of display of players and missiles ---			
 			if hcounter=to_integer(unsigned(HPOSP0)) then 
 				ticker_p0 := 0;
-			elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0)) then 
+			elsif ticker_p0<8 and needpixelstep(HPOSP0,SIZEP0(1 downto 0),hcounter) then 
 				ticker_p0 := ticker_p0 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSP1)) then 
 				ticker_p1 := 0;
-			elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0)) then 
+			elsif ticker_p1<8 and needpixelstep(HPOSP1,SIZEP1(1 downto 0),hcounter) then 
 				ticker_p1 := ticker_p1 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSP2)) then 
 				ticker_p2 := 0;
-			elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0)) then 
+			elsif ticker_p2<8 and needpixelstep(HPOSP2,SIZEP2(1 downto 0),hcounter) then 
 				ticker_p2 := ticker_p2 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSP3)) then 
 				ticker_p3 := 0;
-			elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0)) then 
+			elsif ticker_p3<8 and needpixelstep(HPOSP3,SIZEP3(1 downto 0),hcounter) then 
 				ticker_p3 := ticker_p3 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSM0)) then 
 				ticker_m0 := 0;
-			elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0)) then 
+			elsif ticker_m0 < 2 and needpixelstep(HPOSM0,SIZEM(1 downto 0),hcounter) then 
 				ticker_m0 := ticker_m0 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSM1)) then 
 				ticker_m1 := 0;
-			elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2)) then 
+			elsif ticker_m1 < 2 and needpixelstep(HPOSM1,SIZEM(3 downto 2),hcounter) then 
 				ticker_m1 := ticker_m1 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSM2)) then 
 				ticker_m2 := 0;
-			elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4)) then 
+			elsif ticker_m2 < 2 and needpixelstep(HPOSM2,SIZEM(5 downto 4),hcounter) then 
 				ticker_m2 := ticker_m2 + 1;
 			end if;
 			if hcounter=to_integer(unsigned(HPOSM3)) then 
 				ticker_m3 := 0;
-			elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6)) then 
+			elsif ticker_m3 < 2 and needpixelstep(HPOSM3,SIZEM(7 downto 6),hcounter) then 
 				ticker_m3 := ticker_m3 + 1;
 			end if;
 					
@@ -517,8 +517,7 @@ begin
 				when "11011" => PRIOR  := tmp_data;
 				when "11100" => VDELAY := tmp_data;
 				when "11101" => GRACTL := tmp_data(1 downto 0);
-				when "11110" => 
-				when "11111" => 
+				when others => 
 			end case;
 
 			in_halt := HALT; 
