@@ -116,10 +116,10 @@ begin
 	
 	-- create a delayed pixel clock
 	process (FO0, CLK6)
-	variable b : std_logic_vector(5 downto 0) := "000000";
+	variable b : std_logic_vector(4 downto 0) := "00000";
 	begin
 		if rising_edge(CLK6) then
-			b := FO0 & b(5 downto 1);		
+			b := FO0 & b(4 downto 1);		
 		end if;
 		FO1 <= b(0);
 	end process;
