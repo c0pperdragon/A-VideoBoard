@@ -1,4 +1,4 @@
--- generating lumacode signal on A-Video board Rev.2
+-- generating lumacode signal on A-Video board Rev.2 
 
 library ieee;
 use ieee.numeric_std.all;
@@ -35,7 +35,8 @@ architecture immediate of AtariModLumacode is
 	
 	signal FO0  : std_logic;  -- atari pixel clock signal
 	signal RW   : std_logic;  -- atari r/w
-	signal PHI2 : std_logic;  -- derived from FO0
+	signal FO1  : std_logic;  -- delayed FO0
+	signal PHI2 : std_logic;  -- derived from FO1
 	
 	signal CSYNC : std_logic;
 	signal HUE   : std_logic_vector(3 downto 0);
@@ -111,18 +112,24 @@ begin
 		FO0 <= not GPIO1(19);
 		RW <= not GPIO1(16);
 		TDO <= '1';
-
---		Y  <= FO0 & "00000";
---		Pb <= PHI2 & "0000";
---		Pr <= "00000";
+	end process;
+	
+	-- create a delayed pixel clock
+	process (FO0, CLK6)
+	variable b : std_logic_vector(5 downto 0) := "000000";
+	begin
+		if rising_edge(CLK6) then
+			b := FO0 & b(5 downto 1);		
+		end if;
+		FO1 <= b(0);
 	end process;
 	
 	-- deduce an approximation of PHI2 
-	process (FO0,  RW) 
+	process (FO1,  RW) 
 	variable prev_rw: std_logic;
 	variable outclock: std_logic;
 	begin
-		if falling_edge(FO0) then
+		if falling_edge(FO1) then
 			if prev_rw='1' and RW='0' then
 				outclock := '1';
 			else
@@ -133,7 +140,6 @@ begin
 		PHI2 <= outclock;
 	end process;
 
-	
 	-- generate lumacode signal 
 	process (CLK6,FO0)
 	variable in_fo0,in2_fo0: std_logic;
@@ -156,8 +162,6 @@ begin
 			when 7 => level := "00";
 			end case;
 			Y <= in_csync & level & level & level(1);
-			Pb <= "00000";
-			Pr <= "00000";		
 		
 			if in_fo0='0' and in2_fo0='1' then
 				counter := 0;
@@ -171,9 +175,9 @@ begin
 			in_fo0 := in2_fo0;
 			in2_fo0 := FO0;
 		end if;
---		Y <= "0" & FO0 & "0000";
---		Pb <= CLK6 & "0000";
---		Pr <= "00000";		
+
+		Pb <= FO0 & "0000";
+		Pr <= PHI2 & "0000";		
 	end process;
 	
 --	-- generate component video signal 
