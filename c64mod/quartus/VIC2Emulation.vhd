@@ -129,6 +129,7 @@ begin
 	variable register_writeaddress2 : std_logic_vector(5 downto 0);
 	variable register_writedata : std_logic_vector(7 downto 0);
 	variable register_writedata2 : std_logic_vector(7 downto 0);
+	variable register_delaycounter : integer range 0 to 15 := 15;
 	
 	-- variables for synchronious operation
 	variable LINES312 : boolean := true;               -- only relevant when VICType=CLOCK63 or VICType=CLOCKS65 : 312 lines per frame
@@ -551,47 +552,45 @@ begin
 			end if;
 
 			-- fetch in register address in case a write should happen (will be deteced later)
-			if phase=11 then
+			if phase=3 or phase=11 then  -- if phase=11 then
 				register_writeaddress := in2_a;
 			end if;
-			if phase=15 then
+			if phase=15 or phase=7 then  -- if phase=15 then
 				-- receive register data and check if write should happen
 				if in_aec='1' and in_cs='0' and in_rw='0' then
 					register_writedata := in_db(7 downto 0);
-				else
-					register_writeaddress := "111111"; -- no write
-				end if;			
-			
-				-- write the new value through to the registers before next cycle
-				case to_integer(unsigned(register_writeaddress)) is 
-					when 17 => DEN := register_writedata(4);
-								  RSEL:= register_writedata(3);
-								  YSCROLL := register_writedata(2 downto 0);
-					when 22 => CSEL := register_writedata(3);
-								  XSCROLL := register_writedata(2 downto 0);
-					when 32 => bordercolor := register_writedata(3 downto 0);
-					when 33 => backgroundcolor0 := register_writedata(3 downto 0);
-					when 34 => backgroundcolor1 := register_writedata(3 downto 0);
-					when 35 => backgroundcolor2 := register_writedata(3 downto 0);
-					when 36 => backgroundcolor3 := register_writedata(3 downto 0);
-					when 37 => spritemulticolor0 := register_writedata(3 downto 0);
-					when 38 => spritemulticolor1 := register_writedata(3 downto 0);
-					when 39 => spritecolor(0) := register_writedata(3 downto 0);
-					when 40 => spritecolor(1) := register_writedata(3 downto 0);
-					when 41 => spritecolor(2) := register_writedata(3 downto 0);
-					when 42 => spritecolor(3) := register_writedata(3 downto 0);
-					when 43 => spritecolor(4) := register_writedata(3 downto 0);
-					when 44 => spritecolor(5) := register_writedata(3 downto 0);
-					when 45 => spritecolor(6) := register_writedata(3 downto 0);
-					when 46 => spritecolor(7) := register_writedata(3 downto 0);
-					when others => null;
-				end case;
-				-- memorize for delayed action
-				register_writedata2 := register_writedata;
-				register_writeaddress2 := register_writeaddress;
+					-- write the new value through to the registers before next cycle
+					case to_integer(unsigned(register_writeaddress)) is 
+						when 17 => DEN := register_writedata(4);
+									  RSEL:= register_writedata(3);
+									  YSCROLL := register_writedata(2 downto 0);
+						when 22 => CSEL := register_writedata(3);
+									  XSCROLL := register_writedata(2 downto 0);
+						when 32 => bordercolor := register_writedata(3 downto 0);
+						when 33 => backgroundcolor0 := register_writedata(3 downto 0);
+						when 34 => backgroundcolor1 := register_writedata(3 downto 0);
+						when 35 => backgroundcolor2 := register_writedata(3 downto 0);
+						when 36 => backgroundcolor3 := register_writedata(3 downto 0);
+						when 37 => spritemulticolor0 := register_writedata(3 downto 0);
+						when 38 => spritemulticolor1 := register_writedata(3 downto 0);
+						when 39 => spritecolor(0) := register_writedata(3 downto 0);
+						when 40 => spritecolor(1) := register_writedata(3 downto 0);
+						when 41 => spritecolor(2) := register_writedata(3 downto 0);
+						when 42 => spritecolor(3) := register_writedata(3 downto 0);
+						when 43 => spritecolor(4) := register_writedata(3 downto 0);
+						when 44 => spritecolor(5) := register_writedata(3 downto 0);
+						when 45 => spritecolor(6) := register_writedata(3 downto 0);
+						when 46 => spritecolor(7) := register_writedata(3 downto 0);
+						when others => null;
+					end case;
+					-- memorize for delayed action
+					register_writedata2 := register_writedata;
+					register_writeaddress2 := register_writeaddress;
+					register_delaycounter := 0;
+				end if;
 			end if;
 			-- some registers need delayed write
-			if phase=9 then
+			if register_delaycounter=10 then   -- if phase=9 then
 				case to_integer(unsigned(register_writeaddress2)) is
 					when 22 => MCM := register_writedata2(4);
 					when 27 => spritepriority := register_writedata2;
@@ -600,7 +599,7 @@ begin
 					when others => null;
 				end case;
 			end if;
-			if phase=11 then
+			if register_delaycounter=12 then  -- if phase=11 then
 				case to_integer(unsigned(register_writeaddress2)) is
 					when 0  => spritex(0)(7 downto 0) := register_writedata2;
 					when 2  => spritex(1)(7 downto 0) := register_writedata2;
@@ -621,12 +620,15 @@ begin
 					when others => null;
 				end case;
 			end if;
-			if phase=13 then
+			if register_delaycounter=14 then -- phase=13 then
 				case to_integer(unsigned(register_writeaddress2)) is
 					when 17 => ECM := register_writedata2(6);
 	                       BMM := register_writedata2(5);				
 					when others => null;
 				end case;
+			end if;
+			if register_delaycounter<15 then
+				register_delaycounter:=register_delaycounter+1;
 			end if;
 
 			-- detect DEN activity in first line
