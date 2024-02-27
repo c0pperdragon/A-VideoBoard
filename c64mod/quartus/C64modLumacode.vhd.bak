@@ -4,10 +4,6 @@ use ieee.std_logic_1164.all;
 use work.VICTypes.all;
 
 entity C64Mod is	
-	generic
-	(
-		lumacode: boolean := false
-	); 
 	port (
 		-- reference clock
 		CLK25:  in std_logic;
@@ -282,8 +278,6 @@ begin
 		variable usehighcontrast : boolean;
 		variable lpixel : integer range 0 to 2047;
 		variable prevcol : integer range 0 to 15;
-		variable lum: integer range 0 to 3;
-		variable lum1: integer range 0 to 3;
 		
 		type T_lumadjustment is array (0 to 31) of integer range 0 to 31;
 		constant scanlineboost : T_lumadjustment := 
@@ -321,60 +315,27 @@ begin
 				Pb <= YPBPR(9 downto 5);
 				Pr <= YPBPR(4 downto 0);
 				
-				-- override palette usage to force high-contrast or lumacode
+				-- override palette usage to force high-contrast
 				if usehighcontrast then 
-					if lumacode then
-						case prevcol is  
-						when  0 => lum:=0; lum1:=0; -- black
-						when  6 => lum:=0; lum1:=1; -- blue
-						when  2 => lum:=0; lum1:=2; -- red
-						when  4 => lum:=0; lum1:=3; -- purple
-						when  9 => lum:=1; lum1:=0; -- brown
-						when 11 => lum:=1; lum1:=1; -- dark gray
-						when 12 => lum:=1; lum1:=2; -- medium gray
-						when 3  => lum:=1; lum1:=3; -- cyan
-						when 8  => lum:=2; lum1:=0; -- orange
-						when 14 => lum:=2; lum1:=1; -- light blue
-						when 15 => lum:=2; lum1:=2; -- light gray
-						when 7  => lum:=2; lum1:=3; -- yellow
-						when 5  => lum:=3; lum1:=0; -- green
-						when 10 => lum:=3; lum1:=1; -- ligh red
-						when 13 => lum:=3; lum1:=2; -- light green
-						when 1  => lum:=3; lum1:=3; -- white					
-						end case;
-						if hcnt mod 2 = 1 then
-							lum := lum1;
-						end if;
-						case lum is
-						when 0 => Y <= std_logic_vector(to_unsigned((8), 6));   
-						when 1 => Y <= std_logic_vector(to_unsigned((37), 6));  
-						when 2 => Y <= std_logic_vector(to_unsigned((48), 6));   
-						when 3 => Y <= std_logic_vector(to_unsigned((58), 6));
-						end case;
-						Pb<="00000";
-						Pr<="00000";
-						if CSYNC='0' then Y <= "000000"; end if;
-					else
-						case prevcol is  
-						when 0 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="10000";  -- black
-						when 6 =>  Y(4 downto 0)<="00000"; Pb<="11111"; Pr<="10000";  -- blue
-						when 9 =>  Y(4 downto 0)<="00000"; Pb<="00000"; Pr<="10000";  -- brown
-						when 2 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="11111";  -- red
-						when 11 => Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="00000";  -- d.gray
-						when 4 =>  Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="11111";  -- purple
-						when 8 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="11111";  -- orange
-						when 12 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="10000";  -- m.gray
-						when 14 => Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="10000";  -- l.blue
-						when 5 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="00000";  -- green
-						when 10 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="11111";  -- l.red
-						when 3 =>  Y(4 downto 0)<="11111"; Pb<="11111"; Pr<="00000";  -- cyan
-						when 15 => Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="00000";  -- l.gray					
-						when 7 =>  Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="10000";  -- yellow
-						when 13 => Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="00000";  -- l.green
-						when 1 =>  Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="10000";  -- white
-						end case;
-						Y(5) <= CSYNC;
-					end if;
+					case prevcol is  
+					when 0 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="10000";  -- black
+					when 6 =>  Y(4 downto 0)<="00000"; Pb<="11111"; Pr<="10000";  -- blue
+					when 9 =>  Y(4 downto 0)<="00000"; Pb<="00000"; Pr<="10000";  -- brown
+					when 2 =>  Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="11111";  -- red
+					when 11 => Y(4 downto 0)<="00000"; Pb<="10000"; Pr<="00000";  -- d.gray
+					when 4 =>  Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="11111";  -- purple
+					when 8 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="11111";  -- orange
+					when 12 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="10000";  -- m.gray
+					when 14 => Y(4 downto 0)<="10000"; Pb<="11111"; Pr<="10000";  -- l.blue
+					when 5 =>  Y(4 downto 0)<="10000"; Pb<="00000"; Pr<="00000";  -- green
+					when 10 => Y(4 downto 0)<="10000"; Pb<="10000"; Pr<="11111";  -- l.red
+					when 3 =>  Y(4 downto 0)<="11111"; Pb<="11111"; Pr<="00000";  -- cyan
+					when 15 => Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="00000";  -- l.gray					
+					when 7 =>  Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="10000";  -- yellow
+					when 13 => Y(4 downto 0)<="11111"; Pb<="00000"; Pr<="00000";  -- l.green
+					when 1 =>  Y(4 downto 0)<="11111"; Pb<="10000"; Pr<="10000";  -- white
+					end case;
+					Y(5) <= CSYNC;
 				end if;
 				
 			-- generate EDTV output signal (with syncs and all)
