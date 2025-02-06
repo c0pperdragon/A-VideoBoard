@@ -447,11 +447,11 @@ begin
 				end if;
 				
 				-- progress sprite rendering on every pixel 
-				if xcoordinate=402 then 
-					spriteready := "11111111";
-					spriterendering := "00000000";
-				else
-					for SP in 0 to 7 loop
+				for SP in 0 to 7 loop
+					if xcoordinate=366 + SP*16 then -- reset rendering on specific point
+						spriteready(SP) := '1';
+						spriterendering(SP) := '0';
+					else 
 						if spriteready(SP)='1' and xcoordinate=to_integer(unsigned(spritex(SP))) then
 							spriteready(SP) := '0';
 							spriterendering(SP) := '1';
@@ -469,8 +469,8 @@ begin
 								end if;
 							end if;
 						end if;
-					end loop;
-				end if;				
+					end if;				
+				end loop;
 			end if;  -- pixel output generation
 			
 			-- data from memory
